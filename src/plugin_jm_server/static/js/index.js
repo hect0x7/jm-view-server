@@ -70,6 +70,7 @@ function sortTable(col) {
 }
 
 function openDir(file) {
+    file = decodeURIComponent(file);
     fetch(`/open/${encodeURIComponent(file)}`)
         .then(response => response.text())
         .then(data => {
@@ -82,7 +83,7 @@ function openDir(file) {
 
 function openJmView(filename, _fileType) {
     let curPath = getCurPath();
-    const viewDir = filename;
+    const viewDir = decodeURIComponent(filename);
 
     const jmViewForm = document.querySelector('#jmViewForm input[type="submit"]');
     const path = document.querySelector('#jmViewForm input[name="path"]');
@@ -94,7 +95,10 @@ function openJmView(filename, _fileType) {
 
 function getCurPath() {
     const el = document.getElementById('currentPathText');
-    return el ? el.innerText.trim() : '';
+    if (!el) return '';
+    // Prefer data-path attribute which preserves spaces/raw values
+    // Fallback to innerText (though innerText collapses spaces)
+    return el.getAttribute('data-path') || el.innerText.trim();
 }
 
 function goBack() {
@@ -157,7 +161,7 @@ window.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         let goPath = this.getAttribute('path');
         if (goPath) {
-            changeDir(goPath);
+            changeDir(decodeURIComponent(goPath));
         }
     }
 

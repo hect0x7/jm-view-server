@@ -11,6 +11,8 @@ from flask import render_template, send_from_directory
 from flask import request, session, redirect, flash, jsonify
 
 from .files import FileManager
+from .message import MessageManager
+from .driver import get_lan_ip
 
 
 # noinspection PyMethodMayBeStatic
@@ -64,6 +66,9 @@ class JmServer:
         if env:
             for k, v in env.items():
                 os.environ[k] = v
+
+        # 初始化消息管理器
+        self.message_manager = MessageManager()
 
     def __hook_jm_logging(self):
         import jmcomic
@@ -142,7 +147,9 @@ class JmServer:
                                data={
                                    'currentPath': path,
                                    'defaultPath': self.file_manager.default_path,
-                                   'drivers': self.file_manager.DRIVERS_LIST
+                                   'drivers': self.file_manager.DRIVERS_LIST,
+                                   'lan_ip': get_lan_ip(),
+                                   'port': self.extra.get('port', self.DEFAULT_PORT)
                                },
                                randomArg=self.url_random_arg())
 
@@ -273,7 +280,9 @@ class JmServer:
                                    "files": self.file_manager.get_files_data(path),
                                    "drivers": self.file_manager.DRIVERS_LIST,
                                    "currentPath": path,
-                                   "defaultPath": self.file_manager.default_path
+                                   "defaultPath": self.file_manager.default_path,
+                                   "lan_ip": get_lan_ip(),
+                                   "port": self.extra.get('port', self.DEFAULT_PORT)
                                },
                                randomArg=self.url_random_arg())
 
@@ -406,6 +415,60 @@ class JmServer:
         subprocess.Popen(f'explorer /select,"{path}"')
         return ''
 
+    # ===== 消息功能 =====
+
+    def message_page(self):
+        """
+        消息页面（支持 PC/移动端自适应）
+        """
+        if not self.verify():
+            return redirect('/login')
+
+        return render_template(
+            self.url_format(self.mobile_check(), 'message.html'),
+            randomArg=self.url_random_arg()
+        )
+
+    def api_get_messages(self):
+        """
+        API: 获取消息列表（支持增量拉取）
+        """
+        if not self.verify():
+            return abort(403)
+
+        since_id = request.args.get('since_id', 0, type=int)
+        limit = request.args.get('limit', 50, type=int)
+
+        messages = self.message_manager.get_messages(since_id=since_id, limit=limit)
+        return jsonify({'messages': messages})
+
+    def api_send_message(self):
+        """
+        API: 发送消息
+        """
+        if not self.verify():
+            return abort(403)
+
+        data = request.get_json(silent=True)
+        if not data or not data.get('content'):
+            return jsonify({'error': '消息内容不能为空'}), 400
+
+        sender = data.get('sender', '').strip() or '匿名'
+        content = data.get('content', '').strip()
+        sender_ip = request.remote_addr or ''
+
+        # 判断是否为服务器本机发送
+        is_local = sender_ip in ('127.0.0.1', '::1', 'localhost')
+        if is_local and sender == '服务器':
+            msg = self.message_manager.send_server_message(content)
+        else:
+            msg = self.message_manager.send_message(sender, content, sender_ip)
+
+        if msg:
+            return jsonify({'status': 'ok', 'message': msg})
+        else:
+            return jsonify({'error': '发送失败'}), 400
+
     def register_routes(self):
         # 添加路由
         self.app.add_url_rule('/jm_view', 'jm_view', self.jm_view, methods=['GET'])
@@ -423,6 +486,11 @@ class JmServer:
         self.app.add_url_rule("/api/list_files", 'api_list_files', self.api_list_files, methods=['GET'])
         self.app.add_url_rule("/api/album_images", 'api_album_images', self.api_album_images, methods=['GET'])
         self.app.add_url_rule("/api/open_file", 'api_open_file', self.api_open_file, methods=['GET'])
+
+        # 消息功能路由
+        self.app.add_url_rule("/message", 'message_page', self.message_page, methods=['GET'])
+        self.app.add_url_rule("/api/messages", 'api_get_messages', self.api_get_messages, methods=['GET'])
+        self.app.add_url_rule("/api/messages", 'api_send_message', self.api_send_message, methods=['POST'])
 
     def run(self, **kwargs):
         kwargs.setdefault('port', self.DEFAULT_PORT)

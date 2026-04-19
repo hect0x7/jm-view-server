@@ -21,9 +21,8 @@ class FileManager:
             return ['/']
 
     def get_jm_view_images(self, path):
-        images_data = []
-
-        give_up_sort = False
+        sortable_images = []
+        unsortable_images = []
 
         for f in self.files_of_dir_safe(path):
             if not self.is_image_file(f):
@@ -32,20 +31,22 @@ class FileManager:
             name = common.of_file_name(f)
             try:
                 index = int(name[:name.index('.')])
+                sortable_images.append({
+                    'filename': name,
+                    'data_original': f'/view_file?path={f}',
+                    'index': index,
+                })
             except ValueError:
-                give_up_sort = True
-                index = None
+                unsortable_images.append({
+                    'filename': name,
+                    'data_original': f'/view_file?path={f}',
+                    'index': None,
+                })
 
-            images_data.append({
-                'filename': name,
-                'data_original': f'/view_file?path={f}',
-                'index': index,
-            })
+        sortable_images.sort(key=lambda item: item['index'])
+        unsortable_images.sort(key=lambda item: item['filename'])
 
-        if give_up_sort is False:
-            images_data.sort(key=lambda item: item['index'])
-
-        return images_data
+        return sortable_images + unsortable_images
 
     @staticmethod
     def is_image_file(filename):
@@ -92,10 +93,14 @@ class FileManager:
             target_path = self.get_target_path(file_path)
             return self.build_one_path_info(target_path, 'Link')
 
+        quoted_path = quote(file_path)
+        quoted_name = quote(name)
+
         return {
             "name": name,
             'path': file_path,
-            'href': f'/?path={file_path}' if the_type == 'dir' else f'./download_file/{name}',
+            'quoted_path': quoted_path,
+            'href': f'/?path={quoted_path}' if the_type == 'dir' else f'./download_file/{quoted_name}',
             "size": size,
             "ctime": time_str,
             "type": the_type,

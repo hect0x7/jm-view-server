@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <title>消息 - JM Server</title>
+    <link rel="stylesheet" href="../static/css/h5/normalize.css?t={{ randomArg }}">
+    <link rel="stylesheet" href="../static/css/all.min.css?t={{ randomArg }}">
+    <link rel="stylesheet" href="../static/css/h5/m_message.css?t={{ randomArg }}">
+</head>
+
+<body>
+<div class="chat-app">
+
+    <!-- 顶部栏 -->
+    <header class="chat-header">
+        <div class="chat-header-left">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="chat-title-area">
+                <div class="chat-title">局域网消息</div>
+                <div class="chat-subtitle"><span class="online-dot"></span>在线</div>
+            </div>
+        </div>
+        <div class="chat-header-right">
+            <button class="header-btn" id="scrollBottomBtn">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 消息区域 -->
+    <div class="chat-messages" id="chatMessages">
+        <div class="empty-state">
+            <div class="empty-state-icon">💬</div>
+            <div class="empty-state-text">
+                还没有消息<br>发送第一条消息开始对话吧
+            </div>
+        </div>
+    </div>
+
+    <!-- 新消息提示 -->
+    <div class="new-msg-hint" id="newMsgHint">
+        <i class="fas fa-chevron-down"></i> 有新消息
+    </div>
+
+    <!-- 输入区 -->
+    <div class="chat-input-area">
+        <div class="nickname-bar">
+            <label for="nicknameInput">昵称</label>
+            <input type="text" class="nickname-input" id="nicknameInput"
+                   placeholder="你的名字..." maxlength="20">
+        </div>
+        <div class="input-row">
+            <textarea class="message-input" id="messageInput"
+                      placeholder="输入消息..."
+                      rows="1" maxlength="5000"></textarea>
+            <button class="send-btn" id="sendBtn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="../static/js/message.js?t={{ randomArg }}"></script>
+<script>
+    document.getElementById('scrollBottomBtn').addEventListener('click', () => {
+        const c = document.getElementById('chatMessages');
+        c.scrollTop = c.scrollHeight;
+    });
+</script>
+</body>
+
+</html>

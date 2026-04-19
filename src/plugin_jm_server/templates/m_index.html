@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../static/css/all.min.css">
     <link rel="stylesheet" href="../static/css/index.css?t={{ randomArg }}">
     <script src="../static/js/index.js?t={{ randomArg }}"></script>
+    <script src="../static/js/common.js?t={{ randomArg }}"></script>
 </head>
 
 <body>
@@ -21,6 +22,14 @@
 
         <!-- Header Section -->
         <header class="header-card">
+            <!-- 局域网 IP 显示组件 -->
+            <div class="lan-ip-bar" onclick="copyServerAddress('http://{{ data.lan_ip }}:{{ data.port }}')" 
+                 style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(99, 102, 241, 0.1); border-bottom: 1px solid rgba(99, 102, 241, 0.1); padding: 8px 12px; font-size: 13px; color: #4f46e5; cursor: pointer;">
+                <i class="fas fa-wifi"></i>
+                <span style="font-family: monospace; font-weight: 600;">局域网访问地址: {{ data.lan_ip }}:{{ data.port }}</span>
+                <i class="far fa-copy" style="margin-left: 4px; opacity: 0.7;"></i>
+            </div>
+            
             <div class="top-bar">
                 <div class="location-info">
                     <div class="drivers-list">
@@ -32,11 +41,14 @@
                 </div>
 
                 <div class="nav-actions">
+                    <a href="/message" class="btn btn-outline" style="border-color: #818cf8; color: #6366f1;">
+                        <i class="fas fa-comment-dots"></i> 消息
+                    </a>
                     <button class="btn btn-outline" id="btn-show-bookmarks" onclick="toggleBookmarks()">
                         <i class="fas fa-star" style="color: #f59e0b;"></i> 收藏夹
                     </button>
                     <a href="/upload_file" class="btn btn-primary">
-                        <i class="fas fa-cloud-upload-alt"></i> 上传文件
+                        <i class="fas fa-cloud-upload-alt"></i> 上传
                     </a>
                     <a href="/logout" class="btn btn-outline">
                         <i class="fas fa-sign-out-alt"></i> 注销
@@ -182,6 +194,21 @@
         <input type="submit">
     </form>
 
+    <script>
+        function copyServerAddress(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            
+            // 使用自定义的 Notification 如果 common.js 已经加载
+            if (window.createSiteNotification) {
+                window.createSiteNotification({sender: '系统', content: '服务器地址已复制到剪贴板！'});
+            }
+        }
+    </script>
 </body>
 
 </html>

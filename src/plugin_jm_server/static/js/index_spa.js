@@ -29,6 +29,9 @@ $(document).ready(function () {
     $('#btn-parent-dir').click(() => goParentDir());
     $('#btn-home').click(() => loadDirectory(DEFAULT_PATH));
     $('#btn-view-album').click(() => loadAlbum(currentPath));
+    $('#btn-back-legacy').click(() => {
+        window.location.href = '/?path=' + encodeURIComponent(currentPath);
+    });
 
     // Path Input Navigation & Autocomplete
     const $pathInput = $('#currentPathDisplay');
@@ -312,7 +315,7 @@ $(document).ready(function () {
                 updateBookmarkIconState();
 
                 // Reset Viewer when changing directory
-                resetViewer();
+                // resetViewer(); // Disabled per user request: maintain viewer state when switching folders
 
                 if (pushState) {
                     history.pushState({ path: currentPath }, '', '/spa?path=' + encodeURIComponent(currentPath));

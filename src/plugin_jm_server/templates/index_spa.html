@@ -11,9 +11,7 @@
     <link rel="stylesheet" href="../static/css/index_spa.css?t={{ randomArg }}">
     <!-- Dependencies -->
     <script src="../static/js/jquery-3.7.1.min.js"></script>
-    <!-- Lazy load plugin if needed or handle manually -->
-    {#
-    <script src="../static/js/common.js"></script> <!-- Reuse common utils if any -->#}
+    <script src="../static/js/common.js?t={{ randomArg }}"></script>
 </head>
 
 <body>
@@ -23,6 +21,13 @@
             <div class="left-controls">
                 <div class="brand">
                     <i class="fas fa-columns"></i> <span>JM Server V2</span>
+                </div>
+                <!-- 局域网 IP 显示 -->
+                <div class="lan-ip-display" title="点击复制服务器地址" 
+                     onclick="copyServerAddress('http://{{ data.lan_ip }}:{{ data.port }}')"
+                     style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 20px; font-size: 13px; color: #475569; cursor: pointer; border: 1px solid rgba(0,0,0,0.05); transition: all 0.2s;">
+                    <i class="fas fa-network-wired" style="color: #6366f1;"></i>
+                    <span style="font-family: monospace; font-weight: 500;">{{ data.lan_ip }}:{{ data.port }}</span>
                 </div>
                 <button class="nav-btn-icon" id="btn-home" title="回到首页">
                     <i class="fas fa-home"></i>
@@ -47,13 +52,17 @@
             </div>
 
             <div class="right-controls">
+                <!-- 消息按钮入口 -->
+                <a href="/message" target="_blank" class="btn btn-outline" style="border-color: #818cf8; color: #6366f1;" title="打开聊天室">
+                    <i class="fas fa-comment-dots"></i> 消息
+                </a>
                 <button class="btn btn-ghost" id="btn-show-bookmarks" title="查看收藏夹">
                     <i class="fas fa-bookmark"></i> 收藏夹
                 </button>
                 <button class="btn btn-primary" id="btn-view-album" title="以本子模式浏览当前目录">
                     <i class="fas fa-images"></i> 看图
                 </button>
-                <a href="/" class="btn btn-outline" title="返回旧版">
+                <a href="javascript:void(0)" id="btn-back-legacy" class="btn btn-outline" title="返回旧版">
                     <i class="fas fa-undo"></i>
                 </a>
                 <button class="btn btn-primary" id="btn-refresh" title="刷新">
@@ -114,6 +123,20 @@
     <script>
         const INITIAL_PATH = "{{ data.currentPath|replace('\\', '\\\\')|safe }}";
         const DEFAULT_PATH = "{{ data.defaultPath|replace('\\', '\\\\')|safe }}";
+
+        function copyServerAddress(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            
+            // 使用自定义的 Notification
+            if (window.createSiteNotification) {
+                window.createSiteNotification({sender: '系统', content: '服务器地址已复制到剪贴板！'});
+            }
+        }
     </script>
     <script src="../static/js/index_spa.js?t={{ randomArg }}"></script>
 </body>
