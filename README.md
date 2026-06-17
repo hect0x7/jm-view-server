@@ -8,6 +8,8 @@
 
 * 双页阅读插件：https://sleazyfork.org/zh-CN/scripts/374903-comicread
 
+![introduction.jpg](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
+
 # 效果图（文件浏览、整章看图）
 
 ## 1. 电脑浏览器访问
