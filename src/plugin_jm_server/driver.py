@@ -55,6 +55,7 @@ def get_lan_ip():
                             '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.')
 
         # 1. 优先寻找处于 up 状态且有私有 IP 的物理网卡
+        fallback_ip = None
         for interface, snics in addrs.items():
             # 跳过禁用的网卡
             if interface in stats and not stats[interface].isup:
@@ -64,9 +65,15 @@ def get_lan_ip():
                 # 必须是 IPv4
                 if snic.family == socket.AF_INET:
                     ip = snic.address
-                    # 排除回环地址，且必须符合私有地址段
-                    if not ip.startswith('127.') and any(ip.startswith(prefix) for prefix in private_prefixes):
-                        return ip
+                    if not ip.startswith('127.'):
+                        if fallback_ip is None:
+                            fallback_ip = ip
+                        # 排除回环地址，且必须符合私有地址段
+                        if any(ip.startswith(prefix) for prefix in private_prefixes):
+                            return ip
+
+        if fallback_ip:
+            return fallback_ip
 
         # 2. 如果没找到私有地址，尝试获取主机名的 IP
         host_ip = socket.gethostbyname(socket.gethostname())

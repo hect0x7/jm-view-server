@@ -1,162 +1,166 @@
-# plugin-jm-server
+<!-- 顶部标题 & 统计徽章 -->
+<div align="center">
+  <img src="images/logo.png" width="180" alt="plugin-jm-server logo">
+  <h1 style="margin-top: 15px" align="center">plugin-jm-server</h1>
 
-“离线版”禁漫天堂
+  <p align="center">
+  <strong>“离线版”禁漫天堂，你的纯本地 离线看本神器！</strong>
+  </p>
 
-该项目会在本地起一个`文件服务器`，支持用浏览器查看文件夹内的图片，界面模仿禁漫的章节观看页面，并适配手机端。
+[![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github)](https://github.com/hect0x7)
+[![Stars](https://img.shields.io/github/stars/hect0x7/plugin-jm-server?color=orange&label=stars&style=flat)](https://github.com/hect0x7/plugin-jm-server/stargazers)
+[![Forks](https://img.shields.io/github/forks/hect0x7/plugin-jm-server?color=green&label=forks&style=flat)](https://github.com/hect0x7/plugin-jm-server/forks)
+[![PyPI](https://img.shields.io/pypi/v/plugin-jm-server?color=blue&label=version)](https://pypi.org/project/plugin-jm-server/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/plugin-jm-server?style=flat&color=hotpink)](https://pepy.tech/projects/plugin-jm-server)
+[![Licence](https://img.shields.io/github/license/hect0x7/plugin-jm-server?color=red)](https://github.com/hect0x7/plugin-jm-server)
 
-用浏览器的好处就是支持很多浏览器插件和脚本，例如：
+</div>
 
-* 双页阅读插件：https://sleazyfork.org/zh-CN/scripts/374903-comicread
+> 该项目会在你的电脑上启动一个**本地文件服务器**。你可以直接在浏览器（手机或电脑）中打开它，它会把本地文件夹里的图片转换成类似“禁漫天堂”的章节观看页面。
+> 
+> **核心优势**：
+> - 支持各种强大的浏览器插件和脚本，例如[双页阅读插件](https://sleazyfork.org/zh-CN/scripts/374903-comicread)。
+> - 一键开启局域网共享，电脑下载，躺在床上用手机看。
 
-![introduction.jpg](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
+![架构与流程图](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
 
-# 效果图（文件浏览、整章看图）
+---
 
-## 1. 电脑浏览器访问
+## 🌟 功能与界面展示
 
-### 登录页
-![](images/3.png)
+本项目不仅提供了简单的文件浏览，还专为漫画阅读进行了深度优化：
 
-### 文件夹列表页
+### 1. 智能资源管理（文件夹浏览页）
+- **路径导航**：输入框自动补全路径，快速定位。
+- **封面预览**：鼠标悬停在文件夹上，自动展示首张图片作为封面。
+- **书签收藏**：将常看目录加入左侧书签，方便下次访问。
+
 ![](images/4.png)
+*(电脑端：文件夹与看本二合一模式)* ![](images/8.png)
+*(手机端：文件夹列表)* ![](images/2.png)
 
-### 看本模式
-![](images/5.png)
+### 2. 沉浸式阅读体验（看本模式）
+- **懒加载极速浏览**：哪怕一个章节有几百张高清大图，也能秒开且不卡顿。
+- **多端适配**：无论是在宽屏显示器还是手机触摸屏上，都有最舒适的阅读排版。
+- **快捷交互**：支持键盘翻页、浮动工具栏快速回到顶部等。
 
-### 文件夹&看本 二合一模式
-![](images/8.png)
+*(电脑端：看本模式)* ![](images/5.png)
+*(手机端：看本模式)* ![](images/7.jpeg)
 
-## 2. 手机浏览器访问
+### 3. 局域网消息与隐私保护
+- **消息中心**：电脑和手机在局域网内可互传文本消息，实时弹窗提醒（v0.2.2+ 新功能）。
+- **密码验证**：支持设置访问密码，防止同处局域网的其他室友/家人偷看！
 
-### 登录页
-![](images/1.jpeg)
+*(局域网消息界面)* ![](images/9.png)
+*(登录密码验证)* ![](images/3.png)
 
-### 文件夹列表页
-![](images/2.png)
+---
 
-### 看本模式
-![](images/7.jpeg)
+## 🚀 小白快速上手指南
 
-### 局域网消息（方便手机和电脑互传消息）
-![](images/9.png)
+如果你不懂编程，请严格按照以下两步操作即可：
 
+### 第一步：环境准备
+本项目基于 Python 开发，因此你的电脑必须先安装 Python。
+- 请前往 [Python 官网](https://www.python.org/downloads/) 下载并安装最新版 Python（安装时请务必勾选 `Add Python to PATH`）。
 
-# 使用方式
-
-
-## 1. pip安装
+### 第二步：一键安装与启动
+打开你电脑的**命令行终端**（Windows 下按 `Win+R` 输入 `cmd`，Mac 下打开“终端”APP），复制并执行下面这行命令：
 
 ```shell
-pip install plugin_jm_server
+pip install plugin_jm_server && jms
 ```
 
+> **提示**：这行命令会帮你自动下载安装必要的组件，并以默认配置（分享当前所在目录、端口80）启动服务器。
 
-## 2. 运行代码
+**启动成功后怎么用？**
+终端里会打印出两行地址，例如：
+- 本机访问：`http://127.0.0.1:80`
+- 局域网访问：`http://192.168.1.100:80`
 
-* **HTTP版**
+你只需要在电脑的浏览器里打开第一个地址，或者在连着同一个 WiFi 的手机浏览器里打开第二个地址，就可以开始看漫画了！
 
+> **提示**：如果在终端没看清局域网地址也没关系，当你用电脑打开本机地址后，**网页的主页顶部也会直接显示并智能识别当前的局域网地址**，你可以一键复制发给手机直接访问。
+
+---
+
+## ⚙️ 进阶使用（针对有经验的用户）
+
+安装后系统会注册 `jms` 命令，无需写代码即可通过丰富的参数进行个性化启动：
+
+```shell
+# 共享指定目录 ~/comics，并使用 8080 端口（高位端口无需管理员权限）
+jms ~/comics -p 8080
+
+# 设置登录密码为 123，并启用 HTTPS
+jms ~/comics -P 123 -s
+
+# 仅允许指定 IP 的设备访问
+jms ~/comics --ip-whitelist 192.168.1.10,192.168.1.11
+
+# 加载 jmcomic 配置开启在线下载
+jms ~/comics -o op.yml
+```
+
+**全部参数说明（可通过 `jms -h` 查看）：**
+| 参数 | 说明 | 默认值 |
+| --- | --- | --- |
+| `path` | 要共享的根目录（位置参数） | 当前目录 |
+| `-P, --password` | 登录密码，空表示免密 | 空 |
+| `-H, --host` | 监听地址 | `0.0.0.0` |
+| `-p, --port` | 监听端口 | `80` |
+| `-s, --ssl` | 启用 HTTPS（adhoc 自签名） | 关闭 |
+| `-o, --option` | [jmcomic](https://github.com/hect0x7/JMComic-Crawler-Python) 配置文件路径，开启在线下载 | 无 |
+| `--ip-whitelist` | IP 白名单，逗号分隔 | 不限制 |
+| `--current-path` | 初始当前路径 | 同 `path` |
+| `-e, --env` | 设置环境变量 `KEY=VALUE`，可重复 | 无 |
+| `--debug` | 开启 Flask debug 模式 | 关闭 |
+
+> 注：如果你在 Linux/macOS 上启动报错没有权限，是因为绑定默认的 80 端口需要管理员权限。建议加上 `-p 8080` 参数改用其他端口。
+
+---
+
+## 👨‍💻 开发者专属区域
+
+如果你想在自己的 Python 脚本中集成或二次开发该服务，可以通过代码进行调用。
+
+### 1. HTTP / HTTPS 原生调用
 ```python
 from plugin_jm_server import *
 
-# http
-server = JmServer(
-    'D:/',
-    'password',
-)
-server.run(
-    host='0.0.0.0',
-    port=80,
-)
+# 启动 HTTP 服务
+server = JmServer('D:/', 'password')
+server.run(host='0.0.0.0', port=80)
+
+# 启动 HTTPS 服务 (需要安装 cryptography)
+server.run(host='0.0.0.0', port=443, ssl_context='adhoc')
 ```
 
-* **HTTPS版**
-
-```python
-from plugin_jm_server import *
-
-# https
-server = JmServer(
-    'D:/',
-    'password',
-)
-server.run(
-    host='0.0.0.0',
-    port=443,
-    ssl_context='adhoc',
-)
-```
-
-* 作为jmcomic的插件
-
+### 2. 作为 jmcomic 的插件集成
+你可以在 `jmcomic` 的 `op.yml` 配置文件中配置它：
 ```yml
-# 配置文件
 plugins:
   after_init: 
-#  after_album:
     - plugin: jm_server
       kwargs:
         password: ''
-
 ```
-
+对应的启动脚本注意事项：
 ```python
-# 代码
 from jmcomic import *
 
 op = create_option('op.yml')
 op.download_album(123)
-# 运行到这里，虽然主线程代码执行完毕，但程序不会退出，因为服务器线程还没有结束。
-# 控制台会输出提示信息如下（atexit时输出的）：
-# “主线程执行完毕，但插件jm_server的服务器线程仍运行中，可按下ctrl+c结束程序”
-# 此时需要你主动按下ctrl+c终止程序。
 
-# python 3.12 特别注意：需要插入下面这行代码，服务器才能继续处理请求
+# 注意：虽然爬虫主线程执行完毕，但 Web 服务器线程仍在运行中。
+# 需要用户手动按 Ctrl+C 退出。
+# Python 3.12+ 特别注意：必须插入下面这行代码，Web 服务器才能继续处理请求！
 op.wait_all_plugins_finish()
 ```
 
+---
 
-## 前端页面与功能介绍
+## 💡 想法起源
 
-本项目提供了一套完整的 Web 前端界面，用于管理和浏览本地图片资源。主要包含以下三个核心页面及其功能：
-
-### 1. 登录页
-为了保护个人隐私，系统提供了简单的访问控制。
-*   **密码验证**：启动时可配置密码，访问时需校验通过。
-*   **设备自适应**：根据访问设备（手机/电脑）自动适配最佳的登录布局。
-
-### 2. 文件夹浏览页（主页）
-这是资源管理的核心入口，支持高效的文件查找与导航。目前最新版本采用了 SPA（单页应用）架构进行全面增强：
-*   **智能路径导航**：
-    *   **路径补全**：输入路径时自动联想下级文件夹，支持键盘上下键选择及回车跳转。
-    *   **层级跳转**：输入框支持“..”快速返回上一级，并提供“确认”按钮进行精准跳转。
-*   **可视化展示**：
-    *   **文件夹预览**：鼠标悬停在文件夹上时，会自动展示该文件夹内的首张图片作为封面预览。
-    *   **类型区分**：通过文件夹角标（图标）清晰区分普通文件夹与特殊资源文件夹。
-*   **辅助功能**：
-    *   **书签管理**：支持将常看目录加入左侧书签栏，方便下次快速访问。
-    *   **本地交互**：支持通过网页菜单直接打开服务器端对应的本地文件夹窗口（Explorer）。
-
-### 3. 图片阅读页（看本模式）
-专为漫画阅读优化的沉浸式浏览页面。
-*   **加载优化**：采用图片懒加载机制，流畅浏览含有数百张图片的大型章节，节省系统资源。
-*   **多端适配**：
-    *   **PC端**：适合大屏浏览，支持浮动工具栏进行页面跳转、全屏切换等。
-    *   **移动端**：适配触摸操作，提供更好的手机阅读体验。
-*   **阅读辅助**：
-    *   **浮动菜单**：提供“回到顶部”、“加载全部图片”及“在资源管理器打开”等便捷操作。
-    *   **键盘支持**：支持常用快捷键进行页面滚动和翻页。
-
-### 4. 局域网消息中心 (v0.2.2+ New)
-本项目最新版本引入了即时通讯与增强的局域网接入支持。
-*   **实时互动**：支持服务器与内网设备之间互发即时消息，采用暗色毛玻璃视觉风格。
-*   **全站通知**：后台实时轮询新消息，支持浏览器原生桌面通知及精美的网页侧边栏滑入提醒。
-*   **接入优化**：自动识别服务器在局域网内的真实物理 IP，主页提供一键复制功能。
-*   **非侵入式反馈**：全站移除 alert 阻塞弹窗，所有交互操作结果均通过通知条反馈。
-
-#  想法起源
-
-想法起源：https://github.com/hect0x7/JMComic-Crawler-Python/issues/192
-
-基于原项目：https://github.com/AiCorein/Flask-Files-Server
-
-为了方便修改，将原项目中的文件复制到本项目中，然后进行修改
+- 想法起源：https://github.com/hect0x7/JMComic-Crawler-Python/issues/192
+- UI 与部分基础架构参考：https://github.com/AiCorein/Flask-Files-Server

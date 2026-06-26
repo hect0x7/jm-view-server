@@ -3,3 +3,5 @@
 **/*.egg-info
 **/__pycache__
 /test-dic-root
+/.venv
+/.pytest_cache

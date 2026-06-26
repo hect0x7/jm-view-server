@@ -47,6 +47,9 @@ setup(
         "Operating System :: Microsoft :: Windows",
     ],
     entry_points={
+        'console_scripts': [
+            'jms = plugin_jm_server.cli:main',
+        ],
     },
     package_data={
         "plugin_jm_server": [
