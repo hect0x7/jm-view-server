@@ -1,4 +1,6 @@
-# auto release and publish
+# 发布【主包 jm-view-server】: push 到 master 且 commit message 以 v 开头即触发,
+# 例如   git commit -m "v0.2.5: 修复xxx"   && git push
+# 薄壳包 plugin_jm_server 走单独的 release_shim.yml(手动触发), 不在此处发布。
 name: Auto Release & Publish
 
 on:

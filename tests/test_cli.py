@@ -11,8 +11,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from plugin_jm_server import cli  # noqa: E402
-from plugin_jm_server.app import JmServer  # noqa: E402
+from jm_view_server import cli  # noqa: E402
+from jm_view_server.app import JmServer  # noqa: E402
 
 
 def parse(argv):

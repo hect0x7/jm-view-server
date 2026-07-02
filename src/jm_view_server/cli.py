@@ -7,10 +7,10 @@
 
 等价于：
 
-    from plugin_jm_server import JmServer
+    from jm_view_server import JmServer
     JmServer('~/comics', '123').run(host='0.0.0.0', port=8080)
 
-也支持 `python -m plugin_jm_server ...`（见 __main__.py）。
+也支持 `python -m jm_view_server ...`（见 __main__.py）。
 """
 import argparse
 
@@ -114,7 +114,7 @@ def print_banner(args):
     scheme = 'https' if args.ssl else 'http'
     lan_ip = get_lan_ip()
     print('=' * 48)
-    print('plugin-jm-server v{} 已启动'.format(__version__))
+    print('jm-view-server v{} 已启动'.format(__version__))
     print('共享目录 : {}'.format(args.path))
     print('本机访问 : {}://127.0.0.1:{}'.format(scheme, args.port))
     if args.host == '0.0.0.0':

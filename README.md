@@ -1,7 +1,7 @@
 <!-- 顶部标题 & 统计徽章 -->
 <div align="center">
-  <img src="images/logo.png" width="180" alt="plugin-jm-server logo">
-  <h1 style="margin-top: 15px" align="center">plugin-jm-server</h1>
+  <img src="images/logo.png" width="180" alt="jm-view-server logo">
+  <h1 style="margin-top: 15px" align="center">jm-view-server</h1>
 
   <p align="center">
   <strong>“离线版”禁漫天堂，你的纯本地 离线看本神器！</strong>
@@ -10,11 +10,33 @@
 [![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github)](https://github.com/hect0x7)
 [![Stars](https://img.shields.io/github/stars/hect0x7/plugin-jm-server?color=orange&label=stars&style=flat)](https://github.com/hect0x7/plugin-jm-server/stargazers)
 [![Forks](https://img.shields.io/github/forks/hect0x7/plugin-jm-server?color=green&label=forks&style=flat)](https://github.com/hect0x7/plugin-jm-server/forks)
-[![PyPI](https://img.shields.io/pypi/v/plugin-jm-server?color=blue&label=version)](https://pypi.org/project/plugin-jm-server/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/plugin-jm-server?style=flat&color=hotpink)](https://pepy.tech/projects/plugin-jm-server)
+[![PyPI](https://img.shields.io/pypi/v/jm-view-server?color=blue&label=version)](https://pypi.org/project/jm-view-server/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/jm-view-server?style=flat&color=hotpink)](https://pepy.tech/projects/jm-view-server)
 [![Licence](https://img.shields.io/github/license/hect0x7/plugin-jm-server?color=red)](https://github.com/hect0x7/plugin-jm-server)
 
+<!-- 注意：上面 stars/forks/license 徽章仍指向旧仓库路径 hect0x7/plugin-jm-server。
+     待在 GitHub 上把仓库重命名为 jm-view-server 后（GitHub 会自动重定向旧链接），
+     请把这些徽章及 setup.py 里的 url 一并同步为新仓库路径。 -->
+
 </div>
+
+> [!IMPORTANT]
+> ## 📦 项目已更名：`plugin-jm-server` → `jm-view-server`（v0.2.4）
+>
+> 原名 `plugin-jm-server` 里的 `plugin-` 前缀会让人误以为它必须搭配 jmcomic 才能用。其实它**首先是一个可独立运行的本地看本服务器**，jmcomic 插件只是附加能力，因此更名为 `jm-view-server`（对应代码里的核心「看本模式」`jm_view`）。
+>
+> **新用户** —— 直接用新名安装即可：
+> ```shell
+> pip install jm-view-server && jms
+> ```
+>
+> **老用户迁移** —— 一行搞定：
+> ```shell
+> pip uninstall -y plugin_jm_server && pip install jm-view-server
+> ```
+> 命令行 `jms` 和 jmcomic 插件 key `jm_server` **都不变**；脚本里把 `import plugin_jm_server` 换成 `import jm_view_server` 即可（不换也行，旧包名仍能用）。
+>
+> 旧包 `plugin_jm_server` 仍保留在 PyPI 上做**重定向薄壳**：安装它会自动带上 `jm-view-server`，旧的 `import` 和 `jms` 命令继续可用，仅在导入时打印一条弃用提示。建议尽快迁移到新包名。
 
 > 该项目会在你的电脑上启动一个**本地文件服务器**。你可以直接在浏览器（手机或电脑）中打开它，它会把本地文件夹里的图片转换成类似“禁漫天堂”的章节观看页面。
 > 
@@ -68,7 +90,7 @@
 打开你电脑的**命令行终端**（Windows 下按 `Win+R` 输入 `cmd`，Mac 下打开“终端”APP），复制并执行下面这行命令：
 
 ```shell
-pip install plugin_jm_server && jms
+pip install jm-view-server && jms
 ```
 
 > **提示**：这行命令会帮你自动下载安装必要的组件，并以默认配置（分享当前所在目录、端口80）启动服务器。
@@ -126,7 +148,7 @@ jms ~/comics -o op.yml
 
 ### 1. HTTP / HTTPS 原生调用
 ```python
-from plugin_jm_server import *
+from jm_view_server import *
 
 # 启动 HTTP 服务
 server = JmServer('D:/', 'password')

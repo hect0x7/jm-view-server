@@ -1,0 +1,36 @@
+# 发布【重定向薄壳 plugin_jm_server】——手动触发, 按需单独发。
+#
+# 触发方式(优雅二选一):
+#   A. GitHub 网页: Actions -> "Release Legacy Shim" -> Run workflow
+#   B. gh CLI:      gh workflow run release_shim.yml
+#
+# 薄壳内容极少变动(仅转发到 jm-view-server), 所以不随主包每次发布,
+# 只有改了 legacy_shim/ 里的版本号或转发逻辑时才手动跑一次。
+name: Release Legacy Shim (plugin_jm_server)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-shim:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # PyPI trusted publishing(OIDC), 与主包一致
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Build shim (legacy_shim/)
+        working-directory: legacy_shim
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Publish shim to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: legacy_shim/dist/

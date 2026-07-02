@@ -1,7 +1,9 @@
-# plugin-jm-server 项目简介
+# jm-view-server 项目简介
+
+> 本项目原名 `plugin-jm-server`，自 v0.2.4 起更名为 `jm-view-server`（PyPI 包名 `jm-view-server`，import 包 `jm_view_server`）。CLI 命令 `jms` 与 jmcomic 插件 key `jm_server` 保持不变。
 
 ### 1. 项目概览
-`plugin-jm-server` 是一个基于 Python Flask 的文件服务器，旨在为本地漫画/图片资源提供类似“禁漫天堂”的 Web 浏览体验。它不仅支持文件夹浏览，还针对图片阅读进行了深度优化。
+`jm-view-server` 是一个基于 Python Flask 的文件服务器，旨在为本地漫画/图片资源提供类似“禁漫天堂”的 Web 浏览体验。它不仅支持文件夹浏览，还针对图片阅读进行了深度优化。
 
 ### 2. 技术栈
 - **后端**: Python 3, Flask, threading
@@ -11,7 +13,7 @@
 
 ### 3. 核心模块分析
 
-#### 3.1 后端逻辑 (`src/plugin_jm_server/`)
+#### 3.1 后端逻辑 (`src/jm_view_server/`)
 
 - **`app.py` (JmServer 类)**:
     - **路由中心**: 负责传统 MPA 页面和 SPA API 的路由映射。
@@ -23,7 +25,7 @@
     - **排序逻辑**: 实现 `natural_key` 算法，确保带数字的文件夹按逻辑顺序排列（如 1, 2, 10 而非 1, 10, 2）。
     - **路径处理**: 支持 Windows 盘符识别及 `.lnk` 链接解析。
 
-#### 3.2 前端资源 (`src/plugin_jm_server/static/ & templates/`)
+#### 3.2 前端资源 (`src/jm_view_server/static/ & templates/`)
 
 - **页面模式**:
     - **标准模式**: 传统的服务端渲染页面，逻辑相对简单。
@@ -82,7 +84,7 @@
 为了极大降低使用门槛，本项目全面重构了启动逻辑，支持规范的命令行交互模式。
 
 #### 8.1 核心命令 `jms`
-在安装完该模块后，系统会自动注册 `jms` 命令（底层等同于执行 `python -m plugin_jm_server`）。它由 `argparse` 驱动，提供了高度定制化的启动参数：
+在安装完该模块后，系统会自动注册 `jms` 命令（底层等同于执行 `python -m jm_view_server`）。它由 `argparse` 驱动，提供了高度定制化的启动参数：
 - **目录与端口**：支持直接传入共享目录路径，以及通过 `-p` 灵活指定监听端口。
 - **安全与权限控制**：可通过 `-P` 开启密码验证，及使用 `--ip-whitelist` 限制仅允许特定 IP 的设备访问。
 - **HTTPS 与环境变量**：支持通过 `-s` 快速启用 HTTPS（依赖 `cryptography` 的 adhoc 自签证书），以及通过 `-e KEY=VALUE` 临时注入环境变量。
