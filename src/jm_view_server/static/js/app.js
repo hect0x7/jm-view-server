@@ -81,9 +81,11 @@ window.copyAddr = copyAddr;
 
 /* ---------- 渲染 App Shell（侧栏 + 移动底栏），各页调用统一注入 ---------- */
 function renderShell(active) {
+  // 注意：不放独立的“看本阅读”导航项——看本没有独立入口，
+  // 它是从文件浏览页某个含图片的文件夹点“看本”按钮进入的（带 ?path=）。
+  // 放一个 href=/ 的看本项会导致点击后回到文件首页、丢失当前目录 query。
   const nav = [
     { key: 'files',   label: '文件浏览', icon: 'folder',  href: '/' },
-    { key: 'view',    label: '看本阅读', icon: 'book',    href: '/' },
     { key: 'message', label: '局域网消息', icon: 'chat',  href: '/message' },
     { key: 'upload',  label: '上传文件', icon: 'upload',  href: '/upload_file' },
   ];

@@ -57,6 +57,20 @@
     .r-tools a:hover, .r-tools button:hover { background: var(--brand); color: #fff; }
     .r-tools a svg, .r-tools button svg { width: 18px; height: 18px; }
 
+    /* 悬浮工具栏的自制文字提示（原生 title 被 SVG 遮挡不明显，改用 data-tip） */
+    .r-tools [data-tip] { position: relative; }
+    .r-tools [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+      background: rgba(23,25,33,.96); color: #fff;
+      font-size: 12px; line-height: 1; white-space: nowrap;
+      padding: 6px 9px; border-radius: var(--r-sm);
+      border: 1px solid rgba(255,255,255,.12);
+      opacity: 0; pointer-events: none; transition: opacity .14s var(--ease);
+      z-index: 40;
+    }
+    .r-tools [data-tip]:hover::after { opacity: 1; }
+
     /* 底部阅读进度区 */
     .r-bottom {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
@@ -64,7 +78,28 @@
       border-top: 1px solid rgba(255,255,255,.08);
       padding: 12px 20px calc(12px + env(safe-area-inset-bottom,0));
       display: flex; align-items: center; gap: var(--sp-4);
+      transition: transform .28s var(--ease);
     }
+    /* 关闭进度条：整条下移隐藏，只留一个小把手可重新唤出 */
+    .r-bottom.hidden { transform: translateY(100%); }
+    .r-bottom .r-close {
+      width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center;
+      border-radius: 50%; color: #b8bbc9; background: rgba(255,255,255,.08);
+      cursor: pointer; transition: all .16s var(--ease);
+    }
+    .r-bottom .r-close:hover { background: var(--brand); color: #fff; }
+    .r-bottom .r-close svg { width: 15px; height: 15px; }
+    /* 重新唤出进度条的小把手（默认隐藏，进度条关闭时出现） */
+    .r-reopen {
+      position: fixed; right: 20px; bottom: 20px; z-index: 31;
+      width: 40px; height: 40px; display: none; place-items: center;
+      border-radius: 50%; color: #c8cad3;
+      background: rgba(23,25,33,.86); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.1); cursor: pointer;
+    }
+    .r-reopen.show { display: grid; }
+    .r-reopen:hover { background: var(--brand); color: #fff; }
+    .r-reopen svg { width: 18px; height: 18px; }
     .r-track {
       flex: 1; height: 6px; background: rgba(255,255,255,.12);
       border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
@@ -117,18 +152,18 @@
   {% endfor %}
 </div>
 
-<!-- 右侧悬浮工具栏 -->
+<!-- 右侧悬浮工具栏（双击页面任意处可隐藏/显示本工具栏） -->
 <div class="r-tools">
-  <a id="gotop" href="javascript:void(0)" title="回到顶部"></a>
-  <a id="gobottom" href="javascript:void(0)" title="跳到最后"></a>
-  <button title="全屏阅读" id="tFull"></button>
-  <a id="loadAll" href="javascript:void(0)" title="加载全部"></a>
-  <a href="/?path={{ data.openFromDir }}" title="原路返回"></a>
-  <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" target="_blank" rel="noopener"></a>
+  <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
+  <a id="gobottom" href="javascript:void(0)" title="跳到最后" data-tip="跳到最后"></a>
+  <button id="tFull" title="全屏阅读" data-tip="全屏阅读"></button>
+  <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
+  <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
+  <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
 </div>
 
 <!-- 底部进度区 -->
-<div class="r-bottom">
+<div class="r-bottom" id="rBottom">
   <span class="r-count" id="curPage">第 1 页</span>
   <div class="r-track" id="track"><div class="r-fill" id="fill"></div></div>
   <select class="r-jump" id="pageselect">
@@ -136,7 +171,10 @@
     <option value="{{ loop.index0 }}">{{ loop.index }}/{{ loop.length }}</option>
     {% endfor %}
   </select>
+  <span class="r-close" id="rClose" title="隐藏进度条"></span>
 </div>
+<!-- 进度条关闭后，用这个把手重新唤出 -->
+<span class="r-reopen" id="rReopen" title="显示进度条"></span>
 
 <script src="/static/js/app.js?t={{ randomArg }}"></script>
 <script src="/static/js/common.js?t={{ randomArg }}"></script>
@@ -205,6 +243,34 @@
       }
     };
   }
+
+  // Bug 修复：回到顶部。旧版此逻辑在 album.js（换皮丢弃 jquery 后没接上），
+  // 这里用原生 JS 复刻，点击平滑滚回顶部。
+  document.getElementById('gotop').addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Bug 修复：底部进度条支持关闭 / 重新唤出。
+  var rBottom = document.getElementById('rBottom');
+  var rClose = document.getElementById('rClose');
+  var rReopen = document.getElementById('rReopen');
+  rClose.innerHTML = icon('x');
+  rReopen.innerHTML = icon('list');
+  rClose.addEventListener('click', function() {
+    rBottom.classList.add('hidden');
+    rReopen.classList.add('show');
+  });
+  rReopen.addEventListener('click', function() {
+    rBottom.classList.remove('hidden');
+    rReopen.classList.remove('show');
+  });
+
+  // 复刻旧版“双击隐藏功能栏”：旧版 common.js 双击切换 .menu-bolock，
+  // 新版工具栏是 .r-tools，这里补上对 .r-tools 的双击显隐（不影响选中文字/图片）。
+  var rTools = document.querySelector('.r-tools');
+  document.addEventListener('dblclick', function() {
+    if (rTools) rTools.style.display = (rTools.style.display === 'none') ? 'flex' : 'none';
+  });
 </script>
 </body>
 </html>

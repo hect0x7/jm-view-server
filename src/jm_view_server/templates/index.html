@@ -176,20 +176,19 @@
             border-radius: var(--r-sm);
             border: 1px solid var(--border);
             cursor: zoom-in;
-            transition: all .3s var(--ease);
+            /* 用 transform 放大（不脱离文档流），origin 固定在右侧向左展开，
+               保证 hover 时图片位置不跳、不触发 mouseleave 抖动，也不撑破所在行 */
+            transform-origin: center right;
+            transition: transform .25s var(--ease);
         }
         .preview-img.expanded {
-            position: fixed;
+            transform: scale(4.5);
+            object-fit: contain;
+            position: relative;
             z-index: 1000;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: auto;
-            height: auto;
-            max-width: 80vw;
-            max-height: 80vh;
-            border-radius: var(--r-lg);
+            border-radius: var(--r-sm);
             box-shadow: var(--shadow-lg);
+            background: var(--bg-elevated);
             cursor: zoom-out;
         }
 
