@@ -30,6 +30,8 @@ const ICONS = {
   fullscreen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
   x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   trash:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>',
+  arrowDown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
 };
 function icon(name) { return ICONS[name] || ''; }
 window.icon = icon;
@@ -107,8 +109,11 @@ function renderShell(active) {
           <div class="theme-toggle" onclick="toggleTheme()"><span class="knob"></span></div>
         </div>
         <a href="/logout" class="nav-item">${icon('logout')}<span>退出登录</span></a>
-      </div>`;
+        <div class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="折叠/展开侧栏">${chevronLeft()}<span>折叠</span></div>
+      </div>
+      <div class="sidebar-resizer" id="sidebarResizer"></div>`;
   }
+  initSidebarResize();
   const mbar = document.querySelector('.mobile-bar');
   if (mbar) {
     mbar.innerHTML = nav.map(n => `<a href="${n.href}" class="${n.key===active?'active':''}">${icon(n.icon)}<span>${n.label.replace('局域网','')}</span></a>`).join('');
@@ -119,3 +124,77 @@ function renderShell(active) {
   });
 }
 window.renderShell = renderShell;
+
+function chevronLeft() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+}
+
+/* 侧栏可拖拽改宽度 + 拖到阈值自动折叠 + 折叠按钮切换，状态记忆到 localStorage */
+function initSidebarResize() {
+  var app = document.querySelector('.app');
+  var resizer = document.getElementById('sidebarResizer');
+  var collapseBtn = document.getElementById('sidebarCollapseBtn');
+  if (!app || !resizer) return;
+
+  var MIN = 180;          // 最小展开宽度
+  var MAX = 420;          // 最大宽度
+  var COLLAPSE_AT = 120;  // 拖到此阈值以下自动折叠
+
+  // 恢复记忆的状态
+  try {
+    if (localStorage.getItem('jmv-sidebar-collapsed') === '1') {
+      app.classList.add('sidebar-collapsed');
+    } else {
+      var w = parseInt(localStorage.getItem('jmv-sidebar-w') || '', 10);
+      if (w >= MIN && w <= MAX) app.style.setProperty('--sidebar-w', w + 'px');
+    }
+  } catch (e) {}
+
+  function setCollapsed(on) {
+    app.classList.toggle('sidebar-collapsed', on);
+    try { localStorage.setItem('jmv-sidebar-collapsed', on ? '1' : '0'); } catch (e) {}
+  }
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', function () {
+      setCollapsed(!app.classList.contains('sidebar-collapsed'));
+    });
+  }
+
+  var dragging = false;
+  resizer.addEventListener('mousedown', function (e) {
+    // 折叠态下先展开再拖
+    if (app.classList.contains('sidebar-collapsed')) setCollapsed(false);
+    dragging = true;
+    app.classList.add('sidebar-dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    var w = e.clientX;
+    if (w < COLLAPSE_AT) {
+      // 拖得太窄 → 折叠
+      setCollapsed(true);
+      app.style.removeProperty('--sidebar-w');
+      dragging = false;
+      app.classList.remove('sidebar-dragging');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      return;
+    }
+    w = Math.max(MIN, Math.min(MAX, w));
+    app.style.setProperty('--sidebar-w', w + 'px');
+  });
+  window.addEventListener('mouseup', function () {
+    if (!dragging) return;
+    dragging = false;
+    app.classList.remove('sidebar-dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    var cur = getComputedStyle(app).getPropertyValue('--sidebar-w').trim();
+    try { if (cur) localStorage.setItem('jmv-sidebar-w', parseInt(cur, 10)); } catch (e) {}
+  });
+}
+window.initSidebarResize = initSidebarResize;

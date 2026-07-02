@@ -35,9 +35,9 @@
     .r-progress { font-family: var(--font-mono); font-size: 13px; color: #9a9db0; white-space: nowrap; }
 
     /* 图片流 */
-    .stream { max-width: 800px; margin: 0 auto; padding: var(--sp-4) var(--sp-3) 120px; display: flex; flex-direction: column; gap: 10px; }
-    .page-img { width: 100%; border-radius: var(--r-sm); background: #14161d; min-height: 200px; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-    .page-num { text-align: center; font-family: var(--font-mono); font-size: 12px; color: #6a6d7e; padding: 4px 0 10px; }
+    /* 无缝阅读：图片间零间距、无圆角阴影（对齐旧版看本的连续观感） */
+    .stream { max-width: 800px; margin: 0 auto; padding: 0 0 120px; display: flex; flex-direction: column; gap: 0; user-select: none; -webkit-user-select: none; }
+    .page-img { width: 100%; background: #14161d; min-height: 200px; display: block; vertical-align: bottom; }
 
     /* 右侧悬浮工具栏 */
     .r-tools {
@@ -80,26 +80,46 @@
       display: flex; align-items: center; gap: var(--sp-4);
       transition: transform .28s var(--ease);
     }
-    /* 关闭进度条：整条下移隐藏，只留一个小把手可重新唤出 */
+    /* 关闭进度条：整条下移隐藏。开关按钮已统一并入右侧工具栏，此处只保留隐藏动画 */
     .r-bottom.hidden { transform: translateY(100%); }
-    .r-bottom .r-close {
-      width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center;
-      border-radius: 50%; color: #b8bbc9; background: rgba(255,255,255,.08);
-      cursor: pointer; transition: all .16s var(--ease);
+    /* 工具栏“进度条开关”：进度条开启时按钮呈激活态（弱高亮），关闭时回到普通态。
+       用半透明 brand 底色区分 hover 的实心 brand，避免与 hover 态混淆。 */
+    .r-tools #tProg.active {
+      background: color-mix(in srgb, var(--brand) 26%, transparent);
+      color: #fff;
     }
-    .r-bottom .r-close:hover { background: var(--brand); color: #fff; }
-    .r-bottom .r-close svg { width: 15px; height: 15px; }
-    /* 重新唤出进度条的小把手（默认隐藏，进度条关闭时出现） */
-    .r-reopen {
-      position: fixed; right: 20px; bottom: 20px; z-index: 31;
-      width: 40px; height: 40px; display: none; place-items: center;
-      border-radius: 50%; color: #c8cad3;
-      background: rgba(23,25,33,.86); backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,.1); cursor: pointer;
+    .r-tools #tProg.active:hover { background: var(--brand); }
+
+    /* 跳页浮层：不弹全屏 modal，而是贴附在工具栏左侧原地展开一个小浮窗
+       （沿用工具栏同款暗色玻璃拟态，参考旧版“直接就是个下拉”的直白交互）。
+       挂在 .r-tools 内、相对工具栏定位。 */
+    .r-tools { position: fixed; } /* 已 fixed，此处仅声明为浮层定位锚点 */
+    .jump-pop {
+      position: absolute; right: calc(100% + 12px); top: 50%;
+      transform: translateY(-50%) scale(.96);
+      background: rgba(23,25,33,.94); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-md);
+      box-shadow: var(--shadow-lg); padding: 8px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .14s var(--ease), transform .14s var(--ease);
+      z-index: 40;
     }
-    .r-reopen.show { display: grid; }
-    .r-reopen:hover { background: var(--brand); color: #fff; }
-    .r-reopen svg { width: 18px; height: 18px; }
+    .jump-pop.show { opacity: 1; pointer-events: auto; transform: translateY(-50%) scale(1); }
+    .jump-pop select {
+      display: block; box-sizing: border-box;
+      min-width: 130px; height: 38px;
+      background: rgba(255,255,255,.06); color: #e8e9ee;
+      border: 1px solid rgba(255,255,255,.15); border-radius: var(--r-sm);
+      padding: 0 34px 0 12px; font-size: 14px; font-family: var(--font-mono);
+      letter-spacing: .04em; cursor: pointer;
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9db0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 15px;
+      transition: border-color .14s var(--ease);
+    }
+    .jump-pop select:focus { outline: none; border-color: var(--brand); }
+    .jump-pop select option { background: #171923; color: #e8e9ee; }
+
     .r-track {
       flex: 1; height: 6px; background: rgba(255,255,255,.12);
       border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
@@ -147,15 +167,24 @@
          data-src="{{ image.data_original }}"
          data-original="{{ image.data_original }}"
          alt="第 {{ loop.index }} 页">
-    <div class="page-num">— {{ loop.index }} / {{ loop.length }} —</div>
   </div>
   {% endfor %}
 </div>
 
 <!-- 右侧悬浮工具栏（双击页面任意处可隐藏/显示本工具栏） -->
 <div class="r-tools">
+  <!-- 跳页浮窗：贴附工具栏左侧原地展开（非全屏 modal），选中即跳页 -->
+  <div class="jump-pop" id="jumpPop">
+    <select id="jumpSelect">
+      {% for image in data.images %}
+      <option value="{{ loop.index0 }}">第 {{ loop.index }} / {{ loop.length }} 页</option>
+      {% endfor %}
+    </select>
+  </div>
   <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
   <a id="gobottom" href="javascript:void(0)" title="跳到最后" data-tip="跳到最后"></a>
+  <a id="tJump" href="javascript:void(0)" title="跳转页码" data-tip="跳转页码"></a>
+  <button id="tProg" title="进度条开关" data-tip="进度条开关"></button>
   <button id="tFull" title="全屏阅读" data-tip="全屏阅读"></button>
   <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
   <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
@@ -171,10 +200,7 @@
     <option value="{{ loop.index0 }}">{{ loop.index }}/{{ loop.length }}</option>
     {% endfor %}
   </select>
-  <span class="r-close" id="rClose" title="隐藏进度条"></span>
 </div>
-<!-- 进度条关闭后，用这个把手重新唤出 -->
-<span class="r-reopen" id="rReopen" title="显示进度条"></span>
 
 <script src="/static/js/app.js?t={{ randomArg }}"></script>
 <script src="/static/js/common.js?t={{ randomArg }}"></script>
@@ -182,9 +208,11 @@
   // 填充图标（app.js 的 icon() 可用）
   document.getElementById('backBtn').innerHTML = icon('folder');
   document.getElementById('gotop').innerHTML = icon('arrowUp');
-  document.getElementById('gobottom').innerHTML = icon('list');
+  document.getElementById('gobottom').innerHTML = icon('arrowDown');
+  document.getElementById('tJump').innerHTML = icon('list');
+  document.getElementById('tProg').innerHTML = icon('eye');
   document.getElementById('tFull').innerHTML = icon('fullscreen');
-  document.getElementById('loadAll').innerHTML = icon('upload');
+  document.getElementById('loadAll').innerHTML = icon('download');
   // 搜原本图标
   (function() {
     var links = document.querySelectorAll('.r-tools a');
@@ -250,26 +278,65 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
-  // Bug 修复：底部进度条支持关闭 / 重新唤出。
+  // 进度条开关：统一并入右侧工具栏（旧版割裂的 rClose/rReopen 已移除）。
+  // 进度条默认开启 → 按钮初始为激活态；点击切换显隐，激活态跟随“进度条是否可见”。
   var rBottom = document.getElementById('rBottom');
-  var rClose = document.getElementById('rClose');
-  var rReopen = document.getElementById('rReopen');
-  rClose.innerHTML = icon('x');
-  rReopen.innerHTML = icon('list');
-  rClose.addEventListener('click', function() {
-    rBottom.classList.add('hidden');
-    rReopen.classList.add('show');
-  });
-  rReopen.addEventListener('click', function() {
-    rBottom.classList.remove('hidden');
-    rReopen.classList.remove('show');
+  var tProg = document.getElementById('tProg');
+  tProg.classList.add('active'); // 进度条初始可见
+  tProg.addEventListener('click', function() {
+    var hidden = rBottom.classList.toggle('hidden');
+    tProg.classList.toggle('active', !hidden);
   });
 
-  // 复刻旧版“双击隐藏功能栏”：旧版 common.js 双击切换 .menu-bolock，
-  // 新版工具栏是 .r-tools，这里补上对 .r-tools 的双击显隐（不影响选中文字/图片）。
+  // 项2：工具栏“跳转页码”——贴附工具栏的原地浮窗（非全屏 modal，参考旧版直白交互）。
+  // 页码用下拉选择（同底部进度条 pageselect），选中即跳页并收起浮窗；点外部/Esc 收起。
+  var tJump = document.getElementById('tJump');
+  var jumpPop = document.getElementById('jumpPop');
+  var jumpSelect = document.getElementById('jumpSelect'); // <select>，value 为 0-based 页索引
+
+  function currentPageIdx() {
+    // 以当前进度（顶部进度显示同源）作为下拉默认选中项
+    var mid = window.scrollY + window.innerHeight / 2, best = 0;
+    for (var i = 0; i < pages.length; i++) { if (pages[i].offsetTop <= mid) best = i; }
+    return best;
+  }
+  function openJump() {
+    jumpSelect.value = String(currentPageIdx());
+    jumpPop.classList.add('show');
+  }
+  function closeJump() { jumpPop.classList.remove('show'); }
+
+  tJump.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (jumpPop.classList.contains('show')) closeJump(); else openJump();
+  });
+  // 选中即跳页并收起浮窗
+  jumpSelect.addEventListener('change', function() {
+    var idx = parseInt(jumpSelect.value, 10); // 下拉选项天然合法
+    closeJump();
+    var target = pages[idx];
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      updateProgress(idx);
+    }
+  });
+  // 点击浮窗外部收起（点浮窗内部不关，以免影响下拉展开）
+  document.addEventListener('click', function(e) {
+    if (jumpPop.classList.contains('show') && !jumpPop.contains(e.target) && e.target !== tJump) {
+      closeJump();
+    }
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeJump();
+  });
+
+  // 复刻旧版“双击隐藏功能栏”：切换 .r-tools 显隐。
+  // 项4 修复：双击时清除浏览器选区，避免双击连带选中图片/页面内容。
   var rTools = document.querySelector('.r-tools');
   document.addEventListener('dblclick', function() {
     if (rTools) rTools.style.display = (rTools.style.display === 'none') ? 'flex' : 'none';
+    var sel = window.getSelection && window.getSelection();
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
   });
 </script>
 </body>

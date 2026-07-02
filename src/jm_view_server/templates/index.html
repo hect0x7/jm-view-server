@@ -26,6 +26,15 @@
             flex-wrap: wrap;
         }
 
+        /* 标题行改为横排：标题在左、视图切换在右，收紧下方间距消除大空白 */
+        .content-narrow .page-head {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: var(--sp-4);
+            margin-bottom: var(--sp-4);
+        }
+
         /* 驱动器 pills */
         .drivers-row {
             display: flex;
@@ -132,11 +141,13 @@
         }
         .file-icon svg { width: 18px; height: 18px; }
         .file-link {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            /* 文件名太长时换行显示全名（对齐旧版），不截断省略号 */
+            white-space: normal;
+            word-break: break-word;
+            overflow: visible;
             color: var(--text);
             font-weight: 500;
+            line-height: 1.4;
         }
         .file-link:hover { color: var(--brand); }
 
@@ -461,8 +472,12 @@
             background: var(--bg-elevated);
             border: 1px solid var(--border);
             border-radius: var(--r-lg);
-            overflow: hidden;
+            /* 用 visible 让预览图放大时能溢出容器显示（对齐旧版），
+               否则首/末行的预览弹窗会被 overflow:hidden 裁掉 */
+            overflow: visible;
         }
+        /* 预览列自身也不裁剪，放大图可越界 */
+        .preview-col { overflow: visible; }
         /* app.list-mode: grid 显示，list 隐藏 */
         .app.grid-mode .list-view { display: none; }
         .app.grid-mode .grid-view { display: grid; }
@@ -495,7 +510,9 @@
             <!-- 面包屑（承载 #currentPathText） -->
             <nav class="crumbs">
                 <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}')" id="crumbs-home"></a>
-                <span class="sep">/</span>
+                {# 路径本身若已以 '/' 开头（mac/linux 绝对路径），省略装饰分隔符，
+                   避免显示成 “/ /Users/...” 的重复斜杠；Windows 盘符路径（C:\）仍保留分隔符 #}
+                {% if not data.currentPath.startswith('/') %}<span class="sep">/</span>{% endif %}
                 <span class="cur">
                     <span id="currentPathText" data-path="{{ data.currentPath }}">{{ data.currentPath }}</span>
                 </span>
@@ -517,6 +534,10 @@
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="changeDir('{{ data.defaultPath }}')">
                     <span id="homeIco"></span> 回到原点
+                </button>
+                {% set open_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
+                <button class="btn btn-outline btn-sm" onclick="openDir(encodeURIComponent(getCurPath()))" title="{{ open_label }}">
+                    <span id="openCurIco"></span> {{ open_label }}
                 </button>
             </div>
             <!-- 驱动器列表 -->
@@ -541,14 +562,12 @@
         <!-- 内容区 -->
         <div class="content">
             <div class="content-narrow">
+                <!-- 标题行：左侧标题 + 右侧视图切换（合并，消除中间空白） -->
                 <div class="page-head">
-                    <h1>文件浏览</h1>
-                    <p>浏览本地目录，含图片的文件夹可进入看本模式</p>
-                </div>
-
-                <!-- 工具行：视图切换 -->
-                <div class="toolrow">
-                    <div class="spacer"></div>
+                    <div class="page-head-text">
+                        <h1>文件浏览</h1>
+                        <p>浏览本地目录，含图片的文件夹可进入看本模式</p>
+                    </div>
                     <div class="segmented" id="seg">
                         <button class="on" data-v="list" id="segList" title="列表视图"></button>
                         <button data-v="grid" id="segGrid" title="网格视图"></button>
@@ -718,6 +737,7 @@
     document.getElementById('netIco').innerHTML    = icon('network');
     document.getElementById('copyIco').innerHTML   = icon('copy');
     document.getElementById('backIco').innerHTML   = icon('up');
+    document.getElementById('openCurIco').innerHTML = icon('folder');
     document.getElementById('homeIco').innerHTML   = icon('folder');
     document.getElementById('starIco').innerHTML   = icon('star');
     document.getElementById('uploadIco').innerHTML = icon('upload');

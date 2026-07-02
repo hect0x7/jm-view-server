@@ -337,9 +337,20 @@ class JmServer:
                                    "currentPath": path,
                                    "defaultPath": self.file_manager.default_path,
                                    "lan_ip": get_lan_ip(),
-                                   "port": self.extra.get('port', self.DEFAULT_PORT)
+                                   "port": self.extra.get('port', self.DEFAULT_PORT),
+                                   "os_type": self._os_type()
                                },
                                randomArg=self.url_random_arg())
+
+    @staticmethod
+    def _os_type():
+        """返回前端用于文案适配的 OS 类型：mac / windows / other"""
+        import sys
+        if sys.platform == 'darwin':
+            return 'mac'
+        if sys.platform.startswith('win'):
+            return 'windows'
+        return 'other'
 
     def login(self):
         """
@@ -464,10 +475,24 @@ class JmServer:
             self.jm_log_msg_queue.put(end)
 
     def open_directory(self, directory):
-        path = os.path.abspath(directory)
-        # os.startfile(path)  # Windows特有，打开文件夹
         import subprocess
-        subprocess.Popen(f'explorer /select,"{path}"')
+        import sys
+        # Flask 的 <path:...> 转换器会吃掉前导 '/'，导致 mac/linux 绝对路径
+        # （如 /Users/x）到这里变成相对路径 Users/x，os.path.abspath 会基于 cwd
+        # 重复拼接。这里补回前导 '/'（Windows 盘符路径如 C:\ 不受影响）。
+        if not sys.platform.startswith('win') and not directory.startswith('/'):
+            directory = '/' + directory
+        path = os.path.abspath(directory)
+        if sys.platform == 'darwin':
+            # macOS：在访达中打开并选中
+            subprocess.Popen(['open', '-R', path])
+        elif sys.platform.startswith('win'):
+            # Windows：在资源管理器中打开并选中
+            subprocess.Popen(f'explorer /select,"{path}"')
+        else:
+            # Linux/其它：用默认文件管理器打开所在目录
+            target = path if os.path.isdir(path) else os.path.dirname(path)
+            subprocess.Popen(['xdg-open', target])
         return ''
 
     # ===== 消息功能 =====

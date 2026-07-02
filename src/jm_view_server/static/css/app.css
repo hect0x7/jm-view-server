@@ -211,15 +211,53 @@ input, textarea { font-family: inherit; }
   grid-template-rows: 100vh;
   height: 100vh;
 }
+/* 侧栏宽度过渡（折叠/展开丝滑动画）；拖拽中临时关闭过渡以跟手 */
+.app:not(.sidebar-dragging) { transition: grid-template-columns .26s var(--ease); }
+
+/* 折叠态：侧栏收窄为图标条，隐藏文字 */
+.app.sidebar-collapsed { --sidebar-w: 64px; }
+.app.sidebar-collapsed .brand-name,
+.app.sidebar-collapsed .nav-item span,
+.app.sidebar-collapsed .nav-item .count,
+.app.sidebar-collapsed .nav-label,
+.app.sidebar-collapsed .sidebar-foot > div:first-child > span {
+  display: none;
+}
+.app.sidebar-collapsed .sidebar { padding: var(--sp-3) var(--sp-2); align-items: stretch; }
+.app.sidebar-collapsed .sidebar-brand { justify-content: center; padding: var(--sp-2) 0 var(--sp-4); }
+.app.sidebar-collapsed .nav-item { justify-content: center; padding: 9px 0; }
+.app.sidebar-collapsed .theme-toggle { display: none; }
 
 /* 侧栏 */
 .sidebar {
+  position: relative;
   display: flex; flex-direction: column;
   background: var(--bg-elevated);
   border-right: 1px solid var(--border);
   padding: var(--sp-4);
   gap: var(--sp-2);
+  overflow: hidden;
 }
+/* 拖拽改宽度的把手（贴在侧栏右边缘） */
+.sidebar-resizer {
+  position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 20;
+}
+.sidebar-resizer::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px;
+  background: transparent; transition: background .16s;
+}
+.sidebar-resizer:hover::after, .app.sidebar-dragging .sidebar-resizer::after { background: var(--brand); }
+/* 折叠切换按钮（侧栏底部） */
+.sidebar-collapse-btn {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  height: 34px; margin-top: var(--sp-2);
+  border-radius: var(--r-md); color: var(--text-muted);
+  cursor: pointer; transition: all .14s var(--ease);
+}
+.sidebar-collapse-btn:hover { background: var(--surface-hover); color: var(--text); }
+.sidebar-collapse-btn svg { width: 18px; height: 18px; transition: transform .26s var(--ease); }
+.app.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
 .sidebar-brand {
   display: flex; align-items: center; gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-2) var(--sp-5);
