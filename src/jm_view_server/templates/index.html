@@ -149,6 +149,36 @@
         .size-col a { color: inherit; text-decoration: none; }
         .size-col a:hover { color: var(--brand); }
 
+        /* 列表视图：大小列 hover 显示删除按钮（悬停时大小文字淡出让位） */
+        .size-col { position: relative; display: flex; align-items: center; }
+        .delete-btn {
+            display: none; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: color-mix(in srgb, var(--danger) 14%, transparent);
+            color: var(--danger); cursor: pointer; border: none;
+            transition: all .18s var(--ease); flex-shrink: 0;
+        }
+        .delete-btn svg { width: 14px; height: 14px; }
+        .delete-btn:hover { background: var(--danger); color: #fff; transform: scale(1.1); }
+        .size-col .delete-btn {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            box-shadow: var(--shadow-sm);
+        }
+        .size-col .delete-btn:hover { transform: translateY(-50%) scale(1.1); }
+        .file-item:hover .size-col .delete-btn { display: inline-flex; }
+        .size-col .size-text { transition: opacity .18s; }
+        .file-item:hover .size-col .size-text { opacity: .25; }
+
+        /* 网格视图：卡片右上角 hover 显示删除按钮 */
+        .card-cover { position: relative; }
+        .card-delete-btn {
+            position: absolute; top: 8px; right: 8px; z-index: 5;
+            box-shadow: var(--shadow-md);
+            background: color-mix(in srgb, var(--danger) 88%, transparent);
+            color: #fff;
+        }
+        .card-item:hover .card-delete-btn { display: inline-flex; }
+
         /* 操作列 */
         .file-action-col { display: flex; gap: var(--sp-2); align-items: center; }
         .action-btn {
@@ -551,9 +581,11 @@
                                    path="{{ file.quoted_path }}">{{ file.name }}</a>
                             </div>
 
-                            <!-- 大小列 -->
+                            <!-- 大小列（hover 显示删除按钮） -->
                             <div class="text-sm size-col">
-                                <a href="javascript:" onclick="openDir('{{ file.quoted_path }}')">{{ file.size }}</a>
+                                <a href="javascript:" class="size-text" onclick="openDir('{{ file.quoted_path }}')">{{ file.size }}</a>
+                                <button class="delete-btn" title="彻底删除"
+                                        onclick="deleteItem(event, '{{ file.quoted_path }}', '{{ file.name }}')"></button>
                             </div>
 
                             <!-- 日期列 -->
@@ -596,6 +628,8 @@
                             {% else %}
                             <span class="folder-ico" id="cardFolderIco{{ loop.index }}"></span>
                             {% endif %}
+                            <button class="card-delete-btn delete-btn" title="彻底删除"
+                                    onclick="deleteItem(event, '{{ file.quoted_path }}', '{{ file.name }}')"></button>
                         </div>
                         <div class="card-meta">
                             <div class="name">
@@ -739,6 +773,36 @@
             app.classList.remove('grid-mode');
         }
     });
+
+    // 给列表/网格视图的删除按钮注入 trash 图标（用内置 SVG，不依赖 FontAwesome）
+    document.querySelectorAll('.delete-btn').forEach(function(btn) {
+        btn.innerHTML = icon('trash');
+    });
+
+    // 删除文件/文件夹：原生 confirm 二次确认（不可恢复，用阻塞式更安全），
+    // 结果用统一 toast() 反馈。POST /api/delete，成功后刷新目录。
+    function deleteItem(event, quotedPath, fileName) {
+        event.stopPropagation();
+        event.preventDefault();
+        var decodedPath = decodeURIComponent(quotedPath);
+        if (!confirm('确定要彻底删除 "' + fileName + '" 吗？（此操作不可恢复）')) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/delete', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
+                toast('已删除 “' + fileName + '”', 'success');
+                setTimeout(function() { window.location.reload(); }, 600);
+            } else {
+                var errMsg = '删除失败';
+                try { errMsg += '：' + (JSON.parse(xhr.responseText).error || ''); } catch (e) {}
+                toast(errMsg, 'error');
+            }
+        };
+        xhr.send('path=' + encodeURIComponent(decodedPath));
+    }
+    window.deleteItem = deleteItem;
 </script>
 </body>
 

@@ -416,11 +416,7 @@ $(document).ready(function () {
                 $('.file-item').removeClass('active');
                 $(this).addClass('active');
 
-                if (typeStr === 'dir' || typeStr === 'jm') {
-                    showContextMenu(e.pageX, e.pageY, file.path, file.name);
-                } else {
-                    showContextMenu(e.pageX, e.pageY, currentPath, "Current Folder");
-                }
+                showContextMenu(e.pageX, e.pageY, file.path, file.name, typeStr, currentPath);
             });
 
             // Hover Preview Logic (Folders Only)
@@ -478,6 +474,9 @@ $(document).ready(function () {
                 <div class="context-menu-item" id="ctxOpenAlbum">
                     <i class="fas fa-book-open"></i> 以本子模式打开
                 </div>
+                <div class="context-menu-item" id="ctxDeletePath" style="color: #ef4444;">
+                    <i class="fas fa-trash-alt"></i> 彻底删除
+                </div>
             </div>
         `);
 
@@ -487,16 +486,49 @@ $(document).ready(function () {
 
         $('#ctxOpenAlbum').click(function () {
             const path = $('#ctxMenu').data('target-path');
-            if (path) {
-                loadAlbum(path);
+            const parentPath = $('#ctxMenu').data('parent-path');
+            const type = $('#ctxMenu').data('target-type');
+
+            const openPath = (type === 'file' && parentPath) ? parentPath : path;
+            if (openPath) {
+                loadAlbum(openPath);
                 hideContextMenu();
+            }
+        });
+
+        $('#ctxDeletePath').click(function () {
+            const path = $('#ctxMenu').data('target-path');
+            const name = $('#ctxMenu').data('target-name');
+            if (path) {
+                if (confirm(`确定要彻底删除 "${name}" 吗？（此操作不可恢复）`)) {
+                    $.ajax({
+                        url: '/api/delete',
+                        method: 'POST',
+                        data: { path: path },
+                        success: function (res) {
+                            hideContextMenu();
+                            loadDirectory(currentPath, false);
+                        },
+                        error: function (err) {
+                            alert('删除失败: ' + (err.responseJSON?.error || err.statusText));
+                        }
+                    });
+                } else {
+                    hideContextMenu();
+                }
             }
         });
     }
 
-    function showContextMenu(x, y, path, name) {
-        // Boundary check logic could be added here
-        $('#ctxMenu').data('target-path', path).css({
+    function showContextMenu(x, y, path, name, type, parentPath) {
+        $('#ctxMenu').data('target-path', path);
+        $('#ctxMenu').data('target-name', name);
+        $('#ctxMenu').data('target-type', type);
+        $('#ctxMenu').data('parent-path', parentPath);
+
+        $('#ctxOpenAlbum').show();
+
+        $('#ctxMenu').css({
             top: y + 'px',
             left: x + 'px'
         }).show();

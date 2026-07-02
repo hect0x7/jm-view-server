@@ -215,6 +215,53 @@ class JmServer:
            
         return self.open_directory(path) or jsonify({'status': 'ok'})
 
+    def api_delete_path(self):
+        """
+        [New] API: Delete file or folder securely
+        """
+        if not self.verify():
+            return abort(403)
+
+        path = request.values.get('path', None)
+        if not path:
+            return jsonify({'error': 'Path required'}), 400
+
+        path_abs = os.path.abspath(path)
+        path_norm = os.path.normcase(path_abs)
+
+        # 1. 安全防御：绝对禁止删除盘符根目录（如 C:\, D:\ 等），防止毁灭整盘数据
+        drive, tail = os.path.splitdrive(path_abs)
+        if not tail or tail.strip(r'\/') == '':
+            return jsonify({'error': 'Permission denied: Cannot delete drive root directory.'}), 403
+
+        # 2. 安全防御：禁止删除默认共享根目录本身
+        default_root_norm = os.path.normcase(os.path.abspath(self.file_manager.default_path))
+        if path_norm == default_root_norm:
+            return jsonify({'error': 'Permission denied: Cannot delete default shared root folder.'}), 403
+
+        # 3. 安全防御：绝对防线，严禁触碰任何 Windows 关键系统盘敏感目录
+        system_roots = [
+            os.path.normcase(r'C:\Windows'),
+            os.path.normcase(r'C:\Program Files'),
+            os.path.normcase(r'C:\Program Files (x86)'),
+            os.path.normcase(r'C:\Users'),
+        ]
+        if any(path_norm.startswith(sys_root) for sys_root in system_roots):
+            return jsonify({'error': 'Permission denied: Cannot delete critical system directories.'}), 403
+
+        if not os.path.exists(path_abs):
+            return jsonify({'error': 'Path not found'}), 404
+
+        try:
+            if os.path.isdir(path_abs):
+                import shutil
+                shutil.rmtree(path_abs)
+            else:
+                os.remove(path_abs)
+            return jsonify({'status': 'ok'})
+        except Exception as e:
+            return jsonify({'error': f'Delete failed: {e}'}), 500
+
     def jm_view(self):
         """
         以禁漫章节的模式观看指定文件夹下的图片
@@ -494,6 +541,7 @@ class JmServer:
         self.app.add_url_rule("/api/list_files", 'api_list_files', self.api_list_files, methods=['GET'])
         self.app.add_url_rule("/api/album_images", 'api_album_images', self.api_album_images, methods=['GET'])
         self.app.add_url_rule("/api/open_file", 'api_open_file', self.api_open_file, methods=['GET'])
+        self.app.add_url_rule("/api/delete", 'api_delete_path', self.api_delete_path, methods=['GET', 'POST'])
 
         # 消息功能路由
         self.app.add_url_rule("/message", 'message_page', self.message_page, methods=['GET'])
