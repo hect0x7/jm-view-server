@@ -267,7 +267,7 @@ function addCurrentBookmark() {
     // Suggestion: show a toast or feedback here
     const btn = document.querySelector('.bookmark-add-btn');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+    btn.innerHTML = icon('check') + ' 已收藏';
     setTimeout(() => {
         btn.innerHTML = originalText;
     }, 2000);
@@ -307,11 +307,11 @@ function renderBookmarks() {
             <a href="javascript:" onclick="changeDir('${b.path.replace(/\\/g, '\\\\')}')" class="bookmark-link">
                 <div class="bookmark-path" title="${b.path}">${b.path}</div>
                 <div class="bookmark-time">
-                    <i class="far fa-clock"></i> ${formatTime(b.timestamp)}
+                    ${formatTime(b.timestamp)}
                 </div>
             </a>
             <button class="bookmark-delete" onclick="deleteBookmark(${index})" title="删除">
-                <i class="fas fa-times"></i>
+                ${icon('x')}
             </button>
         `;
         list.appendChild(li);

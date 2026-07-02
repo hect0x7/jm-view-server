@@ -1,132 +1,210 @@
 <!DOCTYPE html>
-<!--suppress HtmlRequiredAltAttribute -->
-<html lang="zh-CN">
-
+<html lang="zh-CN" data-theme="dark">
 <head>
-    <meta charset="UTF-8"/>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <link href="../static/css/bootstrap.css" rel="stylesheet">
-    <script src="../static/js/jquery-3.7.1.min.js"></script>
-    <script src="../static/js/jquery.album-0.2.js"></script>
-{#    <script src="../static/js/jquery.photo-0.3.js"></script>#}
-{#    <script src="../static/js/jquery.lazyload-2.0.js"></script>#}
-    <script src="../static/js/common.js"></script>
-    <link rel="stylesheet" href="../static/css/index.css">
-    <link rel="stylesheet" href="../static/css/all.min.css">
-    <link rel="stylesheet" href="../static/css/style_photo.css">
-    <style>
-      img {
-        width: 100%;
-        height: 100%;
-      }
-    </style>
-    <title>文件浏览器 | 离线看本</title>
-</head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>看本 · {{ data.title }}</title>
+  <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+  <style>
+    /* 阅读区始终沉浸深色，与看图场景匹配，独立于全站主题 */
+    html, body { min-height: 100vh; background: #0b0c11; color: #e8e9ee; }
 
+    /* 顶部悬浮条 */
+    .reader-top {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; align-items: center; gap: var(--sp-3);
+      height: 56px; padding: 0 var(--sp-4);
+      background: rgba(11,12,17,.82); backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .r-btn {
+      width: 38px; height: 38px; display: grid; place-items: center;
+      border-radius: var(--r-md); color: #c8cad3;
+      transition: all .14s; text-decoration: none;
+      flex-shrink: 0;
+    }
+    .r-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .r-btn svg { width: 20px; height: 20px; }
+    .reader-title { min-width: 0; flex: 1; }
+    .reader-title b {
+      font-size: 15px; font-weight: 600; display: block;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: #e8e9ee;
+    }
+    .r-progress { font-family: var(--font-mono); font-size: 13px; color: #9a9db0; white-space: nowrap; }
+
+    /* 图片流 */
+    .stream { max-width: 800px; margin: 0 auto; padding: var(--sp-4) var(--sp-3) 120px; display: flex; flex-direction: column; gap: 10px; }
+    .page-img { width: 100%; border-radius: var(--r-sm); background: #14161d; min-height: 200px; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+    .page-num { text-align: center; font-family: var(--font-mono); font-size: 12px; color: #6a6d7e; padding: 4px 0 10px; }
+
+    /* 右侧悬浮工具栏 */
+    .r-tools {
+      position: fixed; right: 20px; bottom: 96px; z-index: 30;
+      display: flex; flex-direction: column; gap: 8px;
+      background: rgba(23,25,33,.86); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.1); border-radius: var(--r-pill);
+      padding: 8px;
+    }
+    .r-tools a, .r-tools button {
+      width: 42px; height: 42px; display: grid; place-items: center;
+      border-radius: 50%; color: #c8cad3;
+      transition: all .16s var(--ease);
+      text-decoration: none; cursor: pointer;
+      border: none; background: none;
+    }
+    .r-tools a:hover, .r-tools button:hover { background: var(--brand); color: #fff; }
+    .r-tools a svg, .r-tools button svg { width: 18px; height: 18px; }
+
+    /* 底部阅读进度区 */
+    .r-bottom {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      background: rgba(11,12,17,.86); backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom,0));
+      display: flex; align-items: center; gap: var(--sp-4);
+    }
+    .r-track {
+      flex: 1; height: 6px; background: rgba(255,255,255,.12);
+      border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
+    }
+    .r-fill { height: 100%; width: 0%; background: var(--brand); border-radius: var(--r-pill); transition: width .2s; }
+    .r-count { font-family: var(--font-mono); font-size: 13px; color: #b8bbc9; white-space: nowrap; }
+    .r-jump {
+      background: rgba(255,255,255,.08); color: #e8e9ee;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: var(--r-md); height: 34px; padding: 0 12px;
+      font-size: 13px; font-family: var(--font-mono);
+      cursor: pointer;
+    }
+    .r-jump option { background: #171923; color: #e8e9ee; }
+
+    /* scramble-page 容器 */
+    .center.scramble-page { width: 100%; }
+
+    @media (max-width: 640px) {
+      .r-tools { right: 12px; bottom: 88px; }
+      .reader-title b { max-width: 46vw; }
+    }
+  </style>
+</head>
 <body>
 
-<div class="container">
-    <div id="Comic_Top_Nav">
-    </div>
-    <div class="row">
-        <div style="padding:0">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <div class="pull-left">{{ data.title }}</div>
-                    <div class="clearfix"></div>
-                </div>
-                <div class="panel-body" style="clear: both;">
-                    <div class="row thumb-overlay-albums">
-                        {#
-                            <div class="center scramble-page" id="00019.webp" style="min-height: 1378.02px;">
+<!-- common.js 第32行无条件读取 #Comic_Top_Nav 的 offsetHeight，此占位不可删 -->
+<div id="Comic_Top_Nav" style="display:none"></div>
 
-                                <img src="https://cdn-msp.18comic.org/media/photos/179442/00019.webp"
-                                     data-original="https://cdn-msp.18comic.org/media/photos/179442/00019.webp"
-                                     id="album_photo_00019.webp" class="lazy_img img-responsive-mw lazy-loaded" style=""
-                                     data-page="18">
-                            </div>
-                        #}
-                        {% for image in data.images %}
-                            <div
-                                class="center scramble-page"
-                                 id="page_{{ loop.index0 }}"
-                                 data-page="{{ loop.index0 }}"
-                            >
-                                <img src=""
-                                     data-src="{{ image.data_original }}"
-                                     data-original="{{ image.data_original }}"
-                                     class="lazy_img img-responsive-mw lazy-loaded lazyload"
-                                >
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 顶部悬浮栏 -->
+<div class="reader-top">
+  <a href="/?path={{ data.openFromDir }}" class="r-btn" title="原路返回" id="backBtn"></a>
+  <div class="reader-title">
+    <b>{{ data.title }}</b>
+  </div>
+  <span class="r-progress" id="topProg">-- / --</span>
 </div>
 
-
-<div class="menu-bolock">
-    <ul style="list-style:none;">
-        <li>
-            <a href="javascript:void(0)"><i class="fas fa-sort-down"></i><span>双击隐藏</span></a>
-        </li>
-    </ul>
-    <ul class="menu-bolock-ul" style="list-style:none;">
-        {#        <li>#}
-        {#            <a class="forum-open" href="javascript:;">#}
-        {#                <span>666</span>#}
-        {#                <span>評論</span></a>#}
-        {#        </li>#}
-        {#        <li>#}
-        {#            <a href="javascript:void(0)" id="love_heart_407527"><i class="far fa-thumbs-up"></i><span>喜歡</span></a>#}
-        {#        </li>#}
-        {#        <li>#}
-        {#            <a href="/album_download/407527">#}
-        {#                <i class="fas fa-download"></i>#}
-        {#                <span>下載</span>#}
-        {#            </a>#}
-        {#        </li>#}
-        {#        <li>#}
-        {#            <a id="favorite_album_407527"><i class="fa fa-bookmark"></i><span>收藏</span></a>#}
-        {#        </li>#}
-        {#        <li style="margin-top: 15px;">#}
-        {#            <a href="?read_mode=read-by-page"><i class="fas fa-book"></i><span>分頁閱讀</span></a>#}
-        {#        </li>#}
-        <li style="margin-top: 15px;">
-            <a href="/?path={{ data.openFromDir }}"><i class="fas fa-book"></i><span>原路返回</span></a>
-        </li>
-        <li>
-            <a id="loadAll"><i class="fas fa-download"></i><span>加载全部</span></a>
-        </li>
-        <li>
-            <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}">
-                <i class="far fa-list-alt"></i><span>搜原本</span></a>
-        </li>
-        {#        <li style="margin-bottom: 15px;">#}
-        {#            <a id="gotoRelated" href="javascript:void(0)"><img#}
-        {#                    src="/templates/frontend/airav/img/phicon/u1444.png?v=2024011102"#}
-        {#                    style="margin: auto;width: 24px;display: block;"><span>相關漫畫</span></a>#}
-        {#        </li>#}
-        <li>
-            <a id="gotop" href="javascript:void(0)"><i class="far fa-caret-square-up"></i><span>回到頂端</span></a>
-        </li>
-        <li>
-            <a id="gobottom" href="javascript:void(0)"><i class="far fa-caret-square-up"></i><span>跳到最后</span></a>
-        </li>
-        <div>
-            <!--suppress HtmlFormInputWithoutLabel -->
-            <select id="pageselect">
-                {% for image in data.images %}
-                    <option value="{{ loop.index0 }}">
-                        {{ loop.index }}/{{ loop.length }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-    </ul>
+<!-- 图片流 -->
+<div class="stream" id="stream">
+  {% for image in data.images %}
+  <div class="center scramble-page" id="page_{{ loop.index0 }}" data-page="{{ loop.index0 }}">
+    <img class="lazyload page-img"
+         src=""
+         data-src="{{ image.data_original }}"
+         data-original="{{ image.data_original }}"
+         alt="第 {{ loop.index }} 页">
+    <div class="page-num">— {{ loop.index }} / {{ loop.length }} —</div>
+  </div>
+  {% endfor %}
 </div>
 
+<!-- 右侧悬浮工具栏 -->
+<div class="r-tools">
+  <a id="gotop" href="javascript:void(0)" title="回到顶部"></a>
+  <a id="gobottom" href="javascript:void(0)" title="跳到最后"></a>
+  <button title="全屏阅读" id="tFull"></button>
+  <a id="loadAll" href="javascript:void(0)" title="加载全部"></a>
+  <a href="/?path={{ data.openFromDir }}" title="原路返回"></a>
+  <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" target="_blank" rel="noopener"></a>
+</div>
+
+<!-- 底部进度区 -->
+<div class="r-bottom">
+  <span class="r-count" id="curPage">第 1 页</span>
+  <div class="r-track" id="track"><div class="r-fill" id="fill"></div></div>
+  <select class="r-jump" id="pageselect">
+    {% for image in data.images %}
+    <option value="{{ loop.index0 }}">{{ loop.index }}/{{ loop.length }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<script src="/static/js/app.js?t={{ randomArg }}"></script>
+<script src="/static/js/common.js?t={{ randomArg }}"></script>
+<script>
+  // 填充图标（app.js 的 icon() 可用）
+  document.getElementById('backBtn').innerHTML = icon('folder');
+  document.getElementById('gotop').innerHTML = icon('arrowUp');
+  document.getElementById('gobottom').innerHTML = icon('list');
+  document.getElementById('tFull').innerHTML = icon('fullscreen');
+  document.getElementById('loadAll').innerHTML = icon('upload');
+  // 搜原本图标
+  (function() {
+    var links = document.querySelectorAll('.r-tools a');
+    links.forEach(function(a) {
+      if (a.title === '原路返回' && !a.id) a.innerHTML = icon('folder');
+      if (a.title === '搜原本') a.innerHTML = icon('search');
+    });
+  })();
+
+  // 全屏按钮
+  document.getElementById('tFull').onclick = function() {
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  };
+
+  // 进度条视觉同步：独立监听 scroll，不依赖 common.js 对 pageselect 的赋值
+  // （common.js 用 .value = x 赋值不触发 attribute 变更，MutationObserver 拦不到）
+  var TOTAL = document.querySelectorAll('#pageselect option').length;
+  var fill = document.getElementById('fill');
+  var curPage = document.getElementById('curPage');
+  var topProg = document.getElementById('topProg');
+  var pages = document.querySelectorAll('.scramble-page');
+
+  function updateProgress(idx) {
+    var p = Math.max(0, Math.min(TOTAL - 1, idx));
+    if (fill) fill.style.width = (TOTAL > 1 ? (p / (TOTAL - 1) * 100) : 100).toFixed(0) + '%';
+    if (curPage) curPage.textContent = '第 ' + (p + 1) + ' 页';
+    if (topProg) topProg.textContent = String(p + 1).padStart(2, '0') + ' / ' + TOTAL;
+  }
+
+  // 根据滚动位置计算当前页（与 common.js scroll 监听各自独立，不冲突）
+  function onScroll() {
+    var mid = window.scrollY + window.innerHeight / 2;
+    var best = 0;
+    for (var i = 0; i < pages.length; i++) {
+      var el = pages[i];
+      if (el.offsetTop <= mid) best = i;
+    }
+    updateProgress(best);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // 初始化进度
+  updateProgress(0);
+
+  // 点击进度条跳转（触发 common.js 的 pageselect change 执行实际跳页）
+  var ps = document.getElementById('pageselect');
+  var track = document.getElementById('track');
+  if (track) {
+    track.onclick = function(e) {
+      var r = e.currentTarget.getBoundingClientRect();
+      var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      var targetIdx = Math.round(ratio * (TOTAL - 1));
+      if (ps) {
+        ps.value = targetIdx;
+        ps.dispatchEvent(new Event('change'));
+      }
+    };
+  }
+</script>
 </body>
+</html>

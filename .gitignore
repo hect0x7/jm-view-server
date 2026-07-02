@@ -5,3 +5,4 @@
 /test-dic-root
 /.venv
 /.pytest_cache
+.superpowers/

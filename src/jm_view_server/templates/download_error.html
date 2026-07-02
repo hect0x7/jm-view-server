@@ -1,28 +1,81 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>文件下载错误</title>
-  <link rel="stylesheet" href="../static/css/download_error.css?t={{randomArg}}">
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>文件不存在 · jm-view-server</title>
+<link rel="stylesheet" href="/static/css/app.css?t={{randomArg}}">
+<style>
+  .empty-wrap {
+    min-height: calc(100vh - var(--topbar-h) - var(--sp-6) * 2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: var(--sp-4);
+  }
+  .empty-ico {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+    margin-bottom: var(--sp-1);
+  }
+  .empty-ico svg { width: 40px; height: 40px; }
+  .empty-wrap h1 { font-family: var(--font-brand); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+  .empty-wrap p { color: var(--text-secondary); font-size: 14px; max-width: 420px; line-height: 1.6; }
+  .empty-filename { font-family: var(--font-mono); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); padding: 2px 8px; border-radius: var(--r-sm); font-size: 0.92em; }
+  .empty-actions { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); flex-wrap: wrap; justify-content: center; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .rise { animation: rise .4s var(--ease) both; }
+
+  @media (max-width: 860px) {
+    .empty-wrap { min-height: calc(100vh - var(--topbar-h) - var(--sp-4) * 2 - 84px); }
+  }
+</style>
 </head>
-
 <body>
-  <section class="error-msg">
-    <h1>所访问的"<span> {{filename}} </span>"文件并不存在！请点击<a href="/">链接</a>回到主页！</h1>
-    <h3>或执行操作：</h3>
-    <button>
-      <h4><a href="/logout">注&nbsp;&nbsp;销</a></h4>
-    </button>
-    <button id="upload">
-      <h4><a href="/upload">上 传 文 件</a></h4>
-    </button>
-  </section>
-</body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span style="font-family:var(--font-brand);font-size:15px;font-weight:600;letter-spacing:-0.01em">出错了</span>
+      <div class="spacer"></div>
+    </div>
 
+    <div class="content">
+      <div class="content-narrow">
+        <div class="empty-wrap">
+          <div class="empty-ico rise" id="alertIco" style="animation-delay:0s"></div>
+          <h1 class="rise" style="animation-delay:.05s">文件不存在或已被移除</h1>
+          <p class="rise" style="animation-delay:.05s">
+            你访问的文件 <span class="empty-filename">{{filename}}</span>
+            可能已被删除、重命名，或链接已失效。
+          </p>
+          <div class="empty-actions rise" style="animation-delay:.1s">
+            <a class="btn btn-primary" href="/"><span id="folderIco"></span> 回主页</a>
+            <a class="btn btn-outline" href="/upload_file"><span id="uploadIco"></span> 上传文件</a>
+            <a class="btn btn-ghost" href="/logout"><span id="logoutIco"></span> 注销</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="mobile-bar"></nav>
+</div>
+
+<script src="/static/js/app.js?t={{randomArg}}"></script>
+<script>
+  renderShell('files');
+  document.getElementById('alertIco').innerHTML = icon('alert');
+  document.getElementById('folderIco').innerHTML = icon('folder');
+  document.getElementById('uploadIco').innerHTML = icon('upload');
+  document.getElementById('logoutIco').innerHTML = icon('logout');
+</script>
+</body>
 </html>

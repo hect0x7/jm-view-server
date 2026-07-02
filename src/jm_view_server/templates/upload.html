@@ -1,47 +1,247 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>上传文件</title>
-  <link rel="stylesheet" href="../static/css/upload.css?t={{randomArg}}">
-  <script src="../static/js/upload.js?t={{randomArg}}"></script>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>上传文件 · jm-view-server</title>
+<link rel="stylesheet" href="/static/css/app.css?t={{randomArg}}">
+<style>
+  /* 拖拽上传区 */
+  .dropzone {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-8) var(--sp-5);
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--r-xl);
+    background: var(--bg-elevated);
+    text-align: center; cursor: pointer;
+    transition: border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    transform: scale(1.01);
+    box-shadow: var(--shadow-md);
+  }
+  .dropzone .dz-orb {
+    width: 88px; height: 88px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--brand-soft); color: var(--brand);
+    transition: transform .18s var(--ease);
+  }
+  .dropzone.dragover .dz-orb { transform: translateY(-2px) scale(1.05); }
+  .dropzone .dz-orb svg { width: 48px; height: 48px; }
+  .dropzone .dz-title { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .dropzone .dz-sub { font-size: 14px; color: var(--text-secondary); }
+  .dropzone .dz-sub a { color: var(--brand); font-weight: 500; text-decoration: none; }
+  .dropzone .dz-hint { margin-top: var(--sp-1); font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  /* 已选文件信息 */
+  .up-info-row {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--bg-elevated);
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    margin-top: var(--sp-4);
+  }
+  .up-info-row .up-ico {
+    width: 40px; height: 40px; border-radius: var(--r-md);
+    display: grid; place-items: center; flex-shrink: 0;
+    background: var(--brand-soft); color: var(--brand);
+  }
+  .up-info-row .up-ico svg { width: 20px; height: 20px; }
+  .up-info-row .up-body { flex: 1; min-width: 0; }
+  #fileName { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta-row { display: flex; gap: var(--sp-4); margin-top: var(--sp-1); }
+  #fileSize, #fileType { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  /* 进度条 */
+  .progress-wrap { margin-top: var(--sp-4); }
+  .progress-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+  .progress-label span { font-size: 13px; color: var(--text-secondary); }
+  #progress-value { font-family: var(--font-mono); font-size: 13px; color: var(--brand); font-weight: 600; }
+  .progress-track {
+    position: relative; height: 6px; border-radius: var(--r-pill);
+    background: var(--bg-sunken); overflow: hidden;
+  }
+  /* #mask 从右侧覆盖，随 style.left 缩小，露出左侧品牌色 */
+  #mask {
+    position: absolute; top: 0; right: 0;
+    height: 100%;
+    background: var(--bg-sunken);
+    left: 0%;
+    transition: left .3s var(--ease);
+  }
+  .progress-track::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--brand);
+    border-radius: var(--r-pill);
+  }
+
+  /* 操作按钮行 */
+  .action-row {
+    display: flex; gap: var(--sp-3); margin-top: var(--sp-5);
+    flex-wrap: wrap;
+  }
+  .action-row .btn { flex: 1; min-width: 120px; justify-content: center; }
+
+  /* 上传结果 */
+  #result {
+    margin-top: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+    border-radius: var(--r-md);
+    font-size: 14px; color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* 文件信息展开区 */
+  #info { margin-top: var(--sp-2); }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .rise { animation: rise .4s var(--ease) both; }
+</style>
 </head>
-
 <body>
-  <h1>上传文件</h1>
-  <section class="upload-tablet">
-    <!-- enctype="multipart/form-data" 设置表单的文件以二进制方式上传 就可以上传多种不同的文件 -->
-    <form action="/upload_file" name="upload_form" method="post" enctype="multipart/form-data">
-      <h3>请选择上传的文件：</h3>
-      <a href="javascript:;" class="file">选择文件
-        <input type="file" name="file1" id="file" />
-      </a>
-      <span id="fileName"></span>
-      <br>
-      <div class="progress-bar">
-        上传进度条：
-        <div class="container">
-          <span id="progress-value"></span>
-          <span id="mask"></span>
-          <span id="progress"></span>
-        </div>
-      </div>
-    </form>
-    <button id="displayInfo" onclick="fileSelected()">显示信息</button>
-    <button id="submit" onclick="uploadFile()">上&nbsp;&nbsp;传</button>
-    <div id="info">
-      <div id="fileSize"></div>
-      <div id="fileType"></div>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em">上传文件</span>
+      <div class="spacer"></div>
     </div>
-    <div id="result" style="display: none;"></div>
-    <a class="back" href="javascript:;" onclick="history.back()">点击返回</a>
-  </section>
-</body>
 
+    <div class="content">
+      <div class="content-narrow">
+        <div class="page-head rise">
+          <h1>上传文件</h1>
+          <p>把图片或压缩包拖到下方区域，或点击选择文件</p>
+        </div>
+
+        <!-- 拖拽区（视觉层），点击触发隐藏的 #file input -->
+        <div class="dropzone rise" id="dropzone" style="animation-delay:.04s">
+          <span class="dz-orb" id="dzOrb"></span>
+          <div class="dz-title">拖拽文件到此处</div>
+          <div class="dz-sub">或 <a href="#" onclick="return false">点击浏览</a></div>
+          <div class="dz-hint">支持 jpg / png / webp / zip，单文件 ≤ 200MB</div>
+          <!-- 真正的 file input，upload.js 依赖 id="file" -->
+          <input type="file" name="file1" id="file" style="display:none">
+        </div>
+
+        <!-- 已选文件信息行 -->
+        <div class="up-info-row rise" style="animation-delay:.06s">
+          <span class="up-ico" id="fileIco"></span>
+          <div class="up-body">
+            <div id="fileName" style="color:var(--text-muted)">尚未选择文件</div>
+            <div class="meta-row">
+              <span id="fileSize"></span>
+              <span id="fileType"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="progress-wrap rise" style="animation-delay:.08s">
+          <div class="progress-label">
+            <span>上传进度</span>
+            <span id="progress-value">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="mask"></div>
+          </div>
+        </div>
+
+        <!-- 上传结果 -->
+        <div id="result" style="display:none"></div>
+
+        <!-- 文件信息展开（displayInfo 按钮填充） -->
+        <div id="info"></div>
+
+        <!-- 操作按钮 -->
+        <div class="action-row rise" style="animation-delay:.1s">
+          <button class="btn btn-outline" id="displayInfo" onclick="fileSelected()">
+            <span id="infoIco"></span> 显示信息
+          </button>
+          <button class="btn btn-primary" id="submit" onclick="uploadFile()">
+            <span id="uploadIco"></span> 上&nbsp;&nbsp;传
+          </button>
+          <a class="btn btn-ghost" href="javascript:;" onclick="history.back()">返回</a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <nav class="mobile-bar"></nav>
+</div>
+
+<script src="/static/js/app.js?t={{randomArg}}"></script>
+<script src="/static/js/upload.js?t={{randomArg}}"></script>
+<script>
+  renderShell('upload');
+
+  // 注入图标
+  document.getElementById('dzOrb').innerHTML = icon('upload');
+  document.getElementById('fileIco').innerHTML = icon('images');
+  document.getElementById('infoIco').innerHTML = icon('list');
+  document.getElementById('uploadIco').innerHTML = icon('upload');
+
+  // 拖拽区点击 → 触发隐藏的 #file input
+  const dz = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file');
+  dz.addEventListener('click', function(e) {
+    if (e.target !== fileInput) fileInput.click();
+  });
+
+  // 拖拽视觉反馈
+  ['dragenter', 'dragover'].forEach(function(ev) {
+    dz.addEventListener(ev, function(e) { e.preventDefault(); dz.classList.add('dragover'); });
+  });
+  ['dragleave', 'dragend'].forEach(function(ev) {
+    dz.addEventListener(ev, function(e) { e.preventDefault(); dz.classList.remove('dragover'); });
+  });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    // 将拖入文件赋给 #file input（upload.js 从 #file.files[0] 读取）
+    if (e.dataTransfer.files.length) {
+      var dt = e.dataTransfer;
+      try {
+        // 现代浏览器支持直接赋值 files
+        Object.defineProperty(fileInput, 'files', { value: dt.files, writable: true, configurable: true });
+      } catch(ex) {}
+      // 触发 change 事件让 upload.js 的监听器更新 #fileName
+      var ev2 = new Event('change');
+      fileInput.dispatchEvent(ev2);
+    }
+  });
+
+  // #result 默认隐藏，upload.js 写入时显示
+  // 包装 uploadComplete 让 result div 在有内容时自动显示
+  (function() {
+    var origComplete = window.uploadComplete;
+    // upload.js 内部直接操作 #result，我们在 load 后再 patch
+    window.addEventListener('load', function() {
+      var resultEl = document.getElementById('result');
+      var observer = new MutationObserver(function() {
+        if (resultEl.innerHTML.trim()) {
+          resultEl.style.display = 'block';
+          toast(resultEl.innerText.trim(), 'success');
+        }
+      });
+      observer.observe(resultEl, { childList: true, characterData: true, subtree: true });
+    });
+  })();
+</script>
+</body>
 </html>

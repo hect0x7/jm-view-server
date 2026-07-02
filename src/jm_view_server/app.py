@@ -111,8 +111,16 @@ class JmServer:
 
     def url_format(self, device_isMobile, default_load_url):
         """
-        根据设备类型返回对应的资源 url
+        根据设备类型返回对应的资源 url。
+        已响应式化的页面（PC/移动共用一套模板）无论设备都返回同名模板，
+        不再走 m_ 前缀；其余页面保持按设备切换 m_ 版的旧行为。
         """
+        responsive_pages = {
+            'login.html', 'index.html', 'jm_view.html',
+            'upload.html', 'message.html', 'download_error.html',
+        }
+        if default_load_url in responsive_pages:
+            return default_load_url
         if device_isMobile:
             return './m_' + default_load_url
         else:

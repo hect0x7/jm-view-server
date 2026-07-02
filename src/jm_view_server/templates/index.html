@@ -1,6 +1,6 @@
 <!--suppress HtmlWrongAttributeValue, HtmlUnknownAttribute, HtmlUnknownTarget, HtmlUnknownTag -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 
 <head>
     <meta charset="UTF-8" />
@@ -10,207 +10,737 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>文件浏览器 | 离线看本</title>
-    <!-- Keep existing FontAwesome linkage -->
-    <link rel="stylesheet" href="../static/css/all.min.css">
-    <link rel="stylesheet" href="../static/css/index.css?t={{ randomArg }}">
-    <script src="../static/js/index.js?t={{ randomArg }}"></script>
-    <script src="../static/js/common.js?t={{ randomArg }}"></script>
+    <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+    <script src="/static/js/app.js?t={{ randomArg }}"></script>
+    <script src="/static/js/index.js?t={{ randomArg }}"></script>
+    <script src="/static/js/common.js?t={{ randomArg }}"></script>
+    <style>
+        /* ---- 文件浏览页局部样式 ---- */
+
+        /* 工具行 */
+        .toolrow {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-3);
+            margin-bottom: var(--sp-5);
+            flex-wrap: wrap;
+        }
+
+        /* 驱动器 pills */
+        .drivers-row {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .driver-pill {
+            display: inline-flex;
+            align-items: center;
+            height: 28px;
+            padding: 0 var(--sp-3);
+            background: var(--bg-sunken);
+            border: 1px solid var(--border);
+            border-radius: var(--r-pill);
+            font-size: 12px;
+            font-family: var(--font-mono);
+            color: var(--brand);
+            cursor: pointer;
+            transition: all .14s var(--ease);
+        }
+        .driver-pill:hover {
+            border-color: var(--brand);
+            background: var(--brand-soft);
+        }
+
+        /* 路径导航区 */
+        .path-section {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-3);
+            padding: var(--sp-3) var(--sp-4);
+            background: var(--bg-sunken);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .nav-btns {
+            display: flex;
+            gap: var(--sp-2);
+        }
+
+        /* 列表头 */
+        .file-list-header {
+            display: grid;
+            grid-template-columns: 1fr 110px 160px 80px 90px;
+            align-items: center;
+            gap: var(--sp-3);
+            padding: 0 var(--sp-4);
+            height: 40px;
+            background: var(--bg-sunken);
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .header-col {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            user-select: none;
+            transition: color .14s;
+        }
+        .header-col:hover { color: var(--text); }
+        .header-col.asc .sort-icon::after  { content: ' ↑'; }
+        .header-col.desc .sort-icon::after { content: ' ↓'; }
+
+        /* 文件项 */
+        .file-list-body { display: flex; flex-direction: column; }
+        .file-item {
+            display: grid;
+            grid-template-columns: 1fr 110px 160px 80px 90px;
+            align-items: center;
+            gap: var(--sp-3);
+            padding: 0 var(--sp-4);
+            height: 56px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            transition: background .12s;
+        }
+        .file-item:last-child { border-bottom: none; }
+        .file-item:hover { background: var(--surface-hover); }
+
+        /* 文件名列 */
+        .file-name-col {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-3);
+            min-width: 0;
+        }
+        .file-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            background: var(--brand-soft);
+            color: var(--brand);
+        }
+        .file-icon svg { width: 18px; height: 18px; }
+        .file-link {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .file-link:hover { color: var(--brand); }
+
+        /* 大小 / 日期列 */
+        .size-col, .date-col {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-family: var(--font-mono);
+        }
+        .size-col a { color: inherit; text-decoration: none; }
+        .size-col a:hover { color: var(--brand); }
+
+        /* 操作列 */
+        .file-action-col { display: flex; gap: var(--sp-2); align-items: center; }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 28px;
+            padding: 0 var(--sp-3);
+            background: var(--brand-soft);
+            color: var(--brand);
+            border-radius: var(--r-md);
+            font-size: 12px;
+            font-weight: 500;
+            transition: all .14s var(--ease);
+        }
+        .action-btn:hover { background: var(--brand); color: var(--text-on-brand); }
+        .action-btn svg { width: 14px; height: 14px; }
+
+        /* 预览列 */
+        .preview-col { display: flex; align-items: center; }
+        .preview-img {
+            width: 48px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: var(--r-sm);
+            border: 1px solid var(--border);
+            cursor: zoom-in;
+            transition: all .3s var(--ease);
+        }
+        .preview-img.expanded {
+            position: fixed;
+            z-index: 1000;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: auto;
+            height: auto;
+            max-width: 80vw;
+            max-height: 80vh;
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-lg);
+            cursor: zoom-out;
+        }
+
+        /* 回到顶部 */
+        .back-to-top {
+            position: fixed;
+            right: 24px;
+            bottom: 80px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: var(--brand);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            box-shadow: var(--shadow-md);
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .3s var(--ease);
+            z-index: 100;
+        }
+        .back-to-top.visible { opacity: 1; pointer-events: auto; }
+        .back-to-top svg { width: 18px; height: 18px; }
+
+        /* 书签抽屉 */
+        .bookmarks-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            backdrop-filter: blur(2px);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .3s var(--ease);
+        }
+        .bookmarks-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        .bookmarks-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 340px;
+            max-width: 90vw;
+            background: var(--bg-elevated);
+            border-left: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            z-index: 201;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform .3s var(--ease);
+        }
+        .bookmarks-drawer.open { transform: translateX(0); }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--sp-4) var(--sp-5);
+            border-bottom: 1px solid var(--border);
+        }
+        .drawer-title {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .drawer-title svg { width: 18px; height: 18px; color: var(--warning); }
+        .btn-close {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--r-md);
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+            color: var(--text-muted);
+            transition: background .14s;
+        }
+        .btn-close:hover { background: var(--surface-hover); color: var(--text); }
+
+        .drawer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--sp-4) var(--sp-5);
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+        .bookmark-add-btn {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            width: 100%;
+            height: 38px;
+            padding: 0 var(--sp-4);
+            background: var(--brand);
+            color: var(--text-on-brand);
+            border-radius: var(--r-md);
+            font-size: 14px;
+            font-weight: 500;
+            justify-content: center;
+            transition: background .14s;
+        }
+        .bookmark-add-btn:hover { background: var(--brand-hover); }
+        .bookmark-add-btn svg { width: 16px; height: 16px; }
+
+        .bookmarks-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2);
+        }
+        .bookmark-item {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            background: var(--bg-sunken);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: var(--sp-3) var(--sp-4);
+            transition: border-color .14s;
+        }
+        .bookmark-item:hover { border-color: var(--brand); }
+        .bookmark-link { flex: 1; min-width: 0; }
+        .bookmark-path {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .bookmark-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .bookmark-time svg { width: 11px; height: 11px; }
+        .bookmark-delete {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--r-sm);
+            display: grid;
+            place-items: center;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            transition: all .14s;
+        }
+        .bookmark-delete:hover { background: var(--danger); color: #fff; }
+        .bookmark-delete svg { width: 14px; height: 14px; }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+            padding: var(--sp-6);
+        }
+
+        /* 视图切换段控件 */
+        .segmented {
+            display: inline-flex;
+            background: var(--bg-sunken);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 3px;
+            gap: 2px;
+        }
+        .segmented button {
+            width: 34px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            color: var(--text-muted);
+            transition: all .14s var(--ease);
+        }
+        .segmented button svg { width: 16px; height: 16px; }
+        .segmented button.on {
+            background: var(--bg-elevated);
+            color: var(--brand);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* 网格视图 */
+        .grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: var(--sp-4);
+        }
+        .card-item {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            transition: all .18s var(--ease);
+            cursor: pointer;
+            position: relative;
+        }
+        .card-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
+        .card-cover {
+            aspect-ratio: 3/4;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-sunken);
+            display: grid;
+            place-items: center;
+        }
+        .card-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s var(--ease); }
+        .card-item:hover .card-cover img { transform: scale(1.05); }
+        .card-cover .folder-ico { color: var(--text-muted); }
+        .card-cover .folder-ico svg { width: 46px; height: 46px; }
+        .card-meta { padding: 10px 12px 12px; }
+        .card-meta .name {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .card-meta .info {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            display: flex;
+            gap: 8px;
+        }
+        .card-jmview-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
+
+        /* 列表视图（默认显示，网格视图作为覆盖层） */
+        .list-view {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+        }
+        /* app.list-mode: grid 显示，list 隐藏 */
+        .app.grid-mode .list-view { display: none; }
+        .app.grid-mode .grid-view { display: grid; }
+        .app:not(.grid-mode) .grid-view { display: none; }
+
+        /* 移动端适配 */
+        @media (max-width: 860px) {
+            .file-list-header { display: none; }
+            .file-item {
+                grid-template-columns: 1fr auto auto;
+                height: auto;
+                padding: var(--sp-3) var(--sp-4);
+                gap: var(--sp-2);
+            }
+            .size-col, .date-col { display: none; }
+            .preview-col { display: none; }
+        }
+    </style>
 </head>
 
 <body>
-    <div class="app-container">
+<div class="app" id="app">
+    <!-- 侧栏（由 renderShell 注入） -->
+    <aside class="sidebar"></aside>
 
-        <!-- Header Section -->
-        <header class="header-card">
-            <!-- 局域网 IP 显示组件 -->
-            <div class="lan-ip-bar" onclick="copyServerAddress('http://{{ data.lan_ip }}:{{ data.port }}')" 
-                 style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(99, 102, 241, 0.05); border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding: 8px 12px; font-size: 13px; color: #4f46e5; cursor: pointer; transition: background 0.2s;">
-                <i class="fas fa-network-wired"></i>
-                <span style="font-family: monospace; font-weight: 600;">服务器局域网地址: {{ data.lan_ip }}:{{ data.port }} (点击复制)</span>
+    <!-- 主内容区 -->
+    <div class="main">
+        <!-- 顶栏 -->
+        <div class="topbar">
+            <!-- 面包屑（承载 #currentPathText） -->
+            <nav class="crumbs">
+                <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}')" id="crumbs-home"></a>
+                <span class="sep">/</span>
+                <span class="cur">
+                    <span id="currentPathText" data-path="{{ data.currentPath }}">{{ data.currentPath }}</span>
+                </span>
+            </nav>
+            <div class="spacer"></div>
+            <!-- 可复制地址 pill -->
+            <div class="addr-pill" onclick="copyAddr('http://{{ data.lan_ip }}:{{ data.port }}')" title="点击复制服务器地址">
+                <span class="dot" id="netIco"></span>
+                <span>{{ data.lan_ip }}:{{ data.port }}</span>
+                <span id="copyIco" style="opacity:.5"></span>
             </div>
+        </div>
 
-            <div class="top-bar">
-                <div class="location-info">
-                    <div class="drivers-list">
-                        <span>磁盘驱动器:</span>
-                        {% for driver in data.drivers %}
-                        <a href="javascript:" class="driver-pill" location="{{ driver }}">{{ driver }}</a>
+        <!-- 路径导航栏 -->
+        <div class="path-section">
+            <div class="nav-btns">
+                <button class="btn btn-outline btn-sm" onclick="goBack()" id="btn-back">
+                    <span id="backIco"></span> 上级目录
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="changeDir('{{ data.defaultPath }}')">
+                    <span id="homeIco"></span> 回到原点
+                </button>
+            </div>
+            <!-- 驱动器列表 -->
+            {% if data.drivers %}
+            <div class="drivers-row">
+                <span>驱动器:</span>
+                {% for driver in data.drivers %}
+                <a href="javascript:" class="driver-pill" location="{{ driver }}">{{ driver }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="spacer"></div>
+            <!-- 书签 + 上传 -->
+            <button class="btn btn-outline btn-sm" onclick="toggleBookmarks()">
+                <span id="starIco"></span> 收藏夹
+            </button>
+            <a href="/upload_file" class="btn btn-primary btn-sm">
+                <span id="uploadIco"></span> 上传
+            </a>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="content">
+            <div class="content-narrow">
+                <div class="page-head">
+                    <h1>文件浏览</h1>
+                    <p>浏览本地目录，含图片的文件夹可进入看本模式</p>
+                </div>
+
+                <!-- 工具行：视图切换 -->
+                <div class="toolrow">
+                    <div class="spacer"></div>
+                    <div class="segmented" id="seg">
+                        <button class="on" data-v="list" id="segList" title="列表视图"></button>
+                        <button data-v="grid" id="segGrid" title="网格视图"></button>
+                    </div>
+                </div>
+
+                <!-- 列表视图 -->
+                <div class="list-view">
+                    <!-- 列表头 -->
+                    <div class="file-list-header">
+                        <div class="header-col" onclick="sortTable('name')" data-sort="name">文件名 <span class="sort-icon"></span></div>
+                        <div class="header-col" onclick="sortTable('size')" data-sort="size">大小 <span class="sort-icon"></span></div>
+                        <div class="header-col desc" onclick="sortTable('date')" data-sort="date">修改日期 <span class="sort-icon"></span></div>
+                        <div>操作</div>
+                        <div>预览</div>
+                    </div>
+
+                    <!-- 文件列表体 -->
+                    <div class="file-list-body">
+                        {% for file in data.files %}
+                        <div class="file-item"
+                             data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
+                             type="{{ file.jm_view }}">
+
+                            <!-- 文件名列 -->
+                            <div class="file-name-col {{ file.type }}">
+                                <div class="file-icon" id="fileIcon{{ loop.index }}"></div>
+                                <a href="{{ file.href }}" class="file-link"
+                                   dirname="{{ file.name }}"
+                                   path="{{ file.quoted_path }}">{{ file.name }}</a>
+                            </div>
+
+                            <!-- 大小列 -->
+                            <div class="text-sm size-col">
+                                <a href="javascript:" onclick="openDir('{{ file.quoted_path }}')">{{ file.size }}</a>
+                            </div>
+
+                            <!-- 日期列 -->
+                            <div class="text-sm date-col">{{ file.ctime }}</div>
+
+                            <!-- 操作列 -->
+                            <div class="file-action-col">
+                                {% if file.jm_view %}
+                                <a href="javascript:" class="action-btn"
+                                   onclick="openJmView('{{ file.quoted_path }}', '{{ file.type }}')">
+                                    <span class="eye-ico"></span> 看本
+                                </a>
+                                {% endif %}
+                            </div>
+
+                            <!-- 预览列 -->
+                            <div class="preview-col">
+                                {% if file.first_img_url and file.first_img_url != '' %}
+                                <img src="{{ file.first_img_url.data_original }}"
+                                     class="preview-img"
+                                     loading="lazy"
+                                     alt="preview">
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <div class="nav-actions">
-                    <a href="/message" target="_blank" class="btn btn-outline"
-                        style="color: #6366f1; border-color: #818cf8; margin-right: 5px;">
-                        <i class="fas fa-comment-dots"></i> 消息中心
-                    </a>
-                    <a href="/spa?path={{ data.currentPath }}" class="btn btn-outline"
-                        style="color: #10b981; border-color: #10b981; margin-right: 5px;">
-                        <i class="fas fa-columns"></i> 切换新版(PC)
-                    </a>
-                    <button class="btn btn-outline" id="btn-show-bookmarks" onclick="toggleBookmarks()">
-                        <i class="fas fa-star" style="color: #f59e0b;"></i> 收藏夹
-                    </button>
-                    <a href="/upload_file" class="btn btn-primary">
-                        <i class="fas fa-cloud-upload-alt"></i> 上传文件
-                    </a>
-                    <a href="/logout" class="btn btn-outline">
-                        <i class="fas fa-sign-out-alt"></i> 注销
-                    </a>
-                </div>
-            </div>
-
-            <div class="path-navigation">
-                <div class="current-path">
-                    <i class="fas fa-folder-open"></i>
-                    <span id="currentPathText" data-path="{{ data.currentPath }}" style="white-space: pre-wrap;">{{
-                        data.currentPath }}</span>
-                </div>
-            </div>
-
-            <div class="toolbar">
-                <button class="btn btn-outline" onclick="goBack()" id="btn-back">
-                    <i class="fas fa-arrow-left"></i> 上级目录
-                </button>
-                <button class="btn btn-outline" onclick="changeDir('{{ data.defaultPath }}')">
-                    <i class="fas fa-home"></i> 回到原点
-                </button>
-            </div>
-        </header>
-
-        <!-- Main File List -->
-        <main class="file-manager-card">
-            <!-- List Header (Desktop Only) -->
-            <div class="file-list-header">
-                <div class="header-col" onclick="sortTable('name')" data-sort="name">文件名 <span class="sort-icon"></span>
-                </div>
-                <div class="header-col" onclick="sortTable('size')" data-sort="size">大小 <span class="sort-icon"></span>
-                </div>
-                <div class="header-col desc" onclick="sortTable('date')" data-sort="date">修改日期 <span
-                        class="sort-icon"></span></div>
-                <div>操作</div>
-                <div>预览</div>
-            </div>
-
-            <!-- File List Body -->
-            <div class="file-list-body">
-                {% for file in data.files %}
-                <div class="file-item" data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
-                    type="{{ file.jm_view }}">
-
-                    <!-- File Name Column -->
-                    <div class="file-name-col {{ file.type }}">
-                        <div class="file-icon">
-                            {% if 'dir' in file.type %}
-                            <i class="fas fa-folder"></i>
-                            {% elif file.jm_view %}
-                            <i class="fas fa-book"></i>
+                <!-- 网格视图 -->
+                <div class="grid-view">
+                    {% for file in data.files %}
+                    <div class="card-item file-item rise"
+                         data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
+                         type="{{ file.jm_view }}"
+                         style="animation-delay:{{ loop.index0 * 0.03 }}s">
+                        <div class="card-cover">
+                            {% if file.first_img_url and file.first_img_url != '' %}
+                            <img src="{{ file.first_img_url.data_original }}" alt="" loading="lazy">
                             {% else %}
-                            <i class="fas fa-file"></i>
+                            <span class="folder-ico" id="cardFolderIco{{ loop.index }}"></span>
                             {% endif %}
                         </div>
-                        <!-- IMPORTANT: Retain attributes for JS selectors -->
-                        <a href="{{ file.href }}" class="file-link" dirname="{{ file.name }}"
-                            path="{{ file.quoted_path }}">
-                            <!-- JS handles click via event delegation or direct onclick provided by JS -->
-                            {{ file.name }}
-                        </a>
-                    </div>
-
-                    <!-- Size Column -->
-                    <!-- Size Column -->
-                    <div class="text-sm size-col">
-                        <a href="javascript:" onclick="openDir('{{ file.quoted_path }}')"
-                            style="color: inherit; text-decoration: none;">{{ file.size }}</a>
-                    </div>
-
-                    <!-- Date Column -->
-                    <div class="text-sm date-col">{{ file.ctime }}</div>
-
-                    <!-- Action Column -->
-                    <div class="file-action-col">
+                        <div class="card-meta">
+                            <div class="name">
+                                <!-- 文件名列（排序依赖 .file-name-col innerText） -->
+                                <div class="file-name-col {{ file.type }}" style="display:none">
+                                    <a href="{{ file.href }}" class="file-link"
+                                       dirname="{{ file.name }}"
+                                       path="{{ file.quoted_path }}">{{ file.name }}</a>
+                                </div>
+                                <a href="{{ file.href }}" class="card-name-link"
+                                   onclick="{% if 'dir' in file.type %}event.preventDefault();changeDir(decodeURIComponent('{{ file.quoted_path }}')){% endif %}"
+                                   path="{{ file.quoted_path }}"
+                                   dirname="{{ file.name }}">{{ file.name }}</a>
+                            </div>
+                            <div class="info">
+                                <span class="size-col" style="display:none">{{ file.size }}</span>
+                                <span class="date-col" style="display:none">{{ file.ctime }}</span>
+                                <span>{{ file.size }}</span>
+                                <span>{{ file.ctime }}</span>
+                            </div>
+                        </div>
                         {% if file.jm_view %}
-                        <a href="javascript:" class="action-btn"
-                            onclick="openJmView('{{ file.quoted_path }}', '{{ file.type }}')">
-                            <i class="fas fa-eye"></i> 看本
-                        </a>
+                        <div class="card-jmview-btn">
+                            <a href="javascript:" class="action-btn"
+                               onclick="event.stopPropagation();openJmView('{{ file.quoted_path }}', '{{ file.type }}')">看本</a>
+                        </div>
                         {% endif %}
                     </div>
-
-                    <!-- Preview Column -->
-                    <div class="preview-col">
-                        {% if file.first_img_url and file.first_img_url != '' %}
-                        <img src="{{ file.first_img_url.data_original }}" class="preview-img" loading="lazy"
-                            alt="preview">
-                        {% endif %}
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-        </main>
 
-        <!-- Floating Actions (Mobile/Tablet adaptation) -->
-        <div class="manage-actions">
-            <!-- Items could be added here if needed -->
-        </div>
-
-        <!-- Back to Top -->
-        <div id="to-top" class="back-to-top">
-            <i class="fas fa-arrow-up"></i>
-        </div>
-
-    </div>
-
-    <!-- Bookmarks Drawer -->
-    <div class="bookmarks-backdrop" id="bookmarks-backdrop" onclick="toggleBookmarks()"></div>
-    <div class="bookmarks-drawer" id="bookmarks-drawer">
-        <div class="drawer-header">
-            <h2 class="drawer-title"><i class="fas fa-star" style="color: #f59e0b; margin-right: 0.5rem;"></i> 收藏夹</h2>
-            <button class="btn-close" onclick="toggleBookmarks()">&times;</button>
-        </div>
-        <div class="drawer-content">
-            <button class="bookmark-add-btn" onclick="addCurrentBookmark()">
-                <i class="fas fa-plus"></i> 收藏当前目录
-            </button>
-            <ul class="bookmarks-list" id="bookmarks-list">
-                <!-- Bookmarks will be injected here via JS -->
-            </ul>
-            <div id="bookmarks-empty" class="empty-state" style="display: none;">
-                还没有收藏任何文件夹
             </div>
         </div>
     </div>
 
-    <!-- Hidden Forms for Logic -->
-    <form action="/" method="GET" style="display: none;" id="pathForm">
-        <label>
-            <input type="text" name="path" value>
-        </label>
-        <input type="submit">
-    </form>
+    <!-- 移动底栏（由 renderShell 注入） -->
+    <nav class="mobile-bar"></nav>
+</div>
 
-    <form action="/jm_view" method="GET" style="display: none;" id="jmViewForm">
-        <label>
-            <input name="path" value>
-            <input name="openFromDir" value>
-        </label>
-        <input type="submit">
-    </form>
+<!-- 回到顶部 -->
+<div id="to-top" class="back-to-top"></div>
 
-    <script>
-        function copyServerAddress(text) {
-            const tempInput = document.createElement("input");
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand("copy");
-            document.body.removeChild(tempInput);
-            
-            if (window.createSiteNotification) {
-                window.createSiteNotification({sender: '系统', content: '服务器地址已复制到剪贴板！'});
-            }
+<!-- 书签抽屉 -->
+<div class="bookmarks-backdrop" id="bookmarks-backdrop" onclick="toggleBookmarks()"></div>
+<div class="bookmarks-drawer" id="bookmarks-drawer">
+    <div class="drawer-header">
+        <h2 class="drawer-title">
+            <span id="drawerStarIco"></span> 收藏夹
+        </h2>
+        <button class="btn-close" onclick="toggleBookmarks()">&times;</button>
+    </div>
+    <div class="drawer-content">
+        <button class="bookmark-add-btn" onclick="addCurrentBookmark()">
+            <span id="bookmarkPlusIco"></span> 收藏当前目录
+        </button>
+        <ul class="bookmarks-list" id="bookmarks-list">
+            <!-- 书签由 JS 注入 -->
+        </ul>
+        <div id="bookmarks-empty" class="empty-state" style="display: none;">
+            还没有收藏任何文件夹
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏表单（JS 核心依赖，不可删） -->
+<form action="/" method="GET" style="display: none;" id="pathForm">
+    <label>
+        <input type="text" name="path" value>
+    </label>
+    <input type="submit">
+</form>
+
+<form action="/jm_view" method="GET" style="display: none;" id="jmViewForm">
+    <label>
+        <input name="path" value>
+        <input name="openFromDir" value>
+    </label>
+    <input type="submit">
+</form>
+
+<script>
+    // 注入 App Shell（侧栏 + 移动底栏）
+    renderShell('files');
+
+    // 注入图标（内联 SVG，替代 FontAwesome）
+    document.getElementById('netIco').innerHTML    = icon('network');
+    document.getElementById('copyIco').innerHTML   = icon('copy');
+    document.getElementById('backIco').innerHTML   = icon('up');
+    document.getElementById('homeIco').innerHTML   = icon('folder');
+    document.getElementById('starIco').innerHTML   = icon('star');
+    document.getElementById('uploadIco').innerHTML = icon('upload');
+    document.getElementById('to-top').innerHTML  = icon('arrowUp');
+    document.getElementById('drawerStarIco').innerHTML   = icon('star');
+    document.getElementById('bookmarkPlusIco').innerHTML = icon('check');
+    document.getElementById('crumbs-home').innerHTML     = icon('folder');
+    document.getElementById('segList').innerHTML   = icon('list');
+    document.getElementById('segGrid').innerHTML   = icon('grid');
+
+    // 文件图标（列表视图每行）
+    {% for file in data.files %}
+    (function() {
+        var el = document.getElementById('fileIcon{{ loop.index }}');
+        if (el) {
+            {% if 'dir' in file.type %}
+            el.innerHTML = icon('folder');
+            {% elif file.jm_view %}
+            el.innerHTML = icon('images');
+            {% else %}
+            el.innerHTML = icon('images');
+            {% endif %}
         }
-    </script>
+    })();
+    {% endfor %}
+
+    // 网格视图：文件夹图标
+    {% for file in data.files %}
+    {% if not (file.first_img_url and file.first_img_url != '') %}
+    (function() {
+        var el = document.getElementById('cardFolderIco{{ loop.index }}');
+        if (el) {
+            {% if 'dir' in file.type %}
+            el.innerHTML = icon('folder');
+            {% else %}
+            el.innerHTML = icon('images');
+            {% endif %}
+        }
+    })();
+    {% endif %}
+    {% endfor %}
+
+    // 视图切换（grid / list）
+    document.getElementById('seg').addEventListener('click', function(e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        document.querySelectorAll('#seg button').forEach(function(x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        var app = document.getElementById('app');
+        if (b.dataset.v === 'grid') {
+            app.classList.add('grid-mode');
+        } else {
+            app.classList.remove('grid-mode');
+        }
+    });
+</script>
 </body>
 
 </html>
