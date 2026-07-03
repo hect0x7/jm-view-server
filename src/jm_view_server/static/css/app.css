@@ -99,6 +99,22 @@
   --shadow-brand: 0 4px 16px var(--brand-ring);
 }
 
+/* I-4：深色模式下浮层/下拉与页面底色对比偏弱，统一加强边框 + 外发光描边，
+   让最近浏览、操作菜单、跳页浮窗、移动/外观面板等浮层从背景中清晰浮起。 */
+:root[data-theme="dark"] {
+  --popover-border: #3a4055;
+  --popover-glow: 0 0 0 1px rgba(255,255,255,.06), var(--shadow-lg);
+}
+:root[data-theme="dark"] .more-dropdown,
+:root[data-theme="dark"] .recent-panel,
+:root[data-theme="dark"] .jump-pop,
+:root[data-theme="dark"] .move-card,
+:root[data-theme="dark"] .appearance-modal,
+:root[data-theme="dark"] .bookmarks-drawer {
+  border-color: var(--popover-border);
+  box-shadow: var(--popover-glow);
+}
+
 /* ============================================================
    基础重置
    ============================================================ */
@@ -228,6 +244,10 @@ input, textarea { font-family: inherit; }
 .app.sidebar-collapsed .nav-item { justify-content: center; padding: 9px 0; }
 .app.sidebar-collapsed .theme-toggle { display: none; }
 
+/* 拖拽中低于折叠阈值的“将要折叠”预览：淡化侧栏内容 + 右缘高亮，明确区分未到阈值/已进折叠意图区（I-1） */
+.app.sidebar-precollapse .sidebar > *:not(.sidebar-resizer) { opacity: .35; transition: opacity .12s var(--ease); }
+.app.sidebar-precollapse .sidebar { box-shadow: inset -2px 0 0 var(--brand); }
+
 /* 侧栏 */
 .sidebar {
   position: relative;
@@ -248,16 +268,6 @@ input, textarea { font-family: inherit; }
   background: transparent; transition: background .16s;
 }
 .sidebar-resizer:hover::after, .app.sidebar-dragging .sidebar-resizer::after { background: var(--brand); }
-/* 折叠切换按钮（侧栏底部） */
-.sidebar-collapse-btn {
-  display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  height: 34px; margin-top: var(--sp-2);
-  border-radius: var(--r-md); color: var(--text-muted);
-  cursor: pointer; transition: all .14s var(--ease);
-}
-.sidebar-collapse-btn:hover { background: var(--surface-hover); color: var(--text); }
-.sidebar-collapse-btn svg { width: 18px; height: 18px; transition: transform .26s var(--ease); }
-.app.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
 .sidebar-brand {
   display: flex; align-items: center; gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-2) var(--sp-5);
@@ -293,9 +303,12 @@ input, textarea { font-family: inherit; }
 /* 主区 */
 .main { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .topbar {
-  height: var(--topbar-h); flex-shrink: 0;
+  /* PWA 全屏时让出手机顶部安全区（状态栏/刘海），避免遮挡内容（I-5） */
+  height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  flex-shrink: 0;
   display: flex; align-items: center; gap: var(--sp-3);
-  padding: 0 var(--sp-5);
+  padding-left: var(--sp-5); padding-right: var(--sp-5);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
   backdrop-filter: blur(12px);
@@ -368,3 +381,86 @@ input, textarea { font-family: inherit; }
   .mobile-bar a svg { width: 21px; height: 21px; }
   .mobile-bar a.active { color: var(--brand); }
 }
+
+/* ============================================================
+   自定义外观：背景图 + 遮罩 + 设置面板
+   ============================================================ */
+/* 背景图挂 body：cover/center/fixed；遮罩层用页面底色淡化背景。 */
+body.has-bg {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+#appBgMask {
+  position: fixed; inset: 0; z-index: 0;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s var(--ease);
+}
+/* 背景生效时，让内容浮在遮罩之上 */
+body.has-bg .app { position: relative; z-index: 1; }
+
+/* 设置面板：居中 modal + 遮罩 */
+.appearance-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
+  background: rgba(16, 24, 40, 0.42);
+  backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity .2s var(--ease);
+}
+.appearance-overlay.open { opacity: 1; }
+.appearance-modal {
+  width: min(440px, calc(100vw - 32px));
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(8px) scale(.98);
+  transition: transform .2s var(--ease);
+  overflow: hidden;
+}
+.appearance-overlay.open .appearance-modal { transform: none; }
+.appearance-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4); border-bottom: 1px solid var(--border);
+}
+.appearance-title {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-brand); font-size: 16px; font-weight: 600;
+}
+.appearance-title svg { width: 18px; height: 18px; color: var(--brand); }
+.appearance-close {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: var(--r-sm); color: var(--text-secondary);
+}
+.appearance-close:hover { background: var(--surface-hover); color: var(--text); }
+.appearance-close svg { width: 17px; height: 17px; }
+.appearance-body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-5); }
+.appearance-sec { display: flex; flex-direction: column; gap: var(--sp-3); }
+.appearance-sec-label {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+.appearance-sec-label small { font-weight: 400; color: var(--text-muted); font-family: var(--font-mono); }
+.appearance-swatches { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.appearance-swatch {
+  width: 28px; height: 28px; border-radius: var(--r-pill);
+  border: 2px solid var(--bg-elevated); box-shadow: 0 0 0 1px var(--border);
+  transition: transform .12s var(--ease);
+}
+.appearance-swatch:hover { transform: scale(1.12); }
+.appearance-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.appearance-row .btn svg { width: 15px; height: 15px; margin-right: 4px; }
+.appearance-color-pick {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+}
+.appearance-color-pick input[type="color"] {
+  width: 34px; height: 30px; padding: 0; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: none; cursor: pointer;
+}
+.appearance-range { width: 100%; accent-color: var(--brand); cursor: pointer; }
+.appearance-range:disabled { opacity: .5; cursor: not-allowed; }
+.appearance-hint { font-size: 12px; color: var(--text-muted); }

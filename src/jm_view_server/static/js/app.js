@@ -32,8 +32,24 @@ const ICONS = {
   trash:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>',
   arrowDown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
   download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  more:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+  file:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+  // 图片适配模式图标（四角向内箭头，示意“适配到框内”）
+  fit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M3 15v4a2 2 0 0 0 2 2h4M8 8l3 3M16 8l-3 3M8 16l3-3M16 16l-3-3"/></svg>',
+  // 护眼滤镜图标（灯泡/暖光）
+  eyecare: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.3 1 2.1V16h6v-.4c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z"/></svg>',
+  // 调色板图标（外观设置入口）
+  palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2.5-2.5c0-.6-.2-1.2-.6-1.6-.4-.5-.6-1-.6-1.6a2.5 2.5 0 0 1 2.5-2.5H18a4 4 0 0 0 4-4c0-4.5-4.5-8-10-8z"/></svg>',
 };
 function icon(name) { return ICONS[name] || ''; }
+
+/* 按文件名扩展名判断是否图片，用于选文件图标（图片→images，其它→file）。 */
+var IMAGE_EXTS = ['jpg','jpeg','png','gif','webp','bmp','avif','jfif','tiff','svg'];
+function isImageName(name) {
+  var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+  return !!m && IMAGE_EXTS.indexOf(m[1].toLowerCase()) !== -1;
+}
+window.isImageName = isImageName;
 window.icon = icon;
 
 /* ---------- 主题：初始化 + 切换 + 记忆 ---------- */
@@ -54,6 +70,217 @@ function toggleTheme() {
   });
 }
 window.toggleTheme = toggleTheme;
+
+/* ============================================================
+   自定义外观：主题色 + 背景图 + 背景透明度
+   全部记 localStorage，进入时恢复。applyAppearance() 幂等，
+   在脚本加载时先跑一次（尽早应用，避免闪烁），renderShell 里再跑一次兜底。
+   ============================================================ */
+var APPEARANCE_DEFAULT_BRAND = '#5b5bd6';
+
+/* #rrggbb → {r,g,b}。非法输入返回 null。 */
+function hexToRgb(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  var n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/* 把颜色按比例往黑色靠（factor 0~1，0.14≈稍暗），用于 --brand-hover。 */
+function darken(hex, factor) {
+  var c = hexToRgb(hex); if (!c) return hex;
+  var f = 1 - factor;
+  var to = function (v) { return Math.max(0, Math.min(255, Math.round(v * f))); };
+  return '#' + [to(c.r), to(c.g), to(c.b)].map(function (v) {
+    return ('0' + v.toString(16)).slice(-2);
+  }).join('');
+}
+
+/* 应用主题色：由单一 --brand 派生 hover/soft/ring 一整套变量。 */
+function applyBrand(hex) {
+  var root = document.documentElement;
+  var c = hexToRgb(hex);
+  if (!c) return;
+  root.style.setProperty('--brand', hex);
+  root.style.setProperty('--brand-hover', darken(hex, 0.14));
+  root.style.setProperty('--brand-soft', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.12)');
+  root.style.setProperty('--brand-ring', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.30)');
+}
+
+/* 清除自定义主题色，回落到 CSS 里定义的默认（含深/浅两套）。 */
+function clearBrand() {
+  var root = document.documentElement;
+  ['--brand', '--brand-hover', '--brand-soft', '--brand-ring'].forEach(function (v) {
+    root.style.removeProperty(v);
+  });
+}
+
+/* 保证背景遮罩层存在（body 直挂一个固定定位的淡化层）。 */
+function ensureBgMask() {
+  var mask = document.getElementById('appBgMask');
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = 'appBgMask';
+    document.body.appendChild(mask);
+  }
+  return mask;
+}
+
+/* 应用背景图 url（空则清除）。遮罩层随之显隐。 */
+function applyBgImage(url) {
+  var mask = ensureBgMask();
+  if (url) {
+    document.body.classList.add('has-bg');
+    document.body.style.backgroundImage = "url('" + url + "')";
+  } else {
+    document.body.classList.remove('has-bg');
+    document.body.style.backgroundImage = '';
+    mask.style.opacity = '0';
+  }
+}
+
+/* 应用背景遮罩透明度（0~100，越大背景越淡）。无背景图时无视觉效果。 */
+function applyBgOpacity(pct) {
+  var mask = ensureBgMask();
+  var v = Math.max(0, Math.min(100, parseInt(pct, 10) || 0));
+  mask.style.opacity = document.body.classList.contains('has-bg') ? (v / 100) : '0';
+}
+
+/* 从 localStorage 恢复并应用全部外观偏好。幂等。 */
+function applyAppearance() {
+  try {
+    var brand = localStorage.getItem('jmv-brand');
+    if (brand) applyBrand(brand);
+    var bg = localStorage.getItem('jmv-bg');
+    if (bg) applyBgImage(bg);
+    var op = localStorage.getItem('jmv-bg-opacity');
+    applyBgOpacity(op == null ? 0 : op);
+  } catch (e) {}
+}
+window.applyAppearance = applyAppearance;
+// 尽早应用（body 此时可能还没 ready，用 DOMContentLoaded 兜底）
+if (document.body) applyAppearance();
+else document.addEventListener('DOMContentLoaded', applyAppearance);
+
+/* ---------- 外观设置面板（居中 modal，随深浅主题） ---------- */
+var APPEARANCE_SWATCHES = ['#5b5bd6', '#e5484d', '#f5a623', '#12a150', '#0ea5e9', '#d6409f', '#8b5cf6', '#111827'];
+
+function openAppearance() {
+  var old = document.getElementById('appearanceModal');
+  if (old) old.remove();
+
+  var curBrand = localStorage.getItem('jmv-brand') || APPEARANCE_DEFAULT_BRAND;
+  var curOpacity = localStorage.getItem('jmv-bg-opacity');
+  curOpacity = curOpacity == null ? 0 : parseInt(curOpacity, 10) || 0;
+  var hasBg = !!localStorage.getItem('jmv-bg');
+
+  var overlay = document.createElement('div');
+  overlay.id = 'appearanceModal';
+  overlay.className = 'appearance-overlay';
+  overlay.innerHTML =
+    '<div class="appearance-modal" role="dialog" aria-label="外观设置">' +
+      '<div class="appearance-head">' +
+        '<span class="appearance-title">' + icon('palette') + '外观设置</span>' +
+        '<button class="appearance-close" id="apClose" title="关闭">' + icon('x') + '</button>' +
+      '</div>' +
+      '<div class="appearance-body">' +
+        '<section class="appearance-sec">' +
+          '<div class="appearance-sec-label">主题色</div>' +
+          '<div class="appearance-swatches" id="apSwatches">' +
+            APPEARANCE_SWATCHES.map(function (c) {
+              return '<button class="appearance-swatch" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+            }).join('') +
+          '</div>' +
+          '<div class="appearance-row">' +
+            '<label class="appearance-color-pick">' +
+              '<input type="color" id="apColor" value="' + curBrand + '">' +
+              '<span>自定义取色</span>' +
+            '</label>' +
+            '<button class="btn btn-ghost btn-sm" id="apBrandReset">恢复默认</button>' +
+          '</div>' +
+        '</section>' +
+        '<section class="appearance-sec">' +
+          '<div class="appearance-sec-label">背景图</div>' +
+          '<div class="appearance-row">' +
+            '<button class="btn btn-primary btn-sm" id="apUpload">' + icon('upload') + '上传背景图</button>' +
+            '<button class="btn btn-ghost btn-sm" id="apClearBg">清除背景</button>' +
+          '</div>' +
+          '<input type="file" id="apFile" accept="image/*" hidden>' +
+        '</section>' +
+        '<section class="appearance-sec">' +
+          '<div class="appearance-sec-label">背景淡化 <small id="apOpacityVal">' + curOpacity + '%</small></div>' +
+          '<input type="range" id="apOpacity" class="appearance-range" min="0" max="100" value="' + curOpacity + '"' + (hasBg ? '' : ' disabled') + '>' +
+          '<div class="appearance-hint">越高背景越淡、内容越清晰。无背景图时不可用。</div>' +
+        '</section>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function () { overlay.classList.add('open'); });
+
+  function close() { overlay.classList.remove('open'); setTimeout(function () { overlay.remove(); }, 220); }
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+  overlay.querySelector('#apClose').addEventListener('click', close);
+
+  var colorInput = overlay.querySelector('#apColor');
+  function setBrand(hex) {
+    applyBrand(hex);
+    try { localStorage.setItem('jmv-brand', hex); } catch (e) {}
+    colorInput.value = hex;
+  }
+  overlay.querySelector('#apSwatches').addEventListener('click', function (e) {
+    var btn = e.target.closest('.appearance-swatch');
+    if (btn) setBrand(btn.getAttribute('data-color'));
+  });
+  colorInput.addEventListener('input', function () { setBrand(colorInput.value); });
+  overlay.querySelector('#apBrandReset').addEventListener('click', function () {
+    clearBrand();
+    try { localStorage.removeItem('jmv-brand'); } catch (e) {}
+    colorInput.value = APPEARANCE_DEFAULT_BRAND;
+    toast('已恢复默认主题色', 'success');
+  });
+
+  var opacity = overlay.querySelector('#apOpacity');
+  var opacityVal = overlay.querySelector('#apOpacityVal');
+  opacity.addEventListener('input', function () {
+    opacityVal.textContent = opacity.value + '%';
+    applyBgOpacity(opacity.value);
+    try { localStorage.setItem('jmv-bg-opacity', opacity.value); } catch (e) {}
+  });
+
+  var fileInput = overlay.querySelector('#apFile');
+  overlay.querySelector('#apUpload').addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    var fd = new FormData();
+    fd.append('file', f);
+    fetch('/api/upload_bg', { method: 'POST', body: fd })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (res.ok && res.j && res.j.status === 'ok' && res.j.url) {
+          var url = res.j.url;
+          applyBgImage(url);
+          try { localStorage.setItem('jmv-bg', url); } catch (e) {}
+          opacity.disabled = false;
+          applyBgOpacity(opacity.value);
+          toast('背景图已更新', 'success');
+        } else {
+          toast('上传失败：请选图片文件', 'error');
+        }
+      })
+      .catch(function () { toast('上传失败', 'error'); })
+      .finally(function () { fileInput.value = ''; });
+  });
+
+  overlay.querySelector('#apClearBg').addEventListener('click', function () {
+    fetch('/api/background/clear', { method: 'POST' }).catch(function () {});
+    applyBgImage('');
+    try { localStorage.removeItem('jmv-bg'); } catch (e) {}
+    opacity.disabled = true;
+    toast('已清除背景图', 'success');
+  });
+}
+window.openAppearance = openAppearance;
 
 /* ---------- Toast 通知（统一，取代旧版各页自制 alert/notification） ---------- */
 function toast(msg, type = 'default') {
@@ -108,10 +335,10 @@ function renderShell(active) {
           <span style="font-size:13px;color:var(--text-secondary)">深色模式</span>
           <div class="theme-toggle" onclick="toggleTheme()"><span class="knob"></span></div>
         </div>
+        <button class="nav-item" id="appearanceEntry" onclick="openAppearance()" style="width:100%;text-align:left">${icon('palette')}<span>外观设置</span></button>
         <a href="/logout" class="nav-item">${icon('logout')}<span>退出登录</span></a>
-        <div class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="折叠/展开侧栏">${chevronLeft()}<span>折叠</span></div>
       </div>
-      <div class="sidebar-resizer" id="sidebarResizer"></div>`;
+      <div class="sidebar-resizer" id="sidebarResizer" title="拖拽调整宽度，拖到最窄自动折叠"></div>`;
   }
   initSidebarResize();
   const mbar = document.querySelector('.mobile-bar');
@@ -122,23 +349,23 @@ function renderShell(active) {
   document.querySelectorAll('.theme-toggle .knob').forEach(k => {
     k.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? icon('moon') : icon('sun');
   });
+  // 外观偏好兜底应用（背景遮罩层挂到 body，需在 body ready 后）
+  applyAppearance();
 }
 window.renderShell = renderShell;
 
-function chevronLeft() {
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
-}
-
-/* 侧栏可拖拽改宽度 + 拖到阈值自动折叠 + 折叠按钮切换，状态记忆到 localStorage */
+/* 侧栏拖拽改宽度：拖动时平滑跟随鼠标（含折叠态往右拖也能顺滑展开），
+   只在“松手时”判定——最终宽度小于阈值才锁进折叠，否则保持该宽度。
+   状态记忆到 localStorage。 */
 function initSidebarResize() {
   var app = document.querySelector('.app');
   var resizer = document.getElementById('sidebarResizer');
-  var collapseBtn = document.getElementById('sidebarCollapseBtn');
   if (!app || !resizer) return;
 
   var MIN = 180;          // 最小展开宽度
   var MAX = 420;          // 最大宽度
-  var COLLAPSE_AT = 120;  // 拖到此阈值以下自动折叠
+  var COLLAPSE_AT = 120;  // 松手时宽度低于此值 → 锁进折叠
+  var COLLAPSED_W = 64;   // 折叠态视觉宽度（与 CSS 的 --sidebar-w 折叠值一致）
 
   // 恢复记忆的状态
   try {
@@ -155,46 +382,55 @@ function initSidebarResize() {
     try { localStorage.setItem('jmv-sidebar-collapsed', on ? '1' : '0'); } catch (e) {}
   }
 
-  if (collapseBtn) {
-    collapseBtn.addEventListener('click', function () {
-      setCollapsed(!app.classList.contains('sidebar-collapsed'));
-    });
-  }
-
   var dragging = false;
+  var lastW = MIN;    // 拖动过程中记录的实时宽度
+  var grabDX = 0;     // 按下点与侧栏右边缘的水平偏差，用于消抖（I-2）
+
   resizer.addEventListener('mousedown', function (e) {
-    // 折叠态下先展开再拖
-    if (app.classList.contains('sidebar-collapsed')) setCollapsed(false);
     dragging = true;
-    app.classList.add('sidebar-dragging');
+    // 记录按下时鼠标 x 与侧栏当前右边缘的差值：拖动时用 (clientX - grabDX) 作为宽度，
+    // 消除 resizer 有宽度/-6px 偏移导致的“起手跳一下”抖动（I-2）。
+    var rect = app.querySelector('.sidebar').getBoundingClientRect();
+    grabDX = e.clientX - rect.right;
+    // 拖动期间脱离折叠 class，让宽度完全跟随鼠标（不受折叠布局限制），松手再定夺
+    app.classList.remove('sidebar-collapsed');
+    app.classList.add('sidebar-dragging');   // CSS 里 dragging 态关闭 --sidebar-w 过渡，避免拖动延迟
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
     e.preventDefault();
   });
+
   window.addEventListener('mousemove', function (e) {
     if (!dragging) return;
-    var w = e.clientX;
-    if (w < COLLAPSE_AT) {
-      // 拖得太窄 → 折叠
-      setCollapsed(true);
-      app.style.removeProperty('--sidebar-w');
-      dragging = false;
-      app.classList.remove('sidebar-dragging');
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      return;
-    }
-    w = Math.max(MIN, Math.min(MAX, w));
+    // 平滑跟随（已补偿按下偏差）。允许缩到 COLLAPSED_W 让视觉连续，折叠判定留到松手。
+    var w = Math.max(COLLAPSED_W, Math.min(MAX, e.clientX - grabDX));
+    lastW = w;
     app.style.setProperty('--sidebar-w', w + 'px');
+    // I-1：拖动中一旦低于折叠阈值，给个“将要折叠”的预览提示（不锁定，松手才定），
+    // 用 class 让 CSS 淡化文字，明确区分“还没到阈值”与“已进入折叠意图区”。
+    app.classList.toggle('sidebar-precollapse', w < COLLAPSE_AT);
   });
+
   window.addEventListener('mouseup', function () {
     if (!dragging) return;
     dragging = false;
-    app.classList.remove('sidebar-dragging');
+    app.classList.remove('sidebar-precollapse');
     document.body.style.userSelect = '';
     document.body.style.cursor = '';
-    var cur = getComputedStyle(app).getPropertyValue('--sidebar-w').trim();
-    try { if (cur) localStorage.setItem('jmv-sidebar-w', parseInt(cur, 10)); } catch (e) {}
+
+    if (lastW < COLLAPSE_AT) {
+      // 松手时太窄 → 锁进折叠。先移除内联宽度再交回过渡，让 64px 折叠布局平滑落位（I-2）。
+      app.style.removeProperty('--sidebar-w');
+      app.classList.remove('sidebar-dragging');
+      setCollapsed(true);
+    } else {
+      // 保持展开，夹到 [MIN, MAX] 并记忆
+      var w = Math.max(MIN, Math.min(MAX, lastW));
+      app.style.setProperty('--sidebar-w', w + 'px');
+      app.classList.remove('sidebar-dragging');
+      setCollapsed(false);
+      try { localStorage.setItem('jmv-sidebar-w', w); } catch (e) {}
+    }
   });
 }
 window.initSidebarResize = initSidebarResize;

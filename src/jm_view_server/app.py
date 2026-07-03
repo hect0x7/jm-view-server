@@ -215,6 +215,54 @@ class JmServer:
            
         return self.open_directory(path) or jsonify({'status': 'ok'})
 
+    # ===== 安全护栏（写操作复用） =====
+
+    def _guard_dangerous_path(self, path):
+        """
+        写操作（删除/重命名/移动/新建）通用安全护栏。
+        返回规范化后的绝对路径；若命中危险规则则返回 (None, (错误消息, 状态码))。
+        护栏：禁盘符根、禁默认共享根本身、禁 Windows 关键系统目录。
+        """
+        path_abs = os.path.realpath(os.path.abspath(path))
+        path_norm = os.path.normcase(path_abs)
+
+        # 1. 绝对禁止操作盘符根目录（如 C:\, D:\, 或 unix 根 /），防止毁灭整盘数据
+        drive, tail = os.path.splitdrive(path_abs)
+        if not tail or tail.strip(r'\/') == '':
+            return None, ('Permission denied: Cannot operate on drive root directory.', 403)
+
+        # 2. 禁止操作默认共享根目录本身
+        default_root_norm = os.path.normcase(os.path.realpath(os.path.abspath(self.file_manager.default_path)))
+        if path_norm == default_root_norm:
+            return None, ('Permission denied: Cannot operate on default shared root folder.', 403)
+
+        # 3. 绝对防线，严禁触碰任何 Windows 关键系统盘敏感目录
+        system_roots = [
+            os.path.normcase(r'C:\Windows'),
+            os.path.normcase(r'C:\Program Files'),
+            os.path.normcase(r'C:\Program Files (x86)'),
+            os.path.normcase(r'C:\Users'),
+        ]
+        if any(path_norm.startswith(sys_root) for sys_root in system_roots):
+            return None, ('Permission denied: Cannot operate on critical system directories.', 403)
+
+        return path_abs, None
+
+    def _within_root(self, path_abs):
+        """校验规范化后的绝对路径仍在默认共享根之内（防 .. 穿越到根外）。"""
+        root = os.path.realpath(os.path.abspath(self.file_manager.default_path))
+        target = os.path.realpath(path_abs)
+        return target == root or target.startswith(root + os.sep)
+
+    @staticmethod
+    def _valid_name(name):
+        """校验文件名/文件夹名：非空、不含路径分隔符、不是 . / .."""
+        if not name or name in ('.', '..'):
+            return False
+        if '/' in name or '\\' in name:
+            return False
+        return True
+
     def api_delete_path(self):
         """
         [New] API: Delete file or folder securely
@@ -226,28 +274,12 @@ class JmServer:
         if not path:
             return jsonify({'error': 'Path required'}), 400
 
-        path_abs = os.path.abspath(path)
-        path_norm = os.path.normcase(path_abs)
+        path_abs, err = self._guard_dangerous_path(path)
+        if err:
+            return jsonify({'error': err[0]}), err[1]
 
-        # 1. 安全防御：绝对禁止删除盘符根目录（如 C:\, D:\ 等），防止毁灭整盘数据
-        drive, tail = os.path.splitdrive(path_abs)
-        if not tail or tail.strip(r'\/') == '':
-            return jsonify({'error': 'Permission denied: Cannot delete drive root directory.'}), 403
-
-        # 2. 安全防御：禁止删除默认共享根目录本身
-        default_root_norm = os.path.normcase(os.path.abspath(self.file_manager.default_path))
-        if path_norm == default_root_norm:
-            return jsonify({'error': 'Permission denied: Cannot delete default shared root folder.'}), 403
-
-        # 3. 安全防御：绝对防线，严禁触碰任何 Windows 关键系统盘敏感目录
-        system_roots = [
-            os.path.normcase(r'C:\Windows'),
-            os.path.normcase(r'C:\Program Files'),
-            os.path.normcase(r'C:\Program Files (x86)'),
-            os.path.normcase(r'C:\Users'),
-        ]
-        if any(path_norm.startswith(sys_root) for sys_root in system_roots):
-            return jsonify({'error': 'Permission denied: Cannot delete critical system directories.'}), 403
+        if not self._within_root(path_abs):
+            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
 
         if not os.path.exists(path_abs):
             return jsonify({'error': 'Path not found'}), 404
@@ -261,6 +293,229 @@ class JmServer:
             return jsonify({'status': 'ok'})
         except Exception as e:
             return jsonify({'error': f'Delete failed: {e}'}), 500
+
+    # ===== 打包下载 / 文件管理 / 批量操作 =====
+
+    # 打包下载阈值：累计图片小于此值走内存 BytesIO，否则写临时文件。
+    # 做成类常量便于测试临时调低以覆盖“大目录走临时文件”分支。
+    ZIP_MEMORY_THRESHOLD = 200 * 1024 * 1024  # 200MB
+
+    def api_download_zip(self):
+        """
+        [New] API: 把目录下的图片打包成 zip 流式下载。
+        小目录（<ZIP_MEMORY_THRESHOLD）内存打包，大目录写临时文件后 send_file 并在响应后清理。
+        """
+        if not self.verify():
+            return abort(403)
+
+        path = request.args.get('path', None)
+        if not path:
+            return jsonify({'error': 'Path required'}), 400
+
+        path_abs = os.path.realpath(os.path.abspath(path))
+        if not self._within_root(path_abs):
+            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
+        if common.file_not_exists(path_abs) or not os.path.isdir(path_abs):
+            return jsonify({'error': 'Directory not found'}), 404
+
+        # 收集目录下的图片文件（仅当前层，与看本一致）
+        images = []
+        total = 0
+        for f in self.file_manager.files_of_dir_safe(path_abs):
+            if not self.file_manager.is_image_file(f):
+                continue
+            try:
+                total += os.path.getsize(f)
+            except OSError:
+                continue
+            images.append(f)
+
+        if not images:
+            return jsonify({'error': 'No image files in directory'}), 404
+
+        import zipfile
+        zip_name = common.of_file_name(path_abs) + '.zip'
+
+        # I-6：逐个写入并跳过读不了的文件（权限/损坏），避免单个坏文件让整个打包 500。
+        def _write_images(zf):
+            added = 0
+            for f in images:
+                try:
+                    zf.write(f, arcname=common.of_file_name(f))
+                    added += 1
+                except (OSError, PermissionError):
+                    continue
+            return added
+
+        if total < self.ZIP_MEMORY_THRESHOLD:
+            # 小目录：内存打包
+            import io
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+                added = _write_images(zf)
+            if not added:
+                return jsonify({'error': '没有可读取的图片（可能无权限或文件损坏）'}), 422
+            buf.seek(0)
+            return Response(
+                buf.getvalue(),
+                mimetype='application/zip',
+                headers={'Content-Disposition': f'attachment; filename="{quote(zip_name)}"'},
+            )
+
+        # 大目录：写系统临时文件，send_file 后清理
+        import tempfile
+        from flask import send_file, after_this_request
+        fd, tmp_path = tempfile.mkstemp(suffix='.zip')
+        os.close(fd)
+        with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            added = _write_images(zf)
+        if not added:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            return jsonify({'error': '没有可读取的图片（可能无权限或文件损坏）'}), 422
+
+        @after_this_request
+        def _cleanup(response):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            return response
+
+        return send_file(tmp_path, mimetype='application/zip',
+                         as_attachment=True, download_name=zip_name)
+
+    def api_rename(self):
+        """[New] API: 同目录重命名。body: path, new_name"""
+        if not self.verify():
+            return abort(403)
+
+        path = request.values.get('path', None)
+        new_name = request.values.get('new_name', None)
+        if not path or new_name is None:
+            return jsonify({'error': 'path and new_name required'}), 400
+        if not self._valid_name(new_name):
+            return jsonify({'error': 'Invalid new_name'}), 400
+
+        path_abs, err = self._guard_dangerous_path(path)
+        if err:
+            return jsonify({'error': err[0]}), err[1]
+        if not self._within_root(path_abs):
+            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
+        if not os.path.exists(path_abs):
+            return jsonify({'error': 'Path not found'}), 404
+
+        dst = os.path.join(os.path.dirname(path_abs), new_name)
+        if os.path.exists(dst):
+            return jsonify({'error': 'Target name already exists'}), 409
+        try:
+            os.rename(path_abs, dst)
+            return jsonify({'status': 'ok', 'path': dst})
+        except Exception as e:
+            return jsonify({'error': f'Rename failed: {e}'}), 500
+
+    def api_mkdir(self):
+        """[New] API: 新建文件夹。body: parent, name"""
+        if not self.verify():
+            return abort(403)
+
+        parent = request.values.get('parent', None)
+        name = request.values.get('name', None)
+        if not parent or name is None:
+            return jsonify({'error': 'parent and name required'}), 400
+        if not self._valid_name(name):
+            return jsonify({'error': 'Invalid name'}), 400
+
+        parent_abs = os.path.realpath(os.path.abspath(parent))
+        if not self._within_root(parent_abs):
+            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
+        if not os.path.isdir(parent_abs):
+            return jsonify({'error': 'Parent directory not found'}), 404
+
+        target = os.path.join(parent_abs, name)
+        if os.path.exists(target):
+            return jsonify({'error': 'Directory already exists'}), 409
+        try:
+            os.makedirs(target)
+            return jsonify({'status': 'ok', 'path': target})
+        except Exception as e:
+            return jsonify({'error': f'Mkdir failed: {e}'}), 500
+
+    def api_move(self):
+        """[New] API: 移动到目标目录。body: src, dst_dir"""
+        if not self.verify():
+            return abort(403)
+
+        src = request.values.get('src', None)
+        dst_dir = request.values.get('dst_dir', None)
+        if not src or not dst_dir:
+            return jsonify({'error': 'src and dst_dir required'}), 400
+
+        src_abs, err = self._guard_dangerous_path(src)
+        if err:
+            return jsonify({'error': err[0]}), err[1]
+        dst_dir_abs = os.path.realpath(os.path.abspath(dst_dir))
+        if not self._within_root(src_abs) or not self._within_root(dst_dir_abs):
+            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
+        if not os.path.exists(src_abs):
+            return jsonify({'error': 'Source not found'}), 404
+        if not os.path.isdir(dst_dir_abs):
+            return jsonify({'error': 'Target directory not found'}), 404
+
+        try:
+            import shutil
+            shutil.move(src_abs, dst_dir_abs)
+            return jsonify({'status': 'ok',
+                            'path': os.path.join(dst_dir_abs, os.path.basename(src_abs))})
+        except Exception as e:
+            return jsonify({'error': f'Move failed: {e}'}), 500
+
+    def api_batch_delete(self):
+        """[New] API: 批量删除。body: paths（换行分隔或 JSON 数组）。逐个安全删除，返回成功/失败清单。"""
+        if not self.verify():
+            return abort(403)
+
+        raw = request.values.get('paths', None)
+        if not raw:
+            return jsonify({'error': 'paths required'}), 400
+
+        # 兼容 JSON 数组或换行分隔的多路径
+        paths = None
+        try:
+            import json
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                paths = [str(p) for p in parsed]
+        except (ValueError, TypeError):
+            pass
+        if paths is None:
+            paths = [line.strip() for line in raw.splitlines() if line.strip()]
+
+        succeeded, failed = [], []
+        for p in paths:
+            path_abs, err = self._guard_dangerous_path(p)
+            if err:
+                failed.append({'path': p, 'error': err[0]})
+                continue
+            if not self._within_root(path_abs):
+                failed.append({'path': p, 'error': 'Path escapes shared root.'})
+                continue
+            if not os.path.exists(path_abs):
+                failed.append({'path': p, 'error': 'Path not found'})
+                continue
+            try:
+                if os.path.isdir(path_abs):
+                    import shutil
+                    shutil.rmtree(path_abs)
+                else:
+                    os.remove(path_abs)
+                succeeded.append(p)
+            except Exception as e:
+                failed.append({'path': p, 'error': str(e)})
+
+        return jsonify({'status': 'ok', 'succeeded': succeeded, 'failed': failed})
 
     def jm_view(self):
         """
@@ -326,9 +581,13 @@ class JmServer:
         path = os.path.abspath(path)
         path = common.fix_filepath(path)
 
-        # 文件不存在
+        # I-8：路径不存在（含手动输入越权/不存在目录）时，渲染友好错误页而非浏览器默认 404/持续 loading。
+        #      注意：本项目设计上允许自由浏览文件系统（驱动器/盘符），故不在此加“越权”硬拦截，
+        #      仅把“打不开的路径”统一导向友好空态页。
         if common.file_not_exists(path):
-            return abort(404)
+            return render_template(
+                self.url_format(self.mobile_check(), "download_error.html"),
+                filename=path, randomArg=self.url_random_arg()), 404
 
         return render_template(self.url_format(self.mobile_check(), "index.html"),
                                data={
@@ -483,17 +742,48 @@ class JmServer:
         if not sys.platform.startswith('win') and not directory.startswith('/'):
             directory = '/' + directory
         path = os.path.abspath(directory)
-        if sys.platform == 'darwin':
-            # macOS：在访达中打开并选中
-            subprocess.Popen(['open', '-R', path])
-        elif sys.platform.startswith('win'):
-            # Windows：在资源管理器中打开并选中
-            subprocess.Popen(f'explorer /select,"{path}"')
-        else:
-            # Linux/其它：用默认文件管理器打开所在目录
-            target = path if os.path.isdir(path) else os.path.dirname(path)
-            subprocess.Popen(['xdg-open', target])
-        return ''
+        # I-7：路径不存在（如已被删/移动）时给出明确错误，前端可提示而非静默失败
+        if not os.path.exists(path):
+            return jsonify({'error': '目标不存在，可能已被移动或删除'}), 404
+        # I-10：reveal=1（默认）在父目录中“选中”该项（适合列表里定位单个文件/文件夹）；
+        #       reveal=0 直接“进入/打开”该目录本身（适合顶部“打开当前文件夹”按钮）。
+        reveal = request.args.get('reveal', '1') != '0'
+        is_dir = os.path.isdir(path)
+        try:
+            if sys.platform == 'darwin':
+                if reveal or not is_dir:
+                    subprocess.Popen(['open', '-R', path])   # 在访达中选中
+                else:
+                    subprocess.Popen(['open', path])          # 直接进入该目录
+            elif sys.platform.startswith('win'):
+                if reveal or not is_dir:
+                    subprocess.Popen(f'explorer /select,"{path}"')  # 选中
+                else:
+                    subprocess.Popen(['explorer', path])            # 直接进入
+            else:
+                # Linux/其它：直接用默认文件管理器打开目录（无“选中”语义时打开所在目录）
+                target = path if is_dir else os.path.dirname(path)
+                subprocess.Popen(['xdg-open', target])
+        except Exception as e:
+            return jsonify({'error': f'无法打开文件管理器：{e}'}), 500
+        return jsonify({'status': 'ok'})
+
+    # ===== PWA 支持 =====
+
+    def pwa_service_worker(self):
+        """从根路径提供 service worker，使其作用域可覆盖整站（/）。"""
+        static_dir = os.path.join(os.path.dirname(__file__), 'static')
+        resp = send_from_directory(static_dir, 'sw.js', mimetype='text/javascript')
+        # 允许 sw 控制根作用域（默认作用域受脚本所在路径限制）
+        resp.headers['Service-Worker-Allowed'] = '/'
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+
+    def pwa_manifest(self):
+        """从根路径提供 manifest（start_url=/，作用域根），方便安装到主屏。"""
+        static_dir = os.path.join(os.path.dirname(__file__), 'static')
+        return send_from_directory(static_dir, 'manifest.webmanifest',
+                                   mimetype='application/manifest+json')
 
     # ===== 消息功能 =====
 
@@ -549,6 +839,85 @@ class JmServer:
         else:
             return jsonify({'error': '发送失败'}), 400
 
+    # ===== 自定义背景图 =====
+
+    # 允许的背景图扩展名（小写，不含点）
+    BG_ALLOWED_EXT = ('jpg', 'jpeg', 'png', 'gif', 'webp')
+    # 背景图大小上限（20MB）
+    BG_MAX_SIZE = 20 * 1024 * 1024
+
+    def _bg_dir(self):
+        """背景图持久化目录：~/.jm_view_server（不存在则创建）。"""
+        d = os.path.join(os.path.expanduser('~'), '.jm_view_server')
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def _find_bg_file(self):
+        """返回当前背景图文件的绝对路径；不存在返回 None。"""
+        import glob
+        matches = glob.glob(os.path.join(self._bg_dir(), 'background.*'))
+        return matches[0] if matches else None
+
+    def api_upload_bg(self):
+        """[New] API: 上传自定义背景图。multipart/form-data，字段名 file。"""
+        if not self.verify():
+            return abort(403)
+
+        upload_file = request.files.get('file')
+        if upload_file is None or not upload_file.filename:
+            return jsonify({'error': 'file required'}), 400
+
+        ext = upload_file.filename.rsplit('.', 1)[-1].lower() if '.' in upload_file.filename else ''
+        if ext not in self.BG_ALLOWED_EXT:
+            return jsonify({'error': 'Only image files (jpg/jpeg/png/gif/webp) are allowed'}), 400
+
+        # 校验大小（读到内存再落盘，便于精确控制上限）
+        data = upload_file.read()
+        if len(data) > self.BG_MAX_SIZE:
+            return jsonify({'error': 'File too large (max 20MB)'}), 400
+        if not data:
+            return jsonify({'error': 'Empty file'}), 400
+
+        # 先删除旧背景图，避免多扩展名残留
+        old = self._find_bg_file()
+        if old:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+
+        # 文件名固定，防止路径穿越
+        dst = os.path.join(self._bg_dir(), f'background.{ext}')
+        try:
+            with open(dst, 'wb') as f:
+                f.write(data)
+        except OSError as e:
+            return jsonify({'error': f'Save failed: {e}'}), 500
+
+        mtime = int(os.path.getmtime(dst))
+        return jsonify({'status': 'ok', 'url': f'/api/background?t={mtime}'})
+
+    def api_background(self):
+        """[New] API: 返回当前背景图文件；不存在返回 404。"""
+        bg = self._find_bg_file()
+        if not bg:
+            return abort(404)
+        from flask import send_file
+        return send_file(bg)
+
+    def api_background_clear(self):
+        """[New] API: 删除背景图，恢复无背景。"""
+        if not self.verify():
+            return abort(403)
+
+        bg = self._find_bg_file()
+        if bg:
+            try:
+                os.remove(bg)
+            except OSError as e:
+                return jsonify({'error': f'Clear failed: {e}'}), 500
+        return jsonify({'status': 'ok'})
+
     def register_routes(self):
         # 添加路由
         self.app.add_url_rule('/jm_view', 'jm_view', self.jm_view, methods=['GET'])
@@ -567,6 +936,21 @@ class JmServer:
         self.app.add_url_rule("/api/album_images", 'api_album_images', self.api_album_images, methods=['GET'])
         self.app.add_url_rule("/api/open_file", 'api_open_file', self.api_open_file, methods=['GET'])
         self.app.add_url_rule("/api/delete", 'api_delete_path', self.api_delete_path, methods=['GET', 'POST'])
+        self.app.add_url_rule("/api/download_zip", 'api_download_zip', self.api_download_zip, methods=['GET'])
+        self.app.add_url_rule("/api/rename", 'api_rename', self.api_rename, methods=['POST'])
+        self.app.add_url_rule("/api/mkdir", 'api_mkdir', self.api_mkdir, methods=['POST'])
+        self.app.add_url_rule("/api/move", 'api_move', self.api_move, methods=['POST'])
+        self.app.add_url_rule("/api/batch_delete", 'api_batch_delete', self.api_batch_delete, methods=['POST'])
+
+        # PWA：从根路径提供 sw / manifest（控制整站作用域）
+        self.app.add_url_rule('/sw.js', 'pwa_service_worker', self.pwa_service_worker, methods=['GET'])
+        self.app.add_url_rule('/manifest.webmanifest', 'pwa_manifest', self.pwa_manifest, methods=['GET'])
+
+        # 自定义背景图路由
+        self.app.add_url_rule("/api/upload_bg", 'api_upload_bg', self.api_upload_bg, methods=['POST'])
+        self.app.add_url_rule("/api/background", 'api_background', self.api_background, methods=['GET'])
+        self.app.add_url_rule("/api/background/clear", 'api_background_clear', self.api_background_clear,
+                              methods=['POST', 'DELETE'])
 
         # 消息功能路由
         self.app.add_url_rule("/message", 'message_page', self.message_page, methods=['GET'])

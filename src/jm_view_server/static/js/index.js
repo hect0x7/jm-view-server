@@ -69,15 +69,24 @@ function sortTable(col) {
     rows.forEach(row => listBody.appendChild(row));
 }
 
-function openDir(file) {
+function openDir(file, reveal) {
     file = decodeURIComponent(file);
-    fetch(`/open/${encodeURIComponent(file)}`)
-        .then(response => response.text())
-        .then(data => {
-            console.log(data); // Process response
+    // I-10：reveal=false 时直接进入该目录（顶部“打开当前文件夹”用）；默认 reveal=true 在父目录中选中。
+    var qs = (reveal === false) ? '?reveal=0' : '';
+    // I-7：解析后端 JSON 状态，失败（目标已删/权限受限/无法打开）时用 toast 明确提示
+    fetch(`/open/${encodeURIComponent(file)}${qs}`)
+        .then(function (resp) {
+            return resp.json().catch(function () { return {}; }).then(function (data) {
+                return { ok: resp.ok, data: data };
+            });
         })
-        .catch(error => {
-            alert('Error:' + error);
+        .then(function (r) {
+            if (r.ok && r.data && r.data.status === 'ok') return;
+            var msg = (r.data && r.data.error) || '无法打开该位置';
+            if (window.toast) toast(msg, 'error'); else alert(msg);
+        })
+        .catch(function () {
+            if (window.toast) toast('打开失败，请重试', 'error'); else alert('打开失败');
         });
 }
 

@@ -3,11 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>上传文件 · jm-view-server</title>
+<!-- PWA -->
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#5b5bd6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="看本">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
 <link rel="stylesheet" href="/static/css/app.css?t={{randomArg}}">
 <style>
   /* 拖拽上传区 */
@@ -176,7 +183,9 @@
           <button class="btn btn-primary" id="submit" onclick="uploadFile()">
             <span id="uploadIco"></span> 上&nbsp;&nbsp;传
           </button>
-          <a class="btn btn-ghost" href="javascript:;" onclick="history.back()">返回</a>
+          <!-- 返回键字重/颜色加强，提升可读性（todo #3，局部覆盖，不动全局 .btn-ghost） -->
+          <a class="btn btn-ghost" href="javascript:;" onclick="history.back()"
+             style="font-weight:600;color:var(--text)">返回</a>
         </div>
 
       </div>
