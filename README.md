@@ -23,10 +23,7 @@
 > - 支持各种强大的浏览器插件和脚本，例如[双页阅读插件](https://sleazyfork.org/zh-CN/scripts/374903-comicread)。
 > - 一键开启局域网共享，电脑下载，躺在床上用手机看。
 > 
-> [!IMPORTANT]
-> ### 项目已更名：`plugin-jm-server` → `jm-view-server`
-> 
-> 从 v0.2.4 起，本项目正式更名为 `jm-view-server`。老用户请参考文末的 [老用户迁移指南](#老用户迁移指南) 进行升级。
+> 从 v0.2.4 起，本项目正式更名为 `jm-view-server`，原名 `plugin-jm-server`，安装了旧包的老用户请参考文末的 [老用户迁移指南](#老用户迁移指南) 进行升级。
 
 ![架构与流程图](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
 
