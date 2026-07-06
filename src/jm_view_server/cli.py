@@ -13,6 +13,7 @@
 也支持 `python -m jm_view_server ...`（见 __main__.py）。
 """
 import argparse
+import os
 
 from . import __version__
 from .app import JmServer
@@ -55,8 +56,8 @@ def build_parser():
                         help='初始当前路径(默认与共享根目录相同)')
     parser.add_argument('-e', '--env', action='append', metavar='KEY=VALUE',
                         help='设置环境变量, 可重复指定')
-    parser.add_argument('--debug', action='store_true',
-                        help='开启 Flask debug 模式')
+    parser.add_argument('--no-debug', action='store_false', dest='debug', default=True,
+                        help='关闭 Flask debug 模式')
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s {}'.format(__version__))
     return parser
@@ -74,7 +75,7 @@ def parse_env(env_list):
 
 
 def parse_ip_whitelist(raw):
-    """把 '1.1.1.1, 2.2.2.2' 解析成列表; 为空时返回 None(表示不限制)。"""
+    """把 '1.1.1.1, 2.2.2.2 ' 解析成列表; 为空时返回 None(表示不限制)。"""
     if not raw:
         return None
     return [ip.strip() for ip in raw.split(',') if ip.strip()] or None
@@ -104,8 +105,7 @@ def build_run_kwargs(args):
     kwargs = {'host': args.host, 'port': args.port}
     if args.ssl:
         kwargs['ssl_context'] = 'adhoc'
-    if args.debug:
-        kwargs['debug'] = True
+    kwargs['debug'] = args.debug
     return kwargs
 
 
@@ -136,7 +136,8 @@ def main(argv=None):
         return  # parser.error 已 exit, 此行仅为静态分析
 
     run_kwargs = build_run_kwargs(args)
-    print_banner(args)
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        print_banner(args)
 
     try:
         server.run(**run_kwargs)

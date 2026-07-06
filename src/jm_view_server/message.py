@@ -97,7 +97,7 @@ class MessageManager:
         now = time.time()
         msg = {
             'id': int(now * 1000),
-            'sender': '服务器',
+            'sender': 'server',
             'content': content,
             'sender_ip': '127.0.0.1',
             'timestamp': now,
@@ -133,3 +133,18 @@ class MessageManager:
         """获取全部消息"""
         with self._lock:
             return self._load_messages()
+
+    def delete_message(self, msg_id: int) -> bool:
+        """
+        删除指定 ID 的消息
+        :param msg_id: 消息 ID
+        :return: 是否删除成功
+        """
+        deleted = False
+        with self._lock:
+            messages = self._load_messages()
+            new_messages = [m for m in messages if m['id'] != msg_id]
+            if len(new_messages) < len(messages):
+                self._save_messages(new_messages)
+                deleted = True
+        return deleted

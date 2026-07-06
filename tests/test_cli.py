@@ -32,7 +32,7 @@ def test_defaults():
     assert args.ip_whitelist is None
     assert args.current_path is None
     assert args.env is None
-    assert args.debug is False
+    assert args.debug is True
 
 
 def test_positional_path_and_short_flags():
@@ -71,14 +71,14 @@ def test_parse_ip_whitelist():
 
 def test_run_kwargs_plain():
     args = parse(['x', '-p', '8080', '-H', '0.0.0.0'])
-    assert cli.build_run_kwargs(args) == {'host': '0.0.0.0', 'port': 8080}
+    assert cli.build_run_kwargs(args) == {'host': '0.0.0.0', 'port': 8080, 'debug': True}
 
 
-def test_run_kwargs_ssl_and_debug():
-    args = parse(['x', '-s', '--debug'])
+def test_run_kwargs_ssl_and_no_debug():
+    args = parse(['x', '-s', '--no-debug'])
     kw = cli.build_run_kwargs(args)
     assert kw['ssl_context'] == 'adhoc'
-    assert kw['debug'] is True
+    assert kw['debug'] is False
 
 
 # ---------- 构造 JmServer(不启动) ----------

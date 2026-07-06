@@ -103,3 +103,20 @@
 #### 8.2 健壮的异常处理与交互反馈
 - **友好的异常提示**：在尝试绑定受保护端口（如 Linux/Mac 下默认的 80 端口需 sudo 权限）或端口被占用时，系统会拦截异常并给出人性化的提示（如“请改用高位端口”），而不是抛出冗长的 Python 错误栈。
 - **智能地址拼接**：启动时，控制台 Banner 除了提示本机访问地址（`127.0.0.1`）外，还会联动内网探测机制，直接计算并打印出当前设备在局域网中的真实入口地址，方便直接复制到手机端访问。
+
+### 9. 开发规范
+
+#### 9.1 发版规范与 CI/CD
+本项目的发布流程强依赖于 GitHub Actions，主要分为以下两个策略：
+
+1. **主包自动发版 (`jm-view-server`)**
+   - **工作流配置**：依赖 `.github/workflows/release_auto.yml`。
+   - **触发条件**：将代码 `push` 到 `master` 分支，且本次 commit message **必须以小写字母 `v` 开头**。
+   - **Commit Message 格式**：`v<版本号>: <发版说明>`。
+     - *示例*：`git commit -m "v0.2.5: 修复面包屑溢出与移动端UI问题"`
+   - **执行动作**：触发工作流后，会自动提取版本号创建对应的 Git Tag 和 GitHub Release，最后构建打包并发布到 PyPI。
+
+2. **重定向兼容包手动发版 (`plugin_jm_server`)**
+   - **工作流配置**：依赖 `.github/workflows/release_shim.yml`。
+   - **触发条件**：通过 GitHub 网页端手动点击 `Run workflow` 触发（或使用 GitHub CLI `gh workflow run release_shim.yml`）。
+   - **说明**：此薄壳包内容极少变动（仅负责导入 `jm_view_server`），不随主工程每次自动发版，仅在 `legacy_shim/` 内修改版本或逻辑时才需单独发布。

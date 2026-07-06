@@ -83,6 +83,7 @@
         .nav-btns {
             display: flex;
             gap: var(--sp-2);
+            flex-wrap: wrap;
         }
 
         /* 列表头 */
@@ -275,7 +276,7 @@
             transition: transform .25s var(--ease);
         }
         .preview-img.expanded {
-            transform: scale(4.5);
+            transform: scale(7.5);
             object-fit: contain;
             position: relative;
             z-index: 1000;
@@ -678,6 +679,25 @@
             .size-col, .date-col { display: none; }
             .preview-col { display: none; }
         }
+
+        /* 面包屑输入框 */
+        .crumbs-input {
+            height: 32px;
+            padding: 0 var(--sp-3);
+            background: var(--bg);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--r-md);
+            color: var(--text);
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color .16s, box-shadow .16s;
+            width: 100%;
+        }
+        .crumbs-input:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px var(--brand-ring);
+        }
     </style>
 </head>
 
@@ -690,21 +710,24 @@
     <div class="main">
         <!-- 顶栏 -->
         <div class="topbar">
-            <!-- 面包屑（承载 #currentPathText） -->
-            <nav class="crumbs">
-                <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}')" id="crumbs-home"></a>
-                {# 路径本身若已以 '/' 开头（mac/linux 绝对路径），省略装饰分隔符，
-                   避免显示成 “/ /Users/...” 的重复斜杠；Windows 盘符路径（C:\）仍保留分隔符 #}
-                {% if not data.currentPath.startswith('/') %}<span class="sep">/</span>{% endif %}
-                <span class="cur">
-                    <span id="currentPathText" data-path="{{ data.currentPath }}">{{ data.currentPath }}</span>
-                </span>
-            </nav>
+            <!-- 面包屑（承载 #currentPathText，支持点击手输路径） -->
+            <div class="crumbs-container" style="flex: 1; min-width: 0; display: flex; align-items: center;">
+                <nav class="crumbs" id="crumbsView" onclick="enablePathEdit()" style="cursor: pointer;" title="点击可手动输入路径跳转">
+                    <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}'); event.stopPropagation();" id="crumbs-home"></a>
+                    {# 总是保留装饰分隔符，并去除首尾斜杠以避免 RTL 截断时尾部斜杠跑到最前面出现 / /D:/... 的情况 #}
+                    <span class="sep">/</span>
+                    <span class="cur">
+                        {% set display_path = data.currentPath.strip().strip('\\/') %}
+                        <span id="currentPathText" data-path="{{ data.currentPath }}">{{ display_path if display_path else '' }}</span>
+                    </span>
+                </nav>
+                <input type="text" id="crumbsInput" class="crumbs-input" style="display: none; max-width: 600px;" placeholder="输入绝对路径，按回车跳转..." onkeydown="handleCrumbsKey(event)" onblur="disablePathEdit()">
+            </div>
             <div class="spacer"></div>
             <!-- 可复制地址 pill -->
             <div class="addr-pill" onclick="copyAddr('http://{{ data.lan_ip }}:{{ data.port }}')" title="点击复制服务器地址">
                 <span class="dot" id="netIco"></span>
-                <span>{{ data.lan_ip }}:{{ data.port }}</span>
+                <span id="addrText">{{ data.lan_ip }}:{{ data.port }}</span>
                 <span id="copyIco" style="opacity:.5"></span>
             </div>
         </div>
@@ -822,8 +845,8 @@
 
                             <!-- 操作列：仅常驻“看本”，其余收进“更多操作”下拉（todo #1） -->
                             <div class="file-action-col">
-                                {# 看本只对“含图片的文件夹”出现；单个文件不给看本（file.jm_view 对文件也可能为真） #}
-                                {% if file.jm_view and 'dir' in file.type %}
+                                {# 看本功能：允许图片文件夹及单个图片文件 #}
+                                {% if file.jm_view and ('dir' in file.type or file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'))) %}
                                 <a href="javascript:" class="action-btn"
                                    onclick="openJmView('{{ file.quoted_path }}', '{{ file.type }}')">
                                     <span class="eye-ico"></span> 看本
@@ -905,7 +928,7 @@
                                 <span>{{ file.ctime }}</span>
                             </div>
                         </div>
-                        {% if file.jm_view and 'dir' in file.type %}
+                        {% if file.jm_view and ('dir' in file.type or file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'))) %}
                         <div class="card-jmview-btn">
                             <a href="javascript:" class="action-btn"
                                onclick="event.stopPropagation();openJmView('{{ file.quoted_path }}', '{{ file.type }}')">看本</a>
@@ -990,6 +1013,46 @@
 </form>
 
 <script>
+    // ========== 面包屑手输跳转逻辑 ==========
+    var crumbsNavigating = false;
+    function enablePathEdit() {
+        var crumbsView = document.getElementById('crumbsView');
+        var crumbsInput = document.getElementById('crumbsInput');
+        if (crumbsView && crumbsInput) {
+            crumbsNavigating = false;
+            crumbsView.style.display = 'none';
+            crumbsInput.style.display = 'block';
+            crumbsInput.value = document.getElementById('currentPathText').getAttribute('data-path') || '';
+            crumbsInput.focus();
+            crumbsInput.select();
+        }
+    }
+    function disablePathEdit() {
+        setTimeout(function() {
+            if (crumbsNavigating) return;
+            var crumbsView = document.getElementById('crumbsView');
+            var crumbsInput = document.getElementById('crumbsInput');
+            if (crumbsView && crumbsInput) {
+                crumbsView.style.display = 'flex';
+                crumbsInput.style.display = 'none';
+            }
+        }, 150);
+    }
+    function handleCrumbsKey(event) {
+        if (event.key === 'Enter') {
+            var path = event.target.value.trim();
+            if (path) {
+                crumbsNavigating = true;
+                changeDir(path);
+            }
+        } else if (event.key === 'Escape') {
+            disablePathEdit();
+        }
+    }
+    window.enablePathEdit = enablePathEdit;
+    window.disablePathEdit = disablePathEdit;
+    window.handleCrumbsKey = handleCrumbsKey;
+
     // 注入 App Shell（侧栏 + 移动底栏）
     renderShell('files');
 

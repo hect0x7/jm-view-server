@@ -192,6 +192,22 @@ window.addEventListener('DOMContentLoaded', function () {
 
     // Preview Image Interaction
     const previewImages = document.querySelectorAll('.preview-img');
+    
+    function applyDynamicOrigin(img) {
+        const rect = img.getBoundingClientRect();
+        const parent = img.closest('.content') || document.body;
+        const parentRect = parent.getBoundingClientRect();
+        // Image is ~64px height, expanded 7.5x is 480px.
+        // Center origin grows ~208px upwards.
+        if (rect.top - 208 < parentRect.top) {
+            img.style.transformOrigin = 'top right';
+        } else if (rect.bottom + 208 > parentRect.bottom) {
+            img.style.transformOrigin = 'bottom right';
+        } else {
+            img.style.transformOrigin = 'center right';
+        }
+    }
+
     previewImages.forEach(img => {
         img.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -203,6 +219,7 @@ window.addEventListener('DOMContentLoaded', function () {
                 this.classList.remove('expanded');
                 this.dataset.forceClose = 'true';
             } else {
+                applyDynamicOrigin(this);
                 this.classList.add('expanded');
                 this.dataset.forceClose = 'false';
             }
@@ -211,6 +228,7 @@ window.addEventListener('DOMContentLoaded', function () {
         img.addEventListener('mouseenter', function (e) {
             // Only expand if we haven't explicitly force-closed it during this hover session
             if (this.dataset.forceClose !== 'true') {
+                applyDynamicOrigin(this);
                 this.classList.add('expanded');
             }
         });
