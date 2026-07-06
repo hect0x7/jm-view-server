@@ -25,7 +25,7 @@ setup(
         'CLI 命令 `jms` 与 jmcomic 插件 key `jm_server` 保持不变。\n'
     ),
     long_description_content_type="text/markdown",
-    url='https://github.com/hect0x7/plugin-jm-server',
+    url='https://github.com/hect0x7/jm-view-server',
     author='hect0x7',
     author_email='93357912+hect0x7@users.noreply.github.com',
     packages=find_packages(),

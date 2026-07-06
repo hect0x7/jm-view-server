@@ -20,7 +20,7 @@ setup(
     description='jm-view-server, a local web server (also usable as a jmcomic plugin) for viewing comics in a web browser. Renamed from plugin_jm_server.',
     long_description_content_type="text/markdown",
     long_description=long_description,
-    url='https://github.com/hect0x7/plugin-jm-server',
+    url='https://github.com/hect0x7/jm-view-server',
     author='hect0x7',
     author_email='93357912+hect0x7@users.noreply.github.com',
     packages=find_packages("src"),

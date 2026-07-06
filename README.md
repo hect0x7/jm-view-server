@@ -8,11 +8,11 @@
   </p>
 
 [![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github)](https://github.com/hect0x7)
-[![Stars](https://img.shields.io/github/stars/hect0x7/plugin-jm-server?color=orange&label=stars&style=flat)](https://github.com/hect0x7/plugin-jm-server/stargazers)
-[![Forks](https://img.shields.io/github/forks/hect0x7/plugin-jm-server?color=green&label=forks&style=flat)](https://github.com/hect0x7/plugin-jm-server/forks)
+[![Stars](https://img.shields.io/github/stars/hect0x7/jm-view-server?color=orange&label=stars&style=flat)](https://github.com/hect0x7/jm-view-server/stargazers)
+[![Forks](https://img.shields.io/github/forks/hect0x7/jm-view-server?color=green&label=forks&style=flat)](https://github.com/hect0x7/jm-view-server/forks)
 [![PyPI](https://img.shields.io/pypi/v/jm-view-server?color=blue&label=version)](https://pypi.org/project/jm-view-server/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/jm-view-server?style=flat&color=hotpink)](https://pepy.tech/projects/jm-view-server)
-[![Licence](https://img.shields.io/github/license/hect0x7/plugin-jm-server?color=red)](https://github.com/hect0x7/plugin-jm-server)
+[![Licence](https://img.shields.io/github/license/hect0x7/jm-view-server?color=red)](https://github.com/hect0x7/jm-view-server)
 
 
 </div>
