@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>登录 · jm-view-server</title>
+<!-- PWA -->
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#5b5bd6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="看本">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
+<link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+<style>
+  .auth-wrap { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
+  /* 左侧品牌区 */
+  .auth-brand {
+    position: relative; overflow: hidden;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: var(--sp-8) var(--sp-7);
+  }
+  .auth-brand::before {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(600px circle at 20% 10%, var(--brand-ring), transparent 45%),
+      radial-gradient(500px circle at 85% 90%, color-mix(in srgb, var(--brand) 22%, transparent), transparent 45%);
+    opacity: .7;
+  }
+  .auth-brand::after {
+    content: ''; position: absolute; inset: 0; z-index: 0; opacity: .5;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(circle at 50% 40%, #000, transparent 75%);
+  }
+  .auth-brand > * { position: relative; z-index: 1; }
+  .auth-logo { display: flex; align-items: center; gap: var(--sp-3); font-family: var(--font-brand); }
+  .auth-logo .brand-mark { width: 42px; height: 42px; }
+  .auth-logo .brand-mark svg { width: 24px; height: 24px; }
+  .auth-logo b { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  .auth-hero h2 { font-family: var(--font-brand); font-size: clamp(28px, 3.4vw, 40px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+  .auth-hero p { color: var(--text-secondary); font-size: 16px; margin-top: var(--sp-4); max-width: 30ch; }
+  .auth-feats { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .auth-feat { display: flex; align-items: center; gap: var(--sp-3); font-size: 14px; color: var(--text-secondary); }
+  .auth-feat .tick { width: 22px; height: 22px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex-shrink: 0; }
+  .auth-feat .tick svg { width: 13px; height: 13px; }
+  /* 右侧表单区 */
+  .auth-form-side { display: grid; place-items: center; padding: var(--sp-6); }
+  .auth-card { width: 100%; max-width: 380px; }
+  .auth-card h1 { font-family: var(--font-brand); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .auth-card .sub { color: var(--text-secondary); font-size: 14px; margin: 6px 0 var(--sp-6); }
+  .pw-wrap { position: relative; }
+  .pw-wrap .input { padding-right: 44px; }
+  .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; display: grid; place-items: center; color: var(--text-muted); border-radius: var(--r-sm); }
+  .pw-toggle:hover { color: var(--text); background: var(--surface-hover); }
+  .alert { display: flex; align-items: center; gap: var(--sp-2); padding: 10px 14px; border-radius: var(--r-md); background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); font-size: 13px; margin-bottom: var(--sp-4); }
+  .alert svg { width: 16px; height: 16px; }
+  .auth-foot { margin-top: var(--sp-5); text-align: center; font-size: 13px; color: var(--text-muted); }
+  .theme-fab { position: fixed; top: 20px; right: 20px; z-index: 10; }
+  @media (max-width: 820px) {
+    .auth-wrap { grid-template-columns: 1fr; }
+    .auth-brand { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="theme-fab"><div class="theme-toggle" onclick="toggleTheme()"><span class="knob"></span></div></div>
+<div class="auth-wrap">
+  <!-- 品牌侧 -->
+  <div class="auth-brand">
+    <div class="auth-logo">
+      <span class="brand-mark" id="logoMark"></span>
+      <b>jm-view-server</b>
+    </div>
+    <div class="auth-hero">
+      <h2>你的本地<br>离线看本空间</h2>
+      <p>把本地文件夹变成清爽的漫画阅读页，电脑下载、手机躺看，同一局域网即刻共享。</p>
+    </div>
+    <div class="auth-feats">
+      <div class="auth-feat"><span class="tick" id="f1"></span> 纯本地运行，数据不出内网</div>
+      <div class="auth-feat"><span class="tick" id="f2"></span> 密码 + IP 白名单双重保护</div>
+      <div class="auth-feat"><span class="tick" id="f3"></span> PC / 手机自适应，一处部署多端访问</div>
+    </div>
+  </div>
+
+  <!-- 表单侧 -->
+  <div class="auth-form-side">
+    <div class="auth-card">
+      <h1>欢迎回来</h1>
+      <p class="sub">输入访问密码以进入你的看本空间</p>
+
+      {% for message in get_flashed_messages() %}
+        <div class="alert"><span class="alert-icon"></span> {{ message }}</div>
+      {% endfor %}
+
+      <form action="/login" method="POST">
+        <div class="field" style="margin-bottom:var(--sp-4)">
+          <label for="password">访问密码</label>
+          <div class="pw-wrap">
+            <input class="input" type="password" name="password" id="password" placeholder="请输入密码" autofocus>
+            <button type="button" class="pw-toggle" id="pwToggle" title="显示/隐藏"></button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" style="height:44px">进入</button>
+      </form>
+
+      <div class="auth-foot">若未设置密码，直接点击「进入」即可</div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js?t={{ randomArg }}"></script>
+<script>
+  document.getElementById('logoMark').innerHTML = icon('book');
+  ['f1','f2','f3'].forEach(function(id) { document.getElementById(id).innerHTML = icon('check'); });
+  document.querySelectorAll('.alert-icon').forEach(function(el) { el.innerHTML = icon('alert'); });
+  document.querySelectorAll('.theme-toggle .knob').forEach(function(k) {
+    k.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? icon('moon') : icon('sun');
+  });
+  // 密码显隐
+  var pw = document.getElementById('password'), tog = document.getElementById('pwToggle');
+  tog.innerHTML = icon('eye');
+  tog.onclick = function() { pw.type = pw.type === 'password' ? 'text' : 'password'; };
+</script>
+</body>
+</html>

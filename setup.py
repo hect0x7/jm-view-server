@@ -4,7 +4,7 @@ with open("README.md", encoding='utf-8') as f:
     long_description = f.read()
 
 version = None
-with open('./src/plugin_jm_server/__init__.py', encoding='utf-8') as f:
+with open('./src/jm_view_server/__init__.py', encoding='utf-8') as f:
     for line in f:
         if '__version__' in line:
             version = line[line.index("'") + 1: line.rindex("'")]
@@ -15,12 +15,12 @@ if version is None:
     exit(1)
 
 setup(
-    name='plugin_jm_server',
+    name='jm-view-server',
     version=version,
-    description='plugin_jm_server, a plugin for jmcomic that can be used to view comics in a web browser.',
+    description='jm-view-server, a local web server (also usable as a jmcomic plugin) for viewing comics in a web browser. Renamed from plugin_jm_server.',
     long_description_content_type="text/markdown",
     long_description=long_description,
-    url='https://github.com/hect0x7/plugin-jm-server',
+    url='https://github.com/hect0x7/jm-view-server',
     author='hect0x7',
     author_email='93357912+hect0x7@users.noreply.github.com',
     packages=find_packages("src"),
@@ -32,7 +32,7 @@ setup(
         'psutil',
         'cryptography',
     ],
-    keywords=['python', 'jmcomic', '18comic', '禁漫天堂', 'NSFW'],
+    keywords=['python', 'jmcomic', 'jm-view-server', '18comic', '禁漫天堂', 'NSFW'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -48,11 +48,11 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'jms = plugin_jm_server.cli:main',
+            'jms = jm_view_server.cli:main',
         ],
     },
     package_data={
-        "plugin_jm_server": [
+        "jm_view_server": [
             "static/**",
             "templates/**",
         ],

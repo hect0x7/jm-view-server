@@ -77,9 +77,9 @@ class FileManager:
         size = dtype if dtype != '' else self.file_size_format(size, the_type)
 
         try:
-            getctime = os.path.getctime(file_path)
-            ctime = time.localtime(getctime)
-            time_str = time.strftime("%Y-%m-%d %H:%M:%S", ctime)
+            mtime_raw = os.path.getmtime(file_path)
+            mtime_local = time.localtime(mtime_raw)
+            time_str = time.strftime("%Y-%m-%d %H:%M:%S", mtime_local)
         except OSError:
             return
 
@@ -103,6 +103,7 @@ class FileManager:
             'href': f'/?path={quoted_path}' if the_type == 'dir' else f'./download_file/{quoted_name}',
             "size": size,
             "ctime": time_str,
+            "mtime": mtime_raw,
             "type": the_type,
             'jm_view': jm_view,
             'first_img_url': first_img_url
@@ -133,9 +134,9 @@ class FileManager:
                 other_files.append(f)
 
         # Sort each group
-        jm_albums.sort(key=natural_key)
-        other_dirs.sort(key=natural_key)
-        other_files.sort(key=natural_key)
+        jm_albums.sort(key=lambda x: x['mtime'], reverse=True)
+        other_dirs.sort(key=lambda x: x['mtime'], reverse=True)
+        other_files.sort(key=lambda x: x['mtime'], reverse=True)
 
         return jm_albums + other_dirs + other_files
 

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>看本 · {{ data.title }}</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#0b0c11">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="看本">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
+  <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+  <style>
+    /* 阅读区始终沉浸深色，与看图场景匹配，独立于全站主题 */
+    html, body { min-height: 100vh; background: #0b0c11; color: #e8e9ee; }
+
+    /* 顶部悬浮条 */
+    .reader-top {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; align-items: center; gap: var(--sp-3);
+      /* PWA 全屏让出顶部安全区（I-5） */
+      height: calc(56px + env(safe-area-inset-top, 0px));
+      padding: env(safe-area-inset-top, 0px) var(--sp-4) 0;
+      background: rgba(11,12,17,.82); backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .r-btn {
+      width: 38px; height: 38px; display: grid; place-items: center;
+      border-radius: var(--r-md); color: #c8cad3;
+      transition: all .14s; text-decoration: none;
+      flex-shrink: 0;
+    }
+    .r-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .r-btn svg { width: 20px; height: 20px; }
+    .reader-title { min-width: 0; flex: 1; }
+    .reader-title b {
+      font-size: 15px; font-weight: 600; display: block;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: #e8e9ee;
+    }
+    .r-progress { font-family: var(--font-mono); font-size: 13px; color: #9a9db0; white-space: nowrap; }
+
+    /* 图片流 */
+    /* 无缝阅读：图片间零间距、无圆角阴影（对齐旧版看本的连续观感） */
+    .stream { max-width: 800px; margin: 0 auto; padding: 0 0 120px; display: flex; flex-direction: column; gap: 0; user-select: none; -webkit-user-select: none; }
+    .page-img { width: 100%; background: #14161d; min-height: 200px; display: block; vertical-align: bottom; }
+
+    /* 右侧悬浮工具栏 */
+    .r-tools {
+      position: fixed; right: 20px; bottom: 96px; z-index: 30;
+      display: flex; flex-direction: column; gap: 8px;
+      background: rgba(23,25,33,.86); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.1); border-radius: var(--r-pill);
+      padding: 8px;
+    }
+    .r-tools a, .r-tools button {
+      width: 42px; height: 42px; display: grid; place-items: center;
+      border-radius: 50%; color: #c8cad3;
+      transition: all .16s var(--ease);
+      text-decoration: none; cursor: pointer;
+      border: none; background: none;
+    }
+    .r-tools a:hover, .r-tools button:hover { background: var(--brand); color: #fff; }
+    .r-tools a svg, .r-tools button svg { width: 18px; height: 18px; }
+
+    /* 悬浮工具栏的自制文字提示（原生 title 被 SVG 遮挡不明显，改用 data-tip） */
+    .r-tools [data-tip] { position: relative; }
+    .r-tools [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+      background: rgba(23,25,33,.96); color: #fff;
+      font-size: 12px; line-height: 1; white-space: nowrap;
+      padding: 6px 9px; border-radius: var(--r-sm);
+      border: 1px solid rgba(255,255,255,.12);
+      opacity: 0; pointer-events: none; transition: opacity .14s var(--ease);
+      z-index: 40;
+    }
+    .r-tools [data-tip]:hover::after { opacity: 1; }
+
+    /* 底部阅读进度区 */
+    .r-bottom {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      background: rgba(11,12,17,.86); backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom,0));
+      display: flex; align-items: center; gap: var(--sp-4);
+      transition: transform .28s var(--ease);
+    }
+    /* 关闭进度条：整条下移隐藏。开关按钮已统一并入右侧工具栏，此处只保留隐藏动画 */
+    .r-bottom.hidden { transform: translateY(100%); }
+    /* 工具栏“进度条开关”：进度条开启时按钮呈激活态（弱高亮），关闭时回到普通态。
+       用半透明 brand 底色区分 hover 的实心 brand，避免与 hover 态混淆。 */
+    .r-tools #tProg.active {
+      background: color-mix(in srgb, var(--brand) 26%, transparent);
+      color: #fff;
+    }
+    .r-tools #tProg.active:hover { background: var(--brand); }
+
+    /* 跳页浮层：不弹全屏 modal，而是贴附在工具栏左侧原地展开一个小浮窗
+       （沿用工具栏同款暗色玻璃拟态，参考旧版“直接就是个下拉”的直白交互）。
+       挂在 .r-tools 内、相对工具栏定位。 */
+    .r-tools { position: fixed; } /* 已 fixed，此处仅声明为浮层定位锚点 */
+    .jump-pop {
+      position: absolute; right: calc(100% + 12px); top: 50%;
+      transform: translateY(-50%) scale(.96);
+      background: rgba(23,25,33,.94); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-md);
+      box-shadow: var(--shadow-lg); padding: 8px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .14s var(--ease), transform .14s var(--ease);
+      z-index: 40;
+    }
+    .jump-pop.show { opacity: 1; pointer-events: auto; transform: translateY(-50%) scale(1); }
+    .jump-pop select {
+      display: block; box-sizing: border-box;
+      min-width: 130px; height: 38px;
+      background: rgba(255,255,255,.06); color: #e8e9ee;
+      border: 1px solid rgba(255,255,255,.15); border-radius: var(--r-sm);
+      padding: 0 34px 0 12px; font-size: 14px; font-family: var(--font-mono);
+      letter-spacing: .04em; cursor: pointer;
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9db0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 15px;
+      transition: border-color .14s var(--ease);
+    }
+    .jump-pop select:focus { outline: none; border-color: var(--brand); }
+    .jump-pop select option { background: #171923; color: #e8e9ee; }
+
+    .r-track {
+      flex: 1; height: 6px; background: rgba(255,255,255,.12);
+      border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
+    }
+    .r-fill { height: 100%; width: 0%; background: var(--brand); border-radius: var(--r-pill); transition: width .2s; }
+    .r-count { font-family: var(--font-mono); font-size: 13px; color: #b8bbc9; white-space: nowrap; }
+    .r-jump {
+      background: rgba(255,255,255,.08); color: #e8e9ee;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: var(--r-md); height: 34px; padding: 0 12px;
+      font-size: 13px; font-family: var(--font-mono);
+      cursor: pointer;
+    }
+    .r-jump option { background: #171923; color: #e8e9ee; }
+
+    /* scramble-page 容器 */
+    .center.scramble-page { width: 100%; }
+
+    /* 项3：图片适配模式（给 .stream 加 class 控制 .page-img 尺寸） */
+    /* 适宽（默认）：撑满容器宽度，高度自适应 */
+    .stream.fit-width .page-img { width: 100%; height: auto; max-width: none; max-height: none; }
+    /* 适高：单图高度=视口高，宽度 auto，图片居中 */
+    .stream.fit-height { max-width: none; }
+    .stream.fit-height .page-img { width: auto; height: 100vh; max-width: none; margin: 0 auto; }
+    /* 原始：不放大，宽度 auto 且不超过容器 */
+    .stream.fit-raw { max-width: none; }
+    .stream.fit-raw .page-img { width: auto; height: auto; max-width: 100%; margin: 0 auto; }
+
+    /* 项9：护眼滤镜——给 .stream 加暖色调滤镜（仅作用于阅读区图片） */
+    .stream.eye-care { filter: sepia(.35) brightness(.92) saturate(.95); }
+
+    /* 项11：图片临时旋转——旋转时 transform 由 JS 内联设置，此处仅给过渡 */
+    .page-img { transition: transform .18s var(--ease); }
+
+    /* 项1：阅读进度记忆的小提示条（贴合暗色玻璃风，非阻塞） */
+    .resume-bar {
+      /* I-9：置于最高层级（高于顶栏 z30 / 工具栏 z40），top 跟随顶栏高度+安全区，
+         避免滚动或 PWA 安全区下被图片/顶栏遮挡。will-change 稳定合成层。 */
+      position: fixed; left: 50%;
+      top: calc(72px + env(safe-area-inset-top, 0px));
+      transform: translateX(-50%) translateY(-12px);
+      z-index: 60; will-change: transform, opacity;
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(23,25,33,.94); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-pill);
+      box-shadow: var(--shadow-lg); padding: 8px 8px 8px 16px;
+      font-size: 13px; color: #e8e9ee;
+      opacity: 0; pointer-events: none; transition: opacity .18s var(--ease), transform .18s var(--ease);
+    }
+    .resume-bar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+    .resume-bar button {
+      border: none; cursor: pointer; height: 30px; padding: 0 12px;
+      border-radius: var(--r-pill); font-size: 13px;
+    }
+    .resume-bar .resume-go { background: var(--brand); color: #fff; }
+    .resume-bar .resume-close { background: rgba(255,255,255,.08); color: #c8cad3; }
+
+    @media (max-width: 640px) {
+      .r-tools { right: 12px; bottom: 88px; }
+      .reader-title b { max-width: 46vw; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- common.js 第32行无条件读取 #Comic_Top_Nav 的 offsetHeight，此占位不可删 -->
+<div id="Comic_Top_Nav" style="display:none"></div>
+
+<!-- 顶部悬浮栏 -->
+<div class="reader-top">
+  <a href="/?path={{ data.openFromDir }}" class="r-btn" title="原路返回" id="backBtn"></a>
+  <div class="reader-title">
+    <b>{{ data.title }}</b>
+  </div>
+  <span class="r-progress" id="topProg">-- / --</span>
+</div>
+
+<!-- 图片流 -->
+<div class="stream" id="stream">
+  {% for image in data.images %}
+  <div class="center scramble-page" id="page_{{ loop.index0 }}" data-page="{{ loop.index0 }}">
+    <img class="lazyload page-img"
+         src=""
+         data-src="{{ image.data_original }}"
+         data-original="{{ image.data_original }}"
+         alt="第 {{ loop.index }} 页">
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 右侧悬浮工具栏（双击页面任意处可隐藏/显示本工具栏） -->
+<div class="r-tools">
+  <!-- 跳页浮窗：贴附工具栏左侧原地展开（非全屏 modal），选中即跳页 -->
+  <div class="jump-pop" id="jumpPop">
+    <select id="jumpSelect">
+      {% for image in data.images %}
+      <option value="{{ loop.index0 }}">第 {{ loop.index }} / {{ loop.length }} 页</option>
+      {% endfor %}
+    </select>
+  </div>
+  <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
+  <a id="gobottom" href="javascript:void(0)" title="跳到最后" data-tip="跳到最后"></a>
+  <a id="tJump" href="javascript:void(0)" title="跳转页码" data-tip="跳转页码"></a>
+  <button id="tProg" title="进度条开关" data-tip="进度条开关"></button>
+  <button id="tFit" title="适配模式" data-tip="适配模式"></button>
+  <button id="tEye" title="护眼滤镜" data-tip="护眼滤镜"></button>
+  <button id="tFull" title="全屏阅读" data-tip="全屏阅读"></button>
+  <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
+  <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
+  <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
+</div>
+
+<!-- 底部进度区 -->
+<div class="r-bottom" id="rBottom">
+  <span class="r-count" id="curPage">第 1 页</span>
+  <div class="r-track" id="track"><div class="r-fill" id="fill"></div></div>
+  <select class="r-jump" id="pageselect">
+    {% for image in data.images %}
+    <option value="{{ loop.index0 }}">{{ loop.index }}/{{ loop.length }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<script src="/static/js/app.js?t={{ randomArg }}"></script>
+<script src="/static/js/common.js?t={{ randomArg }}"></script>
+<script>
+  // 填充图标（app.js 的 icon() 可用）
+  document.getElementById('backBtn').innerHTML = icon('folder');
+  document.getElementById('gotop').innerHTML = icon('arrowUp');
+  document.getElementById('gobottom').innerHTML = icon('arrowDown');
+  document.getElementById('tJump').innerHTML = icon('list');
+  document.getElementById('tProg').innerHTML = icon('eye');
+  document.getElementById('tFit').innerHTML = icon('fit');
+  document.getElementById('tEye').innerHTML = icon('eyecare');
+  document.getElementById('tFull').innerHTML = icon('fullscreen');
+  document.getElementById('loadAll').innerHTML = icon('download');
+  // 搜原本图标
+  (function() {
+    var links = document.querySelectorAll('.r-tools a');
+    links.forEach(function(a) {
+      if (a.title === '原路返回' && !a.id) a.innerHTML = icon('folder');
+      if (a.title === '搜原本') a.innerHTML = icon('search');
+    });
+  })();
+
+  // 全屏按钮
+  document.getElementById('tFull').onclick = function() {
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  };
+
+  // 进度条视觉同步：独立监听 scroll，不依赖 common.js 对 pageselect 的赋值
+  // （common.js 用 .value = x 赋值不触发 attribute 变更，MutationObserver 拦不到）
+  var TOTAL = document.querySelectorAll('#pageselect option').length;
+  var fill = document.getElementById('fill');
+  var curPage = document.getElementById('curPage');
+  var topProg = document.getElementById('topProg');
+  var pages = document.querySelectorAll('.scramble-page');
+
+  function updateProgress(idx) {
+    var p = Math.max(0, Math.min(TOTAL - 1, idx));
+    if (fill) fill.style.width = (TOTAL > 1 ? (p / (TOTAL - 1) * 100) : 100).toFixed(0) + '%';
+    if (curPage) curPage.textContent = '第 ' + (p + 1) + ' 页';
+    if (topProg) topProg.textContent = String(p + 1).padStart(2, '0') + ' / ' + TOTAL;
+  }
+
+  // 根据滚动位置计算当前页（与 common.js scroll 监听各自独立，不冲突）
+  function onScroll() {
+    var mid = window.scrollY + window.innerHeight / 2;
+    var best = 0;
+    for (var i = 0; i < pages.length; i++) {
+      var el = pages[i];
+      if (el.offsetTop <= mid) best = i;
+    }
+    updateProgress(best);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // 初始化进度
+  updateProgress(0);
+
+  // 点击进度条跳转（触发 common.js 的 pageselect change 执行实际跳页）
+  var ps = document.getElementById('pageselect');
+  var track = document.getElementById('track');
+  if (track) {
+    track.onclick = function(e) {
+      var r = e.currentTarget.getBoundingClientRect();
+      var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      var targetIdx = Math.round(ratio * (TOTAL - 1));
+      if (ps) {
+        ps.value = targetIdx;
+        ps.dispatchEvent(new Event('change'));
+      }
+    };
+  }
+
+  // Bug 修复：回到顶部。旧版此逻辑在 album.js（换皮丢弃 jquery 后没接上），
+  // 这里用原生 JS 复刻，点击平滑滚回顶部。
+  document.getElementById('gotop').addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // 进度条开关：统一并入右侧工具栏（旧版割裂的 rClose/rReopen 已移除）。
+  // 进度条开关：显隐状态记忆到 localStorage['jmv-progressbar']，进入时恢复（默认开启）。
+  var rBottom = document.getElementById('rBottom');
+  var tProg = document.getElementById('tProg');
+  function applyProgressBar(hidden) {
+    rBottom.classList.toggle('hidden', hidden);
+    tProg.classList.toggle('active', !hidden); // 开启态按钮高亮
+  }
+  var pbHidden = (function(){ try { return localStorage.getItem('jmv-progressbar') === '0'; } catch(e){ return false; } })();
+  applyProgressBar(pbHidden);
+  tProg.addEventListener('click', function() {
+    var hidden = !rBottom.classList.contains('hidden');
+    applyProgressBar(hidden);
+    try { localStorage.setItem('jmv-progressbar', hidden ? '0' : '1'); } catch (e) {}
+  });
+
+  // 项2：工具栏“跳转页码”——贴附工具栏的原地浮窗（非全屏 modal，参考旧版直白交互）。
+  // 页码用下拉选择（同底部进度条 pageselect），选中即跳页并收起浮窗；点外部/Esc 收起。
+  var tJump = document.getElementById('tJump');
+  var jumpPop = document.getElementById('jumpPop');
+  var jumpSelect = document.getElementById('jumpSelect'); // <select>，value 为 0-based 页索引
+
+  function currentPageIdx() {
+    // 以当前进度（顶部进度显示同源）作为下拉默认选中项
+    var mid = window.scrollY + window.innerHeight / 2, best = 0;
+    for (var i = 0; i < pages.length; i++) { if (pages[i].offsetTop <= mid) best = i; }
+    return best;
+  }
+  function openJump() {
+    jumpSelect.value = String(currentPageIdx());
+    jumpPop.classList.add('show');
+  }
+  function closeJump() { jumpPop.classList.remove('show'); }
+
+  tJump.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (jumpPop.classList.contains('show')) closeJump(); else openJump();
+  });
+  // 选中即跳页并收起浮窗
+  jumpSelect.addEventListener('change', function() {
+    var idx = parseInt(jumpSelect.value, 10); // 下拉选项天然合法
+    closeJump();
+    var target = pages[idx];
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      updateProgress(idx);
+    }
+  });
+  // 点击浮窗外部收起（点浮窗内部不关，以免影响下拉展开）
+  document.addEventListener('click', function(e) {
+    if (jumpPop.classList.contains('show') && !jumpPop.contains(e.target) && e.target !== tJump) {
+      closeJump();
+    }
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeJump();
+  });
+
+  // 复刻旧版“双击隐藏功能栏”：切换 .r-tools 显隐。
+  // 项4 修复：双击时清除浏览器选区，避免双击连带选中图片/页面内容。
+  // 项11 配合：图片上的双击已在下方旋转逻辑里 stopPropagation，不会冒泡到这里，
+  //           所以图片双击只旋转、空白处双击仍切换工具栏。
+  var rTools = document.querySelector('.r-tools');
+  document.addEventListener('dblclick', function() {
+    if (rTools) rTools.style.display = (rTools.style.display === 'none') ? 'flex' : 'none';
+    var sel = window.getSelection && window.getSelection();
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
+  });
+
+  /* ============================================================
+     新增阅读增强功能（纯前端，均记 localStorage，key 前缀 jmv-）
+     ============================================================ */
+
+  // 相册标识：优先用标题，作为 localStorage key 的一部分
+  var ALBUM_ID = {{ data.title | tojson }};
+
+  // ---------- 项3：图片适配模式（适宽/适高/原始，循环切换并记忆） ----------
+  var stream = document.getElementById('stream');
+  var FIT_MODES = ['fit-width', 'fit-height', 'fit-raw'];
+  function applyFit(mode) {
+    if (FIT_MODES.indexOf(mode) < 0) mode = 'fit-width';
+    stream.classList.remove('fit-width', 'fit-height', 'fit-raw');
+    stream.classList.add(mode);
+    try { localStorage.setItem('jmv-fit', mode); } catch (e) {}
+  }
+  // 进入时恢复（默认适宽）
+  applyFit((function(){ try { return localStorage.getItem('jmv-fit'); } catch(e){ return null; } })() || 'fit-width');
+  document.getElementById('tFit').addEventListener('click', function() {
+    var idx = -1;
+    for (var i = 0; i < FIT_MODES.length; i++) { if (stream.classList.contains(FIT_MODES[i])) { idx = i; break; } }
+    applyFit(FIT_MODES[(idx + 1) % FIT_MODES.length]);
+  });
+
+  // ---------- 项9：护眼滤镜（暖光，切换并记忆） ----------
+  function applyEye(on) {
+    stream.classList.toggle('eye-care', !!on);
+    try { localStorage.setItem('jmv-eyecare', on ? '1' : '0'); } catch (e) {}
+  }
+  applyEye((function(){ try { return localStorage.getItem('jmv-eyecare') === '1'; } catch(e){ return false; } })());
+  document.getElementById('tEye').addEventListener('click', function() {
+    applyEye(!stream.classList.contains('eye-care'));
+  });
+
+  // ---------- 项11：图片临时旋转（双击图片，0/90/180/270 循环，不记忆） ----------
+  // 用 dataset 记每张图当前角度；stopPropagation 让图片双击不触发工具栏显隐。
+  stream.addEventListener('dblclick', function(e) {
+    var img = e.target.closest ? e.target.closest('.page-img') : null;
+    if (!img) return; // 页内空白（图片间）双击仍冒泡出去切换工具栏
+    e.stopPropagation();
+    var deg = (parseInt(img.dataset.rotate || '0', 10) + 90) % 360;
+    img.dataset.rotate = String(deg);
+    img.style.transform = 'rotate(' + deg + 'deg)';
+  });
+
+  // ---------- 项2：键盘快捷键 ----------
+  // 焦点在 input/select/textarea 时不拦截，避免影响跳页下拉等
+  function inEditable(t) {
+    if (!t) return false;
+    var tag = t.tagName;
+    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t.isContentEditable;
+  }
+  // 滚动到相邻页：基于当前页索引 +/- 1
+  function gotoPage(idx) {
+    idx = Math.max(0, Math.min(pages.length - 1, idx));
+    var target = pages[idx];
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      updateProgress(idx);
+    }
+  }
+  document.addEventListener('keydown', function(e) {
+    if (inEditable(e.target)) return;
+    var cur = currentPageIdx();
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'PageUp':
+        e.preventDefault(); gotoPage(cur - 1); break;
+      case 'ArrowRight':
+      case 'PageDown':
+      case ' ':            // 空格
+        e.preventDefault(); gotoPage(cur + 1); break;
+      case 'Home':
+        e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); updateProgress(0); break;
+      case 'End':
+        e.preventDefault(); gotoPage(pages.length - 1); break;
+      case 'f': case 'F':
+        e.preventDefault(); document.getElementById('tFull').click(); break;
+      case 'g': case 'G':
+        e.preventDefault(); openJump(); break;
+      default: break;
+    }
+  });
+
+  // ---------- 项1：阅读进度记忆 ----------
+  // 滚动时把当前页索引写入 localStorage；进入时若有 >0 记录，用非阻塞小提示条询问跳转。
+  var PROGRESS_KEY = 'jmv-progress:' + ALBUM_ID;
+  var saveTimer = null;
+  window.addEventListener('scroll', function() {
+    if (saveTimer) return; // 节流，避免频繁写入
+    saveTimer = setTimeout(function() {
+      saveTimer = null;
+      try { localStorage.setItem(PROGRESS_KEY, String(currentPageIdx())); } catch (e) {}
+    }, 300);
+  }, { passive: true });
+
+  (function initResume() {
+    var saved = null;
+    try { saved = parseInt(localStorage.getItem(PROGRESS_KEY), 10); } catch (e) {}
+    if (!saved || saved <= 0 || saved >= pages.length) return; // 无记录/首页不提示
+    var bar = document.createElement('div');
+    bar.className = 'resume-bar';
+    bar.innerHTML = '<span>上次读到第 ' + (saved + 1) + ' 页</span>' +
+                    '<button class="resume-go">跳转到第 ' + (saved + 1) + ' 页</button>' +
+                    '<button class="resume-close">关闭</button>';
+    document.body.appendChild(bar);
+    requestAnimationFrame(function() { bar.classList.add('show'); });
+    function dismiss() { bar.classList.remove('show'); setTimeout(function() { bar.remove(); }, 200); }
+    bar.querySelector('.resume-go').addEventListener('click', function() {
+      var target = pages[saved];
+      if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); updateProgress(saved); }
+      dismiss();
+    });
+    bar.querySelector('.resume-close').addEventListener('click', dismiss);
+  })();
+</script>
+</body>
+</html>

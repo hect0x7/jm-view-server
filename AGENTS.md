@@ -1,43 +1,55 @@
-# plugin-jm-server 项目简介
+# jm-view-server 项目简介
+
+> 本项目原名 `plugin-jm-server`，自 v0.2.4 起更名为 `jm-view-server`（PyPI 包名 `jm-view-server`，import 包 `jm_view_server`）。CLI 命令 `jms` 与 jmcomic 插件 key `jm_server` 保持不变。
 
 ### 1. 项目概览
-`plugin-jm-server` 是一个基于 Python Flask 的文件服务器，旨在为本地漫画/图片资源提供类似“禁漫天堂”的 Web 浏览体验。它不仅支持文件夹浏览，还针对图片阅读进行了深度优化。
+`jm-view-server` 是一个基于 Python Flask 的文件服务器，旨在为本地漫画/图片资源提供类似“禁漫天堂”的 Web 浏览体验。它不仅支持文件夹浏览，还针对图片阅读进行了深度优化。
 
 ### 2. 技术栈
 - **后端**: Python 3, Flask, threading
 - **核心组件**: `jmcomic` (可选依赖，用于下载功能)
-- **前端**: HTML5 (JinJa2 模板), Vanilla JS, CSS, FontAwesome
+- **前端**: HTML5 (Jinja2 模板), Vanilla JS, 统一设计系统 (CSS 变量 + 深浅双主题)，内置 SVG 图标（无外部图标字体依赖），本地字体 Space Grotesk
 - **特殊支持**: `pylnk3` (处理 Windows 快捷方式)
 
 ### 3. 核心模块分析
 
-#### 3.1 后端逻辑 (`src/plugin_jm_server/`)
+#### 3.1 后端逻辑 (`src/jm_view_server/`)
 
 - **`app.py` (JmServer 类)**:
-    - **路由中心**: 负责传统 MPA 页面和 SPA API 的路由映射。
+    - **路由中心**: 负责 MPA 页面和 SPA API 的路由映射。
     - **身份验证**: 简单的密码校验机制，支持 IP 白名单。
-    - **移动端适配**: 通过 User-Agent 自动选择 `m_` 前缀的手机版模板。
+    - **模板选择 (`url_format`)**: 已换皮的响应式页面（`login`/`index`/`jm_view`/`upload`/`message`/`download_error`）无论设备都返回同一套模板（PC/移动共用，靠 CSS 响应式适配）；白名单外的旧页面仍按 User-Agent 走 `m_` 前缀手机版模板。
     - **下载集成**: `/stream` 接口利用 Server-Sent Events (SSE) 协议实时输出漫画下载日志。
 - **`files.py` (FileManager 类)**:
     - **图片处理**: 识别常用图片格式，支持对文件夹首图作为预览封面。
     - **排序逻辑**: 实现 `natural_key` 算法，确保带数字的文件夹按逻辑顺序排列（如 1, 2, 10 而非 1, 10, 2）。
     - **路径处理**: 支持 Windows 盘符识别及 `.lnk` 链接解析。
 
-#### 3.2 前端资源 (`src/plugin_jm_server/static/ & templates/`)
+#### 3.2 前端资源 (`src/jm_view_server/static/ & templates/`)
 
-- **页面模式**:
-    - **标准模式**: 传统的服务端渲染页面，逻辑相对简单。
-    - **SPA 模式 (`index_spa.html`)**: 现代化的单页应用，支持路径补全、侧边书签栏和更顺滑的交互提示。
-- **功能特性**:
-    - **看本模式**: 模仿禁漫的章节阅读页，支持图片懒加载和全屏切换。
-    - **右键菜单**: 集成了“在资源管理器中打开”等系统级交互。
+自 v0.2.4 起，主链路页面统一换皮为一套现代设计系统（详见下方“前端设计系统”），并做成**单套响应式模板**（PC 与移动端共用，取代旧版 PC/`m_` 双模板）。
+
+- **统一设计系统 (`static/css/app.css` + `static/js/app.js`)**:
+    - **深浅双主题**: 全部颜色走 CSS 变量（design token），`data-theme` 切换 light/dark，选择记忆到 localStorage。
+    - **App Shell**: 桌面端左侧竖向侧栏导航（文件浏览 / 看本 / 消息 / 上传 / 退出），窄屏（≤860px）自动切换为底部 tab 栏。
+    - **内置组件**: 统一的按钮 / 卡片 / 输入框 / 徽章 / 地址 pill / toast 通知；内置 SVG 图标库（`icon(name)`），不依赖 FontAwesome。
+    - `app.js` 提供全局工具：`icon()`、`toggleTheme()`、`toast()`、`copyAddr()`、`renderShell()`。
+- **换皮后的页面模板**（均引 `app.css`/`app.js`）:
+    - **`login.html`**: 左右分栏登录页，几何氛围背景，密码显隐（密码框 `type=password`）。
+    - **`index.html`**: 文件浏览主页，网格 / 列表双视图、面包屑、封面预览、书签抽屉。业务交互仍由 `index.js` 驱动（排序、进目录、看本入口、书签），模板严格保留其依赖的 DOM 契约。
+    - **`jm_view.html`**: 看本阅读页，沉浸深色阅读区、悬浮工具栏、底部进度条与跳页。懒加载 / 跳页 / 加载全部由 `common.js` 驱动。
+    - **`message.html`**: 局域网消息，气泡按 `is_server` 区分（服务器本机 vs 普通用户），逻辑由 `message.js` 驱动。
+    - **`upload.html`**: 拖拽上传区 + 进度条，逻辑由 `upload.js` 驱动（FormData key=`file`）。
+    - **`download_error.html`**: 统一空态 / 错误页。
+- **换皮原则（换皮不换骨）**: 仅替换呈现层（HTML 结构 + CSS + 图标），所有 URL、模板字段、隐藏表单（`#pathForm`/`#jmViewForm`）、以及 `index.js`/`common.js`/`message.js`/`upload.js` 的业务逻辑保持不变。
+- **旧版前端文件（仍保留在仓库，未被删除）**: `m_*.html`（旧移动端模板）、`index_spa.html` + `index_spa.js`（旧 SPA，路由 `/spa` 仍可访问）、`bootstrap.css` 及旧 jquery 插件（`jquery.album/photo/lazyload`）、各旧页面的独立 CSS。这些不再是主链路生效的前端，保留以便回滚与参考。
 
 ### 4. 核心工作流
 
 1. **初始化**: 启动时扫描默认路径，根据配置初始化缓存和路径索引。
 2. **访问控制**: 用户通过 `/login` 建立 Session。
 3. **浏览与识别**: 用户访问目录时，`FileManager` 实时扫描。如果文件夹内包含图片，则会被标记为 `jm_view` 可用状态。
-4. **阅读体验**: 开启 `jm_view` 后，前端会按顺序加载图片，并提供浮动工具栏方便跳转和管理。
+4. **阅读体验**: 开启 `jm_view` 后，前端在沉浸式深色阅读区按数字顺序懒加载图片，并提供悬浮工具栏与底部进度条 / 跳页下拉，方便跳转和管理。
 
 ### 5. 部署与扩展
 该项目既可以作为独立程序运行，也可以作为 `jmcomic` 的插件在完成下载任务后自动拉起服务器进行预览。
@@ -52,9 +64,9 @@
 - **API 接口**:
     - `GET /api/messages?since_id=xxx` — 增量拉取消息（支持长轮询式增量获取）
     - `POST /api/messages` — 发送消息（JSON Body: `{sender, content}`）
-    - `GET /message` — 消息页面视图（自动适配 PC/移动端）
-- **前端 (`message.js`)**: 基于 2 秒间隔的轮询机制拉取新消息，支持昵称 localStorage 持久记忆、输入框自适应高度、消息入场动画、日期分隔符等。
-- **UI 设计**: 暗色毛玻璃风格（Glassmorphism），渐变高光配色，PC/手机双端模板。
+    - `GET /message` — 消息页面视图（单套响应式模板，PC/移动端共用）
+- **前端 (`message.js`)**: 基于 2 秒间隔的轮询机制拉取新消息，支持昵称 localStorage 持久记忆、输入框自适应高度、消息入场动画、日期分隔符等。气泡左右按后端返回的 `is_server` 区分（服务器本机发的 vs 普通用户发的），而非“当前浏览器自己 vs 对方”。
+- **UI 设计**: 换皮后纳入统一设计系统（`app.css`），随全站深浅双主题切换，`.is-server` / `.is-user` 两种气泡样式区分来源。
 
 ![局域网消息功能示意图](images/9.png)
 
@@ -70,19 +82,19 @@
 #### 7.1 局域网访问适配
 - **自动 IP 识别 (`driver.py`)**: 利用 UDP 套接字探测技术（`get_lan_ip`），动态获取服务器在局域网内的真实出口 IP。
 - **首页地址直达**: 
-    - 在所有模式（SPA、PC、移动端）首页顶部显著位置显示 `http://IP:PORT`。
-    - 针对移动端优化，提供“局域网访问地址”栏，点击即可将地址复制到剪贴板，极大地方便了多设备间的连接分享。
+    - 在首页顶部显著位置以可复制的地址 pill 显示 `http://IP:PORT`（换皮后统一样式，`copyAddr()` 一键复制）。
+    - 响应式适配下，移动端同样可点击复制地址，方便多设备间的连接分享。
 
 #### 7.2 交互反馈增强
-- **移除原生 Alert**: 全站逐步退场传统的浏览器 `alert()` 阻塞式弹窗。
-- **Toast 消息反馈**: 所有的操作结果（如复制地址、收藏成功等）均通过侧边栏通知系统异步反馈，保证了阅读和处理流程的连贯性。
+- **移除原生 Alert**: 主链路页面退场传统的浏览器 `alert()` 阻塞式弹窗（旧版部分逻辑如 `upload.js` 的 alert 保留未动）。
+- **Toast 消息反馈**: 操作结果（如复制地址、收藏成功等）通过 `app.js` 提供的统一 `toast()` 异步反馈，随深浅主题渲染，保证阅读和处理流程的连贯性。
 
 ### 8. 命令行接口 (CLI) 与运行配置
 
 为了极大降低使用门槛，本项目全面重构了启动逻辑，支持规范的命令行交互模式。
 
 #### 8.1 核心命令 `jms`
-在安装完该模块后，系统会自动注册 `jms` 命令（底层等同于执行 `python -m plugin_jm_server`）。它由 `argparse` 驱动，提供了高度定制化的启动参数：
+在安装完该模块后，系统会自动注册 `jms` 命令（底层等同于执行 `python -m jm_view_server`）。它由 `argparse` 驱动，提供了高度定制化的启动参数：
 - **目录与端口**：支持直接传入共享目录路径，以及通过 `-p` 灵活指定监听端口。
 - **安全与权限控制**：可通过 `-P` 开启密码验证，及使用 `--ip-whitelist` 限制仅允许特定 IP 的设备访问。
 - **HTTPS 与环境变量**：支持通过 `-s` 快速启用 HTTPS（依赖 `cryptography` 的 adhoc 自签证书），以及通过 `-e KEY=VALUE` 临时注入环境变量。

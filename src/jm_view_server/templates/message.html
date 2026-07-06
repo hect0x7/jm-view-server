@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>局域网消息 · JM Server</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#5b5bd6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="看本">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
+  <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+  <style>
+    /* ——— 聊天页布局覆盖：content 变弹性列，消息区滚动，输入区固定底部 ——— */
+    .content.chat-content {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-wrap {
+      flex: 1;
+      width: 100%;
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 0 var(--sp-5);
+    }
+
+    /* 标题区 */
+    .chat-head {
+      flex-shrink: 0;
+      padding: var(--sp-6) 0 var(--sp-4);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+    }
+    .chat-head h1 {
+      font-family: var(--font-brand);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    /* 消息滚动区 */
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+      padding: var(--sp-2) 0 var(--sp-5);
+    }
+
+    /* 空状态 */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-3);
+      color: var(--text-muted);
+      padding: var(--sp-7) 0;
+      font-size: 14px;
+    }
+    .empty-state-icon {
+      font-size: 36px;
+      opacity: 0.5;
+    }
+
+    /* 日期分隔符（message.js 动态生成 .date-divider） */
+    .date-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      margin: var(--sp-2) 0;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .date-divider::before,
+    .date-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .date-divider span {
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* ——— 消息项（message.js 动态生成 .message-item.is-server / .is-user） ——— */
+    .message-item {
+      display: flex;
+      flex-direction: column;
+      max-width: 68%;
+      animation: riseIn .3s var(--ease) both;
+    }
+
+    /* is-server（服务器本机发送）：左对齐，灰色气泡 */
+    .message-item.is-server {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+    .message-item.is-server .message-bubble {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-top-left-radius: var(--r-sm);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* is-user（普通用户发送）：右对齐，品牌色气泡 */
+    .message-item.is-user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+    .message-item.is-user .message-bubble {
+      background: var(--brand);
+      color: var(--text-on-brand);
+      border-top-right-radius: var(--r-sm);
+      box-shadow: var(--shadow-brand);
+    }
+    .message-item.is-user .message-header {
+      flex-direction: row-reverse;
+    }
+
+    /* 消息头：发送者 + 时间（+ IP 徽章） */
+    .message-header {
+      display: flex;
+      align-items: baseline;
+      gap: var(--sp-2);
+      margin-bottom: 4px;
+      padding: 0 2px;
+    }
+    .message-sender {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .message-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .message-ip-badge {
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg-sunken);
+      border: 1px solid var(--border);
+      border-radius: var(--r-pill);
+      padding: 1px 6px;
+    }
+
+    /* 气泡 */
+    .message-bubble {
+      padding: 10px 14px;
+      border-radius: var(--r-lg);
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* 新消息提示 */
+    #newMsgHint {
+      display: none;
+      position: sticky;
+      bottom: 8px;
+      align-self: center;
+      background: var(--brand);
+      color: var(--text-on-brand);
+      font-size: 13px;
+      padding: 6px 16px;
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      box-shadow: var(--shadow-brand);
+      z-index: 10;
+      transition: opacity .2s;
+    }
+
+    /* ——— 输入区 ——— */
+    .composer {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+      backdrop-filter: blur(12px);
+      padding: var(--sp-3) 0 var(--sp-5);
+    }
+    .composer-inner {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--sp-3);
+    }
+    .nick-field {
+      flex-shrink: 0;
+    }
+    #nicknameInput {
+      height: 44px;
+      width: 120px;
+      text-align: center;
+    }
+    .msg-field {
+      flex: 1;
+      min-width: 0;
+    }
+    #messageInput {
+      height: 44px;
+      max-height: 120px;
+      padding: 11px var(--sp-4);
+      resize: none;
+      line-height: 1.4;
+      overflow-y: auto;
+    }
+    #sendBtn {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--r-pill);
+    }
+    #sendBtn svg {
+      width: 18px;
+      height: 18px;
+    }
+    .input-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: var(--sp-2);
+      text-align: center;
+    }
+
+    /* Toast（message.js 用 classList add/remove 'show'） */
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 8px 18px;
+      font-size: 14px;
+      color: var(--text);
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 9000;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 860px) {
+      .chat-wrap { padding: 0 var(--sp-4); }
+      .chat-head { padding: var(--sp-4) 0 var(--sp-3); }
+      .message-item { max-width: 82%; }
+      #nicknameInput { width: 84px; }
+      .content.chat-content { padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span style="font-weight:500">消息中心</span>
+      <div class="spacer"></div>
+      <div class="addr-pill" id="addrPill" title="点击复制服务器地址">
+        <span id="netIco"></span>
+        <span id="addrText">{{ server_addr if server_addr else '127.0.0.1' }}</span>
+        <span id="copyIco" style="opacity:.5"></span>
+      </div>
+    </div>
+
+    <div class="content chat-content">
+      <div class="chat-wrap">
+
+        <!-- 标题 -->
+        <div class="chat-head">
+          <h1>局域网消息</h1>
+          <span class="badge badge-dot">实时同步</span>
+        </div>
+
+        <!-- 消息滚动区（message.js 往这里 append 消息） -->
+        <div id="chatMessages">
+          <div class="empty-state">
+            <div class="empty-state-icon">💬</div>
+            <div class="empty-state-text">
+              还没有消息<br>发送第一条消息开始对话吧
+            </div>
+          </div>
+          <!-- 新消息提示（message.js 控制 display） -->
+          <div id="newMsgHint">有新消息 ↓</div>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="composer">
+          <div class="composer-inner">
+            <div class="nick-field">
+              <input class="input" type="text" id="nicknameInput"
+                     placeholder="昵称" maxlength="20">
+            </div>
+            <div class="msg-field">
+              <textarea class="input" id="messageInput"
+                        rows="1" maxlength="5000"
+                        placeholder="输入消息… (Enter 发送，Shift+Enter 换行)"></textarea>
+            </div>
+            <button class="btn btn-primary btn-icon" id="sendBtn" title="发送"></button>
+          </div>
+          <div class="input-hint">消息在局域网内所有设备间实时同步</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobile-bar"></nav>
+</div>
+
+<!-- Toast（message.js 读取此元素） -->
+<div id="toast"></div>
+
+<!-- 资源引入（app.js 先于其它，提供 icon() / renderShell() / toast() / toggleTheme()） -->
+<script src="/static/js/app.js?t={{ randomArg }}"></script>
+<script src="/static/js/common.js?t={{ randomArg }}"></script>
+<script src="/static/js/message.js?t={{ randomArg }}"></script>
+<script>
+  // 注入 App Shell（侧栏 + 移动底栏）
+  renderShell('message');
+
+  // 地址 pill 图标 + 点击复制
+  document.getElementById('netIco').innerHTML = icon('network');
+  document.getElementById('copyIco').innerHTML = icon('copy');
+  (function() {
+    const pill = document.getElementById('addrPill');
+    const addrText = document.getElementById('addrText').textContent.trim();
+    pill.onclick = function() { copyAddr('http://' + addrText); };
+  })();
+
+  // 发送按钮图标
+  document.getElementById('sendBtn').innerHTML = icon('send');
+
+  // 顶部滚动快捷键（PC 端）
+  // chatMessages 容器内滚动，不需额外按钮；保留与旧版一致的 scrollTopBtn 逻辑可选
+</script>
+</body>
+</html>
