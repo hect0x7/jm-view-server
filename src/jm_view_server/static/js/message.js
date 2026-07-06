@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (nicknameInput) {
-        nicknameInput.addEventListener('change', () => {
+        nicknameInput.addEventListener('input', () => {
             localStorage.setItem('jm_chat_nickname', nicknameInput.value.trim());
         });
     }
@@ -53,6 +53,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         header.appendChild(sender);
         header.appendChild(time);
+
+        // 如果是服务器本机，为每条消息提供删除按钮
+        if (window.IS_LOCAL_HOST) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-msg-delete';
+            deleteBtn.title = '删除消息';
+            deleteBtn.innerHTML = icon('trash');
+
+            let confirmTimer = null;
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (deleteBtn.classList.contains('confirming')) {
+                    if (confirmTimer) clearTimeout(confirmTimer);
+                    deleteMessage(msg.id);
+                } else {
+                    deleteBtn.classList.add('confirming');
+                    deleteBtn.title = '再次点击以确认删除';
+                    confirmTimer = setTimeout(() => {
+                        deleteBtn.classList.remove('confirming');
+                        deleteBtn.title = '删除消息';
+                    }, 3000);
+                }
+            };
+            header.appendChild(deleteBtn);
+        }
 
         // IP 标识（可选）
         if (msg.sender_ip && msg.is_server) {
@@ -118,11 +143,53 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!resp.ok) return;
             const data = await resp.json();
 
+            // 实时同步已删除的消息
+            if (data.active_ids) {
+                const activeSet = new Set(data.active_ids.map(Number));
+                const items = messagesContainer.querySelectorAll('.message-item');
+                items.forEach(item => {
+                    const id = Number(item.dataset.id);
+                    if (id && !activeSet.has(id)) {
+                        item.style.transition = 'opacity 0.25s, transform 0.25s';
+                        item.style.opacity = '0';
+                        item.style.transform = 'translateY(10px)';
+                        setTimeout(() => item.remove(), 250);
+                    }
+                });
+            }
+
             if (data.messages && data.messages.length > 0) {
                 appendMessages(data.messages);
             }
         } catch (e) {
             console.error('拉取消息失败:', e);
+        }
+    }
+
+    /**
+     * 向后端发起请求删除指定消息
+     */
+    async function deleteMessage(msgId) {
+        try {
+            const resp = await fetch(`/api/messages?id=${msgId}`, {
+                method: 'DELETE'
+            });
+            if (resp.ok) {
+                showToast('消息已删除');
+                const item = messagesContainer.querySelector(`.message-item[data-id="${msgId}"]`);
+                if (item) {
+                    item.style.transition = 'opacity 0.2s, transform 0.2s';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateY(10px)';
+                    setTimeout(() => item.remove(), 200);
+                }
+            } else {
+                const err = await resp.json();
+                showToast(err.error || '删除失败');
+            }
+        } catch (e) {
+            showToast('网络异常');
+            console.error('删除消息失败:', e);
         }
     }
 
@@ -186,6 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!content) return;
 
         const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+        if (nicknameInput) {
+            localStorage.setItem('jm_chat_nickname', nickname);
+        }
         sendBtn.disabled = true;
 
         try {

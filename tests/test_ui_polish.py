@@ -98,14 +98,14 @@ def test_no_kanben_for_plain_file(live_server, browser):
 # ---------- todo #2：网格文件名两行截断 ----------
 
 def test_grid_name_single_line(live_server, browser):
-    """网格文件名单行截断（nowrap+省略号），卡片整齐一致。"""
+    """网格文件名两行截断（line-clamp: 2），卡片整齐一致。"""
     pg = _open_index(live_server, browser)
     pg.click('#segGrid')
     pg.wait_for_timeout(200)
     ws = pg.eval_on_selector('.grid-view .card-meta .name', 'e => getComputedStyle(e).whiteSpace')
-    ov = pg.eval_on_selector('.grid-view .card-meta .name', 'e => getComputedStyle(e).textOverflow')
-    assert ws == 'nowrap', f'网格名应单行 nowrap，实际 {ws!r}'
-    assert ov == 'ellipsis', f'网格名应省略号，实际 {ov!r}'
+    clamp = pg.eval_on_selector('.grid-view .card-meta .name', 'e => getComputedStyle(e).webkitLineClamp')
+    assert ws == 'normal', f'网格名应为 normal（以便折行），实际 {ws!r}'
+    assert clamp == '2', f'网格名应被两行截断，实际 {clamp!r}'
 
 
 # ---------- 看本按钮横排（不被窄列挤成竖排） ----------

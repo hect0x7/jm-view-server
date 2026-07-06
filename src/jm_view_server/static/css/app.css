@@ -211,12 +211,14 @@ input, textarea { font-family: inherit; }
   display: inline-flex; align-items: center; gap: var(--sp-2);
   height: 32px; padding: 0 var(--sp-3);
   background: var(--bg-sunken); border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary);
-  cursor: pointer; transition: all .16s var(--ease);
+  border-radius: var(--r-pill); font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); cursor: pointer;
+  transition: all .18s var(--ease);
+  flex-shrink: 0;
 }
 .addr-pill:hover { border-color: var(--brand); color: var(--text); }
 .addr-pill .dot { color: var(--brand); }
+.addr-pill svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* ============================================================
    App Shell · 桌面侧栏 + 移动底栏（自适应）
@@ -321,6 +323,7 @@ input, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
   backdrop-filter: blur(12px);
+  flex-wrap: nowrap;
 }
 .content { flex: 1; overflow-y: auto; padding: var(--sp-6); }
 .content-narrow { max-width: 1180px; margin: 0 auto; }
@@ -347,11 +350,11 @@ input, textarea { font-family: inherit; }
 .mobile-bar { display: none; }
 
 /* 面包屑 */
-.crumbs { display: flex; align-items: center; gap: var(--sp-1); font-size: 14px; min-width: 0; overflow: hidden; }
-.crumbs a { color: var(--text-secondary); padding: 3px 6px; border-radius: var(--r-sm); white-space: nowrap; }
+.crumbs { display: flex; align-items: center; gap: var(--sp-1); font-size: 14px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.crumbs a { color: var(--text-secondary); padding: 3px 6px; border-radius: var(--r-sm); white-space: nowrap; flex-shrink: 0; }
 .crumbs a:hover { background: var(--surface-hover); color: var(--text); }
-.crumbs .sep { color: var(--text-muted); }
-.crumbs .cur { color: var(--text); font-weight: 500; }
+.crumbs .sep { color: var(--text-muted); flex-shrink: 0; }
+.crumbs .cur { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
 
 .spacer { margin-left: auto; }
 
@@ -373,7 +376,32 @@ input, textarea { font-family: inherit; }
   .app { grid-template-columns: 1fr; grid-template-rows: 1fr; }
   .sidebar { display: none; }
   .content { padding: var(--sp-4); padding-bottom: 84px; }
-  .topbar { padding: 0 var(--sp-4); }
+  .topbar { 
+    padding: 8px var(--sp-4); 
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    height: auto; 
+    min-height: 0;
+  }
+  
+  /* 移动端保证全路径完整展示，并加个卡片包装 */
+  .crumbs {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 6px 10px;
+    display: block;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.4;
+  }
+  .crumbs a { display: inline-block; vertical-align: middle; padding: 0; }
+  .crumbs .sep { margin: 0 4px; }
+  .crumbs .cur { display: inline; white-space: normal; direction: ltr; }
+  
+  /* 移动端压缩 IP 栏为纯复制图标 */
+  #addrText, #copyIco { display: none; }
+  #netIco { opacity: 1 !important; display: flex; }
+  .addr-pill { padding: 0; width: 32px; height: 32px; justify-content: center; border-radius: var(--r-md); }
 
   .mobile-bar {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;

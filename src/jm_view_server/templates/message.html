@@ -25,15 +25,26 @@
       overflow: hidden;
     }
 
+    /* 双栏横向布局 */
     .chat-wrap {
       flex: 1;
       width: 100%;
-      max-width: 820px;
+      max-width: 1120px;
       margin: 0 auto;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       min-height: 0;
       padding: 0 var(--sp-5);
+      gap: var(--sp-6);
+    }
+
+    /* 左侧/主要聊天区 */
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      height: 100%;
     }
 
     /* 标题区 */
@@ -78,7 +89,7 @@
       opacity: 0.5;
     }
 
-    /* 日期分隔符（message.js 动态生成 .date-divider） */
+    /* 日期分隔符 */
     .date-divider {
       display: flex;
       align-items: center;
@@ -99,7 +110,7 @@
       white-space: nowrap;
     }
 
-    /* ——— 消息项（message.js 动态生成 .message-item.is-server / .is-user） ——— */
+    /* 消息项 */
     .message-item {
       display: flex;
       flex-direction: column;
@@ -107,7 +118,7 @@
       animation: riseIn .3s var(--ease) both;
     }
 
-    /* is-server（服务器本机发送）：左对齐，灰色气泡 */
+    /* is-server */
     .message-item.is-server {
       align-self: flex-start;
       align-items: flex-start;
@@ -120,7 +131,7 @@
       box-shadow: var(--shadow-sm);
     }
 
-    /* is-user（普通用户发送）：右对齐，品牌色气泡 */
+    /* is-user */
     .message-item.is-user {
       align-self: flex-end;
       align-items: flex-end;
@@ -135,7 +146,7 @@
       flex-direction: row-reverse;
     }
 
-    /* 消息头：发送者 + 时间（+ IP 徽章） */
+    /* 消息头 */
     .message-header {
       display: flex;
       align-items: baseline;
@@ -188,13 +199,16 @@
       transition: opacity .2s;
     }
 
-    /* ——— 输入区 ——— */
+    /* ——— 输入区改造为精致卡片 ——— */
     .composer {
       flex-shrink: 0;
-      border-top: 1px solid var(--border);
-      background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
-      backdrop-filter: blur(12px);
-      padding: var(--sp-3) 0 var(--sp-5);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--bg-elevated);
+      padding: var(--sp-3) var(--sp-4);
+      box-shadow: var(--shadow-md);
+      margin-bottom: var(--sp-5);
+      margin-top: var(--sp-2);
     }
     .composer-inner {
       display: flex;
@@ -203,6 +217,7 @@
     }
     .nick-field {
       flex-shrink: 0;
+      display: flex;
     }
     #nicknameInput {
       height: 44px;
@@ -212,6 +227,7 @@
     .msg-field {
       flex: 1;
       min-width: 0;
+      display: flex;
     }
     #messageInput {
       height: 44px;
@@ -238,7 +254,115 @@
       text-align: center;
     }
 
-    /* Toast（message.js 用 classList add/remove 'show'） */
+    /* 右侧统计面板 */
+    .chat-sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+      padding: var(--sp-6) 0 var(--sp-5);
+      border-left: 1px solid var(--border);
+      padding-left: var(--sp-5);
+    }
+    .side-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--sp-4);
+      box-shadow: var(--shadow-sm);
+    }
+    .side-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: var(--sp-3);
+      font-family: var(--font-brand);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: var(--sp-2);
+    }
+    .stat-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px dashed var(--border);
+    }
+    .stat-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .stat-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--brand);
+      font-family: var(--font-mono);
+    }
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    .rank-name {
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+    .rank-count {
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    /* 重构右上角 IP 地址展示栏，替代旧的 addr-pill */
+    .topbar .addr-pill {
+      background: var(--bg-sunken);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 6px 12px;
+      height: auto;
+      gap: var(--sp-2);
+      box-shadow: var(--shadow-sm);
+      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    }
+    .topbar .addr-pill:hover {
+      background: var(--surface-hover);
+      border-color: var(--brand);
+      transform: translateY(-1px);
+    }
+    .topbar .addr-pill:active {
+      transform: translateY(0);
+    }
+    .topbar #netIco svg {
+      width: 14px;
+      height: 14px;
+      color: var(--brand);
+      display: block;
+    }
+    .topbar #copyIco svg {
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    /* Toast */
     #toast {
       position: fixed;
       bottom: 80px;
@@ -261,12 +385,75 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* 消息删除按钮 */
+    .btn-msg-delete {
+      background: none;
+      border: none;
+      padding: 2px;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s, opacity 0.2s;
+      opacity: 0;
+      pointer-events: none;
+      margin-left: var(--sp-1);
+      margin-right: var(--sp-1);
+    }
+    .message-item:hover .btn-msg-delete {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .btn-msg-delete:hover {
+      color: #ef4444;
+      background: var(--bg-sunken);
+    }
+    .btn-msg-delete svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+    .btn-msg-delete.confirming {
+      color: #ef4444 !important;
+      background: var(--bg-sunken);
+      transform: scale(1.2);
+      animation: msgDeleteShake 0.15s ease-in-out infinite alternate;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    @keyframes msgDeleteShake {
+      0% { transform: scale(1.2) rotate(-8deg); }
+      100% { transform: scale(1.2) rotate(8deg); }
+    }
+
+    /* 响应式降级 */
+    @media (max-width: 1024px) {
+      .btn-msg-delete {
+        opacity: 0.6;
+        pointer-events: auto;
+      }
+      .chat-sidebar {
+        display: none;
+      }
+      .chat-wrap {
+        max-width: 820px;
+        flex-direction: column;
+      }
+    }
+
     @media (max-width: 860px) {
       .chat-wrap { padding: 0 var(--sp-4); }
       .chat-head { padding: var(--sp-4) 0 var(--sp-3); }
       .message-item { max-width: 82%; }
       #nicknameInput { width: 84px; }
-      .content.chat-content { padding-bottom: 0; }
+      .content.chat-content { padding-bottom: 84px; }
+      .composer {
+        margin-bottom: var(--sp-3);
+        border-radius: var(--r-md);
+        padding: var(--sp-3) var(--sp-3);
+      }
     }
   </style>
 </head>
@@ -287,40 +474,65 @@
 
     <div class="content chat-content">
       <div class="chat-wrap">
+        <div class="chat-main">
+          <!-- 标题 -->
+          <div class="chat-head">
+            <h1>局域网消息</h1>
+            <span class="badge badge-dot">实时同步</span>
+          </div>
 
-        <!-- 标题 -->
-        <div class="chat-head">
-          <h1>局域网消息</h1>
-          <span class="badge badge-dot">实时同步</span>
+          <!-- 消息滚动区（message.js 往这里 append 消息） -->
+          <div id="chatMessages">
+            <div class="empty-state">
+              <div class="empty-state-icon">💬</div>
+              <div class="empty-state-text">
+                还没有消息<br>发送第一条消息开始对话吧
+              </div>
+            </div>
+            <!-- 新消息提示（message.js 控制 display） -->
+            <div id="newMsgHint">有新消息 ↓</div>
+          </div>
+
+          <!-- 输入区 -->
+          <div class="composer">
+            <div class="composer-inner">
+              <div class="nick-field">
+                <input class="input" type="text" id="nicknameInput"
+                       placeholder="昵称" maxlength="20" value="{{ default_nickname }}">
+              </div>
+              <div class="msg-field">
+                <textarea class="input" id="messageInput"
+                          rows="1" maxlength="5000"
+                          placeholder="输入消息… (Enter 发送，Shift+Enter 换行)"></textarea>
+              </div>
+              <button class="btn btn-primary btn-icon" id="sendBtn" title="发送"></button>
+            </div>
+            <div class="input-hint">消息在局域网内所有设备间实时同步</div>
+          </div>
         </div>
 
-        <!-- 消息滚动区（message.js 往这里 append 消息） -->
-        <div id="chatMessages">
-          <div class="empty-state">
-            <div class="empty-state-icon">💬</div>
-            <div class="empty-state-text">
-              还没有消息<br>发送第一条消息开始对话吧
+        <!-- 右侧统计面板区域 -->
+        <div class="chat-sidebar">
+          <div class="side-card">
+            <h3 class="side-card-title">聊天室统计</h3>
+            <div class="stat-list">
+              <div class="stat-item">
+                <span class="stat-label">累计消息</span>
+                <span class="stat-value" id="statTotalMsgs">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">发言人数</span>
+                <span class="stat-value" id="statTotalUsers">0</span>
+              </div>
             </div>
           </div>
-          <!-- 新消息提示（message.js 控制 display） -->
-          <div id="newMsgHint">有新消息 ↓</div>
-        </div>
 
-        <!-- 输入区 -->
-        <div class="composer">
-          <div class="composer-inner">
-            <div class="nick-field">
-              <input class="input" type="text" id="nicknameInput"
-                     placeholder="昵称" maxlength="20">
+          <div class="side-card" id="sideCardRank" style="display: none;">
+            <h3 class="side-card-title">活跃成员排行</h3>
+            <div class="rank-list" id="statRankList">
+              <!-- 由 JS 动态注入 -->
             </div>
-            <div class="msg-field">
-              <textarea class="input" id="messageInput"
-                        rows="1" maxlength="5000"
-                        placeholder="输入消息… (Enter 发送，Shift+Enter 换行)"></textarea>
-            </div>
-            <button class="btn btn-primary btn-icon" id="sendBtn" title="发送"></button>
           </div>
-          <div class="input-hint">消息在局域网内所有设备间实时同步</div>
         </div>
 
       </div>
@@ -338,6 +550,8 @@
 <script src="/static/js/common.js?t={{ randomArg }}"></script>
 <script src="/static/js/message.js?t={{ randomArg }}"></script>
 <script>
+  window.IS_LOCAL_HOST = {{ 'true' if is_local else 'false' }};
+
   // 注入 App Shell（侧栏 + 移动底栏）
   renderShell('message');
 
@@ -353,8 +567,69 @@
   // 发送按钮图标
   document.getElementById('sendBtn').innerHTML = icon('send');
 
-  // 顶部滚动快捷键（PC 端）
-  // chatMessages 容器内滚动，不需额外按钮；保留与旧版一致的 scrollTopBtn 逻辑可选
+  // 实时分析聊天消息以更新右侧统计面板
+  (function() {
+    const chatMessages = document.getElementById('chatMessages');
+    const statTotalMsgs = document.getElementById('statTotalMsgs');
+    const statTotalUsers = document.getElementById('statTotalUsers');
+    const sideCardRank = document.getElementById('sideCardRank');
+    const statRankList = document.getElementById('statRankList');
+
+    if (!chatMessages) return;
+
+    function updateStats() {
+      const items = chatMessages.querySelectorAll('.message-item');
+      const totalMsgs = items.length;
+
+      // 统计发送者发言频次
+      const senders = {};
+      items.forEach(item => {
+        const senderEl = item.querySelector('.message-sender');
+        if (senderEl) {
+          const name = senderEl.textContent.trim();
+          senders[name] = (senders[name] || 0) + 1;
+        }
+      });
+
+      const uniqueUsers = Object.keys(senders).length;
+
+      // 更新基础数值
+      if (statTotalMsgs) statTotalMsgs.textContent = totalMsgs;
+      if (statTotalUsers) statTotalUsers.textContent = uniqueUsers;
+
+      // 生成活跃排行
+      if (uniqueUsers > 0) {
+        const sorted = Object.entries(senders)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+
+        if (statRankList) {
+          statRankList.innerHTML = sorted.map(([name, count], index) => {
+            let medal = '';
+            if (index === 0) medal = '🥇 ';
+            else if (index === 1) medal = '🥈 ';
+            else if (index === 2) medal = '🥉 ';
+            return `
+              <div class="rank-item">
+                <span class="rank-name">${medal}${name}</span>
+                <span class="rank-count badge">${count} 条</span>
+              </div>
+            `;
+          }).join('');
+        }
+        if (sideCardRank) sideCardRank.style.display = 'block';
+      } else {
+        if (sideCardRank) sideCardRank.style.display = 'none';
+      }
+    }
+
+    // 观察聊天容器的消息增减变化
+    const observer = new MutationObserver(updateStats);
+    observer.observe(chatMessages, { childList: true, subtree: true });
+
+    // 载入时初次计算
+    setTimeout(updateStats, 200);
+  })();
 </script>
 </body>
 </html>

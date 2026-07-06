@@ -548,6 +548,7 @@ class JmServer:
         return render_template(self.url_format(self.mobile_check(), "jm_view.html"),
                                data={
                                    'title': common.of_file_name(path),
+                                   'full_path': path,
                                    'images': self.file_manager.get_jm_view_images(path),
                                    'openFromDir': quote(openFromDir),
                                },
@@ -812,9 +813,16 @@ class JmServer:
         if not self.verify():
             return redirect('/login')
 
+        # 获取客户端IP，默认本机是 server，其他设备是局域网IP
+        client_ip = request.remote_addr or ''
+        is_local = client_ip in ('127.0.0.1', '::1', 'localhost')
+        default_nickname = 'server' if is_local else client_ip
+
         return render_template(
             self.url_format(self.mobile_check(), 'message.html'),
             server_addr=f'{get_lan_ip()}:{self.extra.get("port", self.DEFAULT_PORT)}',
+            default_nickname=default_nickname,
+            is_local=is_local,
             randomArg=self.url_random_arg()
         )
 
@@ -829,7 +837,14 @@ class JmServer:
         limit = request.args.get('limit', 50, type=int)
 
         messages = self.message_manager.get_messages(since_id=since_id, limit=limit)
-        return jsonify({'messages': messages})
+        # 获取所有有效消息的 ID 列表
+        all_messages = self.message_manager.get_all_messages()
+        active_ids = [m['id'] for m in all_messages]
+
+        return jsonify({
+            'messages': messages,
+            'active_ids': active_ids
+        })
 
     def api_send_message(self):
         """
@@ -842,13 +857,15 @@ class JmServer:
         if not data or not data.get('content'):
             return jsonify({'error': '消息内容不能为空'}), 400
 
-        sender = data.get('sender', '').strip() or '匿名'
-        content = data.get('content', '').strip()
         sender_ip = request.remote_addr or ''
+        is_local = sender_ip in ('127.0.0.1', '::1', 'localhost')
+        default_sender = 'server' if is_local else sender_ip
+
+        sender = data.get('sender', '').strip() or default_sender
+        content = data.get('content', '').strip()
 
         # 判断是否为服务器本机发送
-        is_local = sender_ip in ('127.0.0.1', '::1', 'localhost')
-        if is_local and sender == '服务器':
+        if is_local and sender in ('server', '服务器'):
             msg = self.message_manager.send_server_message(content)
         else:
             msg = self.message_manager.send_message(sender, content, sender_ip)
@@ -857,6 +874,29 @@ class JmServer:
             return jsonify({'status': 'ok', 'message': msg})
         else:
             return jsonify({'error': '发送失败'}), 400
+
+    def api_delete_message(self):
+        """
+        API: 删除消息（仅限服务器本机执行）
+        """
+        if not self.verify():
+            return abort(403)
+
+        # 校验是否为服务器本机请求
+        sender_ip = request.remote_addr or ''
+        is_local = sender_ip in ('127.0.0.1', '::1', 'localhost')
+        if not is_local:
+            return jsonify({'error': '只有服务器本机有权删除消息'}), 403
+
+        msg_id = request.args.get('id', 0, type=int)
+        if not msg_id:
+            return jsonify({'error': '缺少消息 ID'}), 400
+
+        success = self.message_manager.delete_message(msg_id)
+        if success:
+            return jsonify({'status': 'ok'})
+        else:
+            return jsonify({'error': '未找到该消息或已删除'}), 404
 
     # ===== 自定义背景图 =====
 
@@ -975,6 +1015,7 @@ class JmServer:
         self.app.add_url_rule("/message", 'message_page', self.message_page, methods=['GET'])
         self.app.add_url_rule("/api/messages", 'api_get_messages', self.api_get_messages, methods=['GET'])
         self.app.add_url_rule("/api/messages", 'api_send_message', self.api_send_message, methods=['POST'])
+        self.app.add_url_rule("/api/messages", 'api_delete_message', self.api_delete_message, methods=['DELETE'])
 
     def run(self, **kwargs):
         kwargs.setdefault('port', self.DEFAULT_PORT)
