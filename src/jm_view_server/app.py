@@ -3,6 +3,7 @@ from urllib.parse import quote
 from html import unescape
 import os
 import re
+import secrets
 from typing import Optional
 
 import common
@@ -52,7 +53,8 @@ class JmServer:
                          static_folder='static',
                          static_url_path='/static',
                          )
-        self.app.secret_key = __file__
+        # 使用安全随机值作为 secret_key，避免可预测的 session 签名
+        self.app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
         # 设置登录密钥
         self.password = password
         self.file_manager = FileManager(default_path, current_path)
@@ -102,7 +104,7 @@ class JmServer:
             elif session.mobile == 'no':
                 return False
         except AttributeError:
-            if re.search(self.MATCH_EXP, request.headers.get('User-Agent')):
+            if re.search(self.MATCH_EXP, request.headers.get('User-Agent', '')):
                 session.mobile = 'yes'
                 return True
             else:
@@ -525,9 +527,11 @@ class JmServer:
             return redirect('/login')
 
         # path是要阅读的文件夹
-        path = unescape(request.args.get('path', None))
+        raw_path = request.args.get('path', None)
+        path = unescape(raw_path) if raw_path is not None else None
         # 从哪个文件夹打开的
-        openFromDir = unescape(request.args.get('openFromDir', self.file_manager.get_current_path()))
+        raw_open_from = request.args.get('openFromDir', None)
+        openFromDir = unescape(raw_open_from) if raw_open_from is not None else self.file_manager.get_current_path()
 
         if path is None:
             return redirect('/')
@@ -676,7 +680,11 @@ class JmServer:
             if request.method == "POST":
                 # 获取文件 拼接存储路径并保存
                 upload_file = request.files['file']
-                upload_file.save(os.path.join(self.file_manager.get_current_path(), upload_file.filename))
+                from werkzeug.utils import secure_filename
+                safe_name = secure_filename(upload_file.filename)
+                if not safe_name:
+                    return '提示：文件名无效，请检查文件名', 400
+                upload_file.save(os.path.join(self.file_manager.get_current_path(), safe_name))
 
                 # 返回上传成功的消息给前端
                 return '提示：上传的%s已经存储到了服务器中!' % upload_file.filename
@@ -689,6 +697,14 @@ class JmServer:
             return redirect('/login')
 
     def stream(self):
+        if not self.verify():
+            return redirect('/login')
+
+        # 确保消息队列已初始化（即使 jm_option 未配置也不抛 AttributeError）
+        if not hasattr(self, 'jm_log_msg_queue'):
+            import queue
+            self.jm_log_msg_queue = queue.Queue()
+
         album_id = request.args.get('id', None)
         end = f'-- END [{album_id}] --'
 
@@ -734,6 +750,8 @@ class JmServer:
             self.jm_log_msg_queue.put(end)
 
     def open_directory(self, directory):
+        if not self.verify():
+            return abort(403)
         import subprocess
         import sys
         # Flask 的 <path:...> 转换器会吃掉前导 '/'，导致 mac/linux 绝对路径
@@ -796,6 +814,7 @@ class JmServer:
 
         return render_template(
             self.url_format(self.mobile_check(), 'message.html'),
+            server_addr=f'{get_lan_ip()}:{self.extra.get("port", self.DEFAULT_PORT)}',
             randomArg=self.url_random_arg()
         )
 

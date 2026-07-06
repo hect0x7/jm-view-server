@@ -13,11 +13,19 @@ import requests
 from PIL import Image
 
 
-BG_GLOB = os.path.join(os.path.expanduser('~'), '.jm_view_server', 'background.*')
+# 测试用的背景图存储目录，使用临时目录避免污染真实用户环境
+_test_bg_dir = None
+
+
+def _bg_glob():
+    """返回当前测试使用的 background.* glob 模式"""
+    if _test_bg_dir:
+        return os.path.join(_test_bg_dir, 'background.*')
+    return os.path.join(os.path.expanduser('~'), '.jm_view_server', 'background.*')
 
 
 def _clean_bg():
-    for f in glob.glob(BG_GLOB):
+    for f in glob.glob(_bg_glob()):
         try:
             os.remove(f)
         except OSError:

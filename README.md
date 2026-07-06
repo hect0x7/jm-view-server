@@ -14,35 +14,19 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/jm-view-server?style=flat&color=hotpink)](https://pepy.tech/projects/jm-view-server)
 [![Licence](https://img.shields.io/github/license/hect0x7/plugin-jm-server?color=red)](https://github.com/hect0x7/plugin-jm-server)
 
-<!-- 注意：上面 stars/forks/license 徽章仍指向旧仓库路径 hect0x7/plugin-jm-server。
-     待在 GitHub 上把仓库重命名为 jm-view-server 后（GitHub 会自动重定向旧链接），
-     请把这些徽章及 setup.py 里的 url 一并同步为新仓库路径。 -->
 
 </div>
-
-> [!IMPORTANT]
-> ## 📦 项目已更名：`plugin-jm-server` → `jm-view-server`（v0.2.4）
->
-> 原名 `plugin-jm-server` 里的 `plugin-` 前缀会让人误以为它必须搭配 jmcomic 才能用。其实它**首先是一个可独立运行的本地看本服务器**，jmcomic 插件只是附加能力，因此更名为 `jm-view-server`（对应代码里的核心「看本模式」`jm_view`）。
->
-> **新用户** —— 直接用新名安装即可：
-> ```shell
-> pip install jm-view-server && jms
-> ```
->
-> **老用户迁移** —— 一行搞定：
-> ```shell
-> pip uninstall -y plugin_jm_server && pip install jm-view-server
-> ```
-> 命令行 `jms` 和 jmcomic 插件 key `jm_server` **都不变**；脚本里把 `import plugin_jm_server` 换成 `import jm_view_server` 即可（不换也行，旧包名仍能用）。
->
-> 旧包 `plugin_jm_server` 仍保留在 PyPI 上做**重定向薄壳**：安装它会自动带上 `jm-view-server`，旧的 `import` 和 `jms` 命令继续可用，仅在导入时打印一条弃用提示。建议尽快迁移到新包名。
 
 > 该项目会在你的电脑上启动一个**本地文件服务器**。你可以直接在浏览器（手机或电脑）中打开它，它会把本地文件夹里的图片转换成类似“禁漫天堂”的章节观看页面。
 > 
 > **核心优势**：
 > - 支持各种强大的浏览器插件和脚本，例如[双页阅读插件](https://sleazyfork.org/zh-CN/scripts/374903-comicread)。
 > - 一键开启局域网共享，电脑下载，躺在床上用手机看。
+> 
+> [!IMPORTANT]
+> ### 项目已更名：`plugin-jm-server` → `jm-view-server`
+> 
+> 从 v0.2.4 起，本项目正式更名为 `jm-view-server`。老用户请参考文末的 [老用户迁移指南](#老用户迁移指南) 进行升级。
 
 ![架构与流程图](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
 
@@ -179,6 +163,21 @@ op.download_album(123)
 # Python 3.12+ 特别注意：必须插入下面这行代码，Web 服务器才能继续处理请求！
 op.wait_all_plugins_finish()
 ```
+
+---
+
+## 老用户迁移指南
+
+原名 `plugin-jm-server` 里的 `plugin-` 前缀会让人误以为它必须搭配 jmcomic 才能用。其实它**首先是一个可独立运行的本地看本服务器**，jmcomic 插件只是附加能力，因此更名为 `jm-view-server`。
+
+**老用户迁移** —— 一行搞定：
+```shell
+pip uninstall -y plugin_jm_server && pip install jm-view-server
+```
+
+命令行 `jms` 和 jmcomic 插件 key `jm_server` **都不变**；脚本里把 `import plugin_jm_server` 换成 `import jm_view_server` 即可（不换也行，旧包名仍能用）。
+
+> 旧包 `plugin_jm_server` 仍保留在 PyPI 上做**重定向薄壳**：安装它会自动带上 `jm-view-server`，旧的 `import` 和 `jms` 命令继续可用，仅在导入时打印一条弃用提示。建议尽快迁移到新包名。
 
 ---
 

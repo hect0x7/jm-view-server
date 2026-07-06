@@ -63,29 +63,29 @@ def live_server():
     old_cwd = os.getcwd()
     os.chdir(root)
 
-    from jm_view_server.app import JmServer
-    port = _free_port()
-    srv = JmServer(root, '')  # 无密码
-    t = threading.Thread(
-        target=lambda: srv.run(host='127.0.0.1', port=port), daemon=True)
-    t.start()
+    try:
+        from jm_view_server.app import JmServer
+        port = _free_port()
+        srv = JmServer(root, '')  # 无密码
+        t = threading.Thread(
+            target=lambda: srv.run(host='127.0.0.1', port=port), daemon=True)
+        t.start()
 
-    # 等端口就绪
-    for _ in range(80):
-        try:
-            socket.create_connection(('127.0.0.1', port), 0.2).close()
-            break
-        except OSError:
-            time.sleep(0.1)
-    else:
+        # 等端口就绪
+        for _ in range(80):
+            try:
+                socket.create_connection(('127.0.0.1', port), 0.2).close()
+                break
+            except OSError:
+                time.sleep(0.1)
+        else:
+            pytest.fail(f'服务未能在 127.0.0.1:{port} 启动')
+
+        yield LiveServer(url=f'http://127.0.0.1:{port}', root=root)
+    finally:
         os.chdir(old_cwd)
         shutil.rmtree(root, ignore_errors=True)
-        pytest.fail(f'服务未能在 127.0.0.1:{port} 启动')
 
-    yield LiveServer(url=f'http://127.0.0.1:{port}', root=root)
-
-    os.chdir(old_cwd)
-    shutil.rmtree(root, ignore_errors=True)
 
 
 @pytest.fixture

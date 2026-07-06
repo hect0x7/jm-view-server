@@ -9,15 +9,23 @@
 import io
 import os
 import glob
+import tempfile
 
 from PIL import Image
 
+# 测试用的背景图存储目录，使用临时目录避免污柟真实用户环境
+_test_bg_dir = None
 
-BG_GLOB = os.path.join(os.path.expanduser('~'), '.jm_view_server', 'background.*')
+
+def _bg_glob():
+    """返回当前测试使用的 background.* glob 模式"""
+    if _test_bg_dir:
+        return os.path.join(_test_bg_dir, 'background.*')
+    return os.path.join(os.path.expanduser('~'), '.jm_view_server', 'background.*')
 
 
 def _clean_bg():
-    for f in glob.glob(BG_GLOB):
+    for f in glob.glob(_bg_glob()):
         try:
             os.remove(f)
         except OSError:
@@ -32,7 +40,9 @@ def teardown_function(_):
     _clean_bg()
 
 
-def _png_path(tmp='/tmp/jmv_appearance_bg.png'):
+def _png_path():
+    fd, tmp = tempfile.mkstemp(suffix='.png', prefix='jmv_appearance_bg_')
+    os.close(fd)
     Image.new('RGB', (60, 40), (20, 40, 80)).save(tmp)
     return tmp
 
