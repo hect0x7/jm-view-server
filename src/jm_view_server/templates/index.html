@@ -126,7 +126,7 @@
 
         /* 文件项 */
         .file-list-body { display: flex; flex-direction: column; }
-        .file-item {
+        .list-view .file-item {
             display: grid;
             grid-template-columns: minmax(120px, 1fr) var(--col-size, 110px) var(--col-date, 160px) var(--col-action, 104px) var(--col-preview, 90px);
             align-items: center;
@@ -137,8 +137,8 @@
             font-size: 14px;
             transition: background .12s;
         }
-        .file-item:last-child { border-bottom: none; }
-        .file-item:hover { background: var(--surface-hover); }
+        .list-view .file-item:last-child { border-bottom: none; }
+        .list-view .file-item:hover { background: var(--surface-hover); }
 
         /* 文件名列 */
         .file-name-col {
@@ -199,9 +199,9 @@
             box-shadow: var(--shadow-sm);
         }
         .size-col .delete-btn:hover { transform: translateY(-50%) scale(1.1); }
-        .file-item:hover .size-col .delete-btn { display: inline-flex; }
+        .list-view .file-item:hover .size-col .delete-btn { display: inline-flex; }
         .size-col .size-text { transition: opacity .18s; }
-        .file-item:hover .size-col .size-text { opacity: .25; }
+        .list-view .file-item:hover .size-col .size-text { opacity: .25; }
 
         /* 网格视图：卡片右上角 hover 显示删除按钮 */
         .card-cover { position: relative; }
@@ -628,11 +628,13 @@
         .card-meta .name {
             font-size: 13px;
             font-weight: 500;
-            /* 单行截断，卡片整齐一致；长名省略号，hover 由 title 看全名 */
-            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
             line-height: 1.4;
+            word-break: break-all;
         }
         .card-meta .info {
             font-size: 12px;
@@ -643,8 +645,9 @@
         }
         .card-jmview-btn {
             position: absolute;
-            top: 8px;
+            bottom: 8px;
             right: 8px;
+            z-index: 5;
         }
 
         /* 列表视图（默认显示，网格视图作为覆盖层） */
@@ -666,7 +669,7 @@
         /* 移动端适配 */
         @media (max-width: 860px) {
             .file-list-header { display: none; }
-            .file-item {
+            .list-view .file-item {
                 grid-template-columns: 1fr auto auto;
                 height: auto;
                 padding: var(--sp-3) var(--sp-4);
@@ -869,8 +872,10 @@
                     <div class="card-item file-item rise"
                          data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
                          type="{{ file.jm_view }}"
-                         style="animation-delay:{{ loop.index0 * 0.03 }}s">
+                         style="animation-delay:{{ loop.index0 * 0.03 }}s; cursor:pointer;"
+                         onclick="if(event.target.closest('input')||event.target.closest('a')||event.target.closest('button'))return; this.querySelector('.card-name-link').click();">
                         <div class="card-cover">
+                            <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
                             {% if file.first_img_url and file.first_img_url != '' %}
                             <img src="{{ file.first_img_url.data_original }}" alt="" loading="lazy">
                             {% else %}

@@ -35,6 +35,7 @@ const ICONS = {
   more:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
   file:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
   // 图片适配模式图标（四角向内箭头，示意“适配到框内”）
+  panelLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
   fit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M3 15v4a2 2 0 0 0 2 2h4M8 8l3 3M16 8l-3 3M8 16l3-3M16 16l-3-3"/></svg>',
   // 护眼滤镜图标（灯泡/暖光）
   eyecare: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.3 1 2.1V16h6v-.4c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z"/></svg>',
@@ -335,7 +336,8 @@ function renderShell(active) {
           <span style="font-size:13px;color:var(--text-secondary)">深色模式</span>
           <div class="theme-toggle" onclick="toggleTheme()"><span class="knob"></span></div>
         </div>
-        <button class="nav-item" id="appearanceEntry" onclick="openAppearance()" style="width:100%;text-align:left">${icon('palette')}<span>外观设置</span></button>
+                <button class="nav-item" id="appearanceEntry" onclick="openAppearance()" style="width:100%;text-align:left">${icon('palette')}<span>外观设置</span></button>
+        <button class="nav-item" onclick="toggleSidebarCollapse()" style="width:100%;text-align:left">${icon('panelLeft')}<span>收起/展开侧栏</span></button>
         <a href="/logout" class="nav-item">${icon('logout')}<span>退出登录</span></a>
       </div>
       <div class="sidebar-resizer" id="sidebarResizer" title="拖拽调整宽度，拖到最窄自动折叠"></div>`;
@@ -392,9 +394,18 @@ function initSidebarResize() {
     // 消除 resizer 有宽度/-6px 偏移导致的“起手跳一下”抖动（I-2）。
     var rect = app.querySelector('.sidebar').getBoundingClientRect();
     grabDX = e.clientX - rect.right;
+
+    // 如果当前是折叠状态，在移除 class 前锁定当前物理宽度，避免瞬间回弹默认宽度导致的抖动
+    if (app.classList.contains('sidebar-collapsed')) {
+      app.style.setProperty('--sidebar-w', rect.width + 'px');
+    }
+
     // 拖动期间脱离折叠 class，让宽度完全跟随鼠标（不受折叠布局限制），松手再定夺
     app.classList.remove('sidebar-collapsed');
     app.classList.add('sidebar-dragging');   // CSS 里 dragging 态关闭 --sidebar-w 过渡，避免拖动延迟
+    
+    // 起手时立即根据当前物理宽度判定是否需要加入“将要折叠”的预览虚化，避免拖动前一瞬间颜色跳变
+    app.classList.toggle('sidebar-precollapse', rect.width < COLLAPSE_AT);
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
     e.preventDefault();
@@ -434,3 +445,29 @@ function initSidebarResize() {
   });
 }
 window.initSidebarResize = initSidebarResize;
+
+window.toggleSidebarCollapse = function() {
+  var app = document.querySelector('.app');
+  var sidebar = app.querySelector('.sidebar');
+  if (!app || !sidebar) return;
+  
+  var isCollapsed = app.classList.contains('sidebar-collapsed');
+  var currentW = sidebar.getBoundingClientRect().width;
+  app.style.setProperty('--sidebar-w', currentW + 'px');
+  
+  if (isCollapsed) {
+    app.classList.remove('sidebar-collapsed');
+    requestAnimationFrame(function() {
+      var saved = parseInt(localStorage.getItem('jmv-sidebar-w') || '', 10);
+      var expandW = (saved >= 180 && saved <= 420) ? saved : 244;
+      app.style.setProperty('--sidebar-w', expandW + 'px');
+    });
+    try { localStorage.setItem('jmv-sidebar-collapsed', '0'); } catch(e){}
+  } else {
+    app.classList.add('sidebar-collapsed');
+    requestAnimationFrame(function() {
+      app.style.removeProperty('--sidebar-w');
+    });
+    try { localStorage.setItem('jmv-sidebar-collapsed', '1'); } catch(e){}
+  }
+};

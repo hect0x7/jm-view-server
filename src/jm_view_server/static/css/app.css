@@ -233,16 +233,25 @@ input, textarea { font-family: inherit; }
 /* 折叠态：侧栏收窄为图标条，隐藏文字 */
 .app.sidebar-collapsed { --sidebar-w: 64px; }
 .app.sidebar-collapsed .brand-name,
+.app.sidebar-precollapse .brand-name,
 .app.sidebar-collapsed .nav-item span,
+.app.sidebar-precollapse .nav-item span,
 .app.sidebar-collapsed .nav-item .count,
+.app.sidebar-precollapse .nav-item .count,
 .app.sidebar-collapsed .nav-label,
-.app.sidebar-collapsed .sidebar-foot > div:first-child > span {
+.app.sidebar-precollapse .nav-label,
+.app.sidebar-collapsed .sidebar-foot > div:first-child > span,
+.app.sidebar-precollapse .sidebar-foot > div:first-child > span {
   display: none;
 }
-.app.sidebar-collapsed .sidebar { padding: var(--sp-3) var(--sp-2); align-items: stretch; }
-.app.sidebar-collapsed .sidebar-brand { justify-content: center; padding: var(--sp-2) 0 var(--sp-4); }
-.app.sidebar-collapsed .nav-item { justify-content: center; padding: 9px 0; }
-.app.sidebar-collapsed .theme-toggle { display: none; }
+.app.sidebar-collapsed .sidebar,
+.app.sidebar-precollapse .sidebar { padding: var(--sp-3) var(--sp-2); align-items: stretch; }
+.app.sidebar-collapsed .sidebar-brand,
+.app.sidebar-precollapse .sidebar-brand { justify-content: center; padding: var(--sp-2) 0 var(--sp-4); }
+.app.sidebar-collapsed .nav-item,
+.app.sidebar-precollapse .nav-item { white-space: nowrap; justify-content: center; padding: 9px 0; }
+.app.sidebar-collapsed .theme-toggle,
+.app.sidebar-precollapse .theme-toggle { display: none; }
 
 /* 拖拽中低于折叠阈值的“将要折叠”预览：淡化侧栏内容 + 右缘高亮，明确区分未到阈值/已进折叠意图区（I-1） */
 .app.sidebar-precollapse .sidebar > *:not(.sidebar-resizer) { opacity: .35; transition: opacity .12s var(--ease); }
@@ -281,12 +290,12 @@ input, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .brand-mark svg { width: 20px; height: 20px; }
-.brand-name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.brand-name { font-size: 16px; white-space: nowrap; font-weight: 600; letter-spacing: -0.01em; }
 .brand-name small { display: block; font-size: 11px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.02em; font-family: var(--font-sans); }
 
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: var(--sp-3) var(--sp-2) var(--sp-1); }
-.nav-item {
+.nav-item { white-space: nowrap;
   display: flex; align-items: center; gap: var(--sp-3);
   padding: 9px var(--sp-3); border-radius: var(--r-md);
   font-size: 14px; font-weight: 500; color: var(--text-secondary);
