@@ -32,6 +32,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== 消息渲染 =====
 
     /**
+     * 复制文本到剪贴板并提示
+     */
+    function copyText(text) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (typeof toast === 'function') toast('消息已复制', 'success');
+                else showToast('消息已复制');
+            }).catch(() => {
+                if (typeof toast === 'function') toast('复制失败', 'error');
+                else showToast('复制失败');
+            });
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                if (typeof toast === 'function') toast('消息已复制', 'success');
+                else showToast('消息已复制');
+            } catch (err) {
+                if (typeof toast === 'function') toast('复制失败', 'error');
+                else showToast('复制失败');
+            }
+            document.body.removeChild(textarea);
+        }
+    }
+
+    /**
      * 将消息对象渲染为 DOM 片段
      */
     function renderMessage(msg) {
@@ -53,6 +84,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         header.appendChild(sender);
         header.appendChild(time);
+
+        // 复制按钮
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'btn-msg-copy';
+        copyBtn.title = '复制消息';
+        copyBtn.innerHTML = icon('copy');
+        copyBtn.onclick = (e) => {
+            e.stopPropagation();
+            copyText(msg.content);
+        };
+        header.appendChild(copyBtn);
 
         // 如果是服务器本机，为每条消息提供删除按钮
         if (window.IS_LOCAL_HOST) {
@@ -91,6 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
         bubble.textContent = msg.content;
+        bubble.title = '双击复制消息';
+        bubble.ondblclick = () => copyText(msg.content);
 
         item.appendChild(header);
         item.appendChild(bubble);

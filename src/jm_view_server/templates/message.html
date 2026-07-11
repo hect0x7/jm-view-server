@@ -385,6 +385,50 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* 优化气泡内文本选中高亮对比度 */
+    .message-item.is-user .message-bubble::selection,
+    .message-item.is-user .message-bubble *::selection {
+      background: rgba(255, 255, 255, 0.3);
+      color: var(--text-on-brand);
+    }
+    
+    .message-item.is-server .message-bubble::selection,
+    .message-item.is-server .message-bubble *::selection {
+      background: var(--brand-soft);
+      color: var(--text);
+    }
+
+    /* 消息复制按钮 */
+    .btn-msg-copy {
+      background: none;
+      border: none;
+      padding: 2px;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s, opacity 0.2s;
+      opacity: 0;
+      pointer-events: none;
+      margin-left: var(--sp-1);
+      margin-right: var(--sp-1);
+    }
+    .message-item:hover .btn-msg-copy {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .btn-msg-copy:hover {
+      color: var(--brand);
+      background: var(--bg-sunken);
+    }
+    .btn-msg-copy svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+
     /* 消息删除按钮 */
     .btn-msg-delete {
       background: none;
@@ -430,7 +474,7 @@
 
     /* 响应式降级 */
     @media (max-width: 1024px) {
-      .btn-msg-delete {
+      .btn-msg-delete, .btn-msg-copy {
         opacity: 0.6;
         pointer-events: auto;
       }
@@ -447,12 +491,33 @@
       .chat-wrap { padding: 0 var(--sp-4); }
       .chat-head { padding: var(--sp-4) 0 var(--sp-3); }
       .message-item { max-width: 82%; }
-      #nicknameInput { width: 84px; }
       .content.chat-content { padding-bottom: 84px; }
       .composer {
         margin-bottom: var(--sp-3);
         border-radius: var(--r-md);
         padding: var(--sp-3) var(--sp-3);
+      }
+      /* 移动端输入框布局优化：让昵称输入框单独占一行，给消息输入框留出充裕的横向空间 */
+      .composer-inner {
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+      }
+      .nick-field {
+        width: 100%;
+      }
+      #nicknameInput {
+        width: 100%;
+        height: 36px;
+        text-align: left;
+        padding: 0 var(--sp-3);
+        font-size: 13px;
+      }
+      .msg-field {
+        flex: 1;
+        min-width: 0;
+      }
+      #messageInput {
+        padding: 10px var(--sp-3);
       }
     }
   </style>
@@ -503,7 +568,7 @@
               <div class="msg-field">
                 <textarea class="input" id="messageInput"
                           rows="1" maxlength="5000"
-                          placeholder="输入消息… (Enter 发送，Shift+Enter 换行)"></textarea>
+                          placeholder="输入消息…"></textarea>
               </div>
               <button class="btn btn-primary btn-icon" id="sendBtn" title="发送"></button>
             </div>
@@ -513,6 +578,17 @@
 
         <!-- 右侧统计面板区域 -->
         <div class="chat-sidebar">
+          <!-- 使用提示卡片 -->
+          <div class="side-card" id="sideCardTips" style="display: none;">
+            <h3 class="side-card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--sp-2);">
+              <span style="display:inline-flex; align-items:center; gap:var(--sp-1);">💡 使用提示</span>
+              <button id="btnTipsClose" title="不再提示" style="padding:2px; border-radius:var(--r-sm); transition:opacity 0.2s, background 0.2s; opacity:0.6; display:flex; align-items:center; justify-content:center;">
+              </button>
+            </h3>
+            <div id="tipsContent" style="font-size:12px; color:var(--text-secondary); line-height:1.7; display:flex; flex-direction:column; gap:6px;">
+            </div>
+          </div>
+
           <div class="side-card">
             <h3 class="side-card-title">聊天室统计</h3>
             <div class="stat-list">
@@ -629,6 +705,58 @@
 
     // 载入时初次计算
     setTimeout(updateStats, 200);
+  })();
+
+  // 提示卡片展示与关闭逻辑
+  (function() {
+    const card = document.getElementById('sideCardTips');
+    const closeBtn = document.getElementById('btnTipsClose');
+    const tipsContent = document.getElementById('tipsContent');
+    if (!card || !closeBtn || !tipsContent) return;
+
+    if (localStorage.getItem('jm_chat_hide_tips') === '1') {
+      return;
+    }
+
+    // 注入图标与内容
+    closeBtn.innerHTML = icon('x');
+    const closeSvg = closeBtn.querySelector('svg');
+    if (closeSvg) {
+      closeSvg.style.width = '12px';
+      closeSvg.style.height = '12px';
+    }
+    
+    tipsContent.innerHTML = `
+      <div>✦ <b>双击复制</b>：双击消息气泡即可直接复制内容。</div>
+      <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">✦ <b>悬停复制</b>：悬停消息时点击 <span style="display:inline-flex; width:12px; height:12px; color:var(--text-muted);">${icon('copy')}</span> 图标。</div>
+      <div>✦ <b>回车发送</b>：输入框中按 <code>Enter</code> 发送，按 <code>Shift+Enter</code> 换行。</div>
+    `;
+    tipsContent.querySelectorAll('svg').forEach(svg => {
+      svg.style.width = '12px';
+      svg.style.height = '12px';
+      svg.style.display = 'inline-block';
+    });
+
+    card.style.display = 'block';
+
+    closeBtn.onclick = function() {
+      card.style.transition = 'opacity 0.2s, transform 0.2s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-10px)';
+      setTimeout(() => {
+        card.style.display = 'none';
+        localStorage.setItem('jm_chat_hide_tips', '1');
+      }, 200);
+    };
+
+    closeBtn.onmouseenter = () => {
+      closeBtn.style.opacity = '1';
+      closeBtn.style.background = 'var(--bg-sunken)';
+    };
+    closeBtn.onmouseleave = () => {
+      closeBtn.style.opacity = '0.6';
+      closeBtn.style.background = 'none';
+    };
   })();
 </script>
 </body>
