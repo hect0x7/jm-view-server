@@ -83,18 +83,24 @@ class FileManager:
         except OSError:
             return
 
-        first_img_url = ''
-        if jm_view and the_type == 'dir':
-            imgs = self.get_jm_view_images(file_path)
-            if imgs:
-                first_img_url = imgs[0]
-
         if name.endswith('.lnk'):
             target_path = self.get_target_path(file_path)
             return self.build_one_path_info(target_path, 'Link')
 
         quoted_path = quote(file_path)
         quoted_name = quote(name)
+
+        first_img_url = ''
+        if jm_view and the_type == 'dir':
+            imgs = self.get_jm_view_images(file_path)
+            if imgs:
+                first_img_url = imgs[0]
+        elif the_type == 'file' and self.is_image_file(name):
+            first_img_url = {
+                'filename': name,
+                'data_original': f'/view_file?path={quoted_path}',
+                'index': None
+            }
 
         # 针对文件类型，提前计算其所在的父文件夹目录并 quote，供后端精确下载使用
         dir_path = os.path.dirname(file_path).replace('\\', '/')
@@ -178,3 +184,42 @@ class FileManager:
 
     def get_current_path(self):
         return self.current_path
+
+    def get_next_dir(self, current_dir_path):
+        """
+        获取按文件夹名字自然排序（从小到大）的下一个文件夹绝对路径
+        """
+        current_dir_path = os.path.abspath(current_dir_path).replace('\\', '/')
+        parent_dir = os.path.dirname(current_dir_path)
+        if not os.path.exists(parent_dir):
+            return None
+
+        sub_dirs = []
+        try:
+            for name in os.listdir(parent_dir):
+                if name.startswith('.'):
+                    continue
+                path = os.path.join(parent_dir, name).replace('\\', '/')
+                if os.path.isdir(path) and self.check_dir_can_open_jm_view(path):
+                    sub_dirs.append({'name': name, 'path': path})
+        except OSError:
+            return None
+
+        if not sub_dirs:
+            return None
+
+        # 自然键升序排序（从小到大）
+        def natural_key(item):
+            return [int(text) if text.isdigit() else text.lower()
+                    for text in re.split(r'(\d+)', item['name'])]
+        sub_dirs.sort(key=natural_key)
+
+        current_idx = -1
+        for idx, item in enumerate(sub_dirs):
+            if item['path'] == current_dir_path:
+                current_idx = idx
+                break
+
+        if current_idx != -1 and current_idx < len(sub_dirs) - 1:
+            return sub_dirs[current_idx + 1]['path']
+        return None

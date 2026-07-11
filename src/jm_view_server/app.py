@@ -545,12 +545,16 @@ class JmServer:
             return abort(404)
 
         print(f'jm_view: {path}')
+        next_dir = self.file_manager.get_next_dir(path)
+        next_dir_path = quote(next_dir) if next_dir else ''
+
         return render_template(self.url_format(self.mobile_check(), "jm_view.html"),
                                data={
                                    'title': common.of_file_name(path),
                                    'full_path': path,
                                    'images': self.file_manager.get_jm_view_images(path),
                                    'openFromDir': quote(openFromDir),
+                                   'next_dir_path': next_dir_path,
                                },
                                randomArg=self.url_random_arg())
 
@@ -571,6 +575,36 @@ class JmServer:
         return send_from_directory(os.path.dirname(path),
                                    os.path.basename(path),
                                    )
+
+    def api_jm_images(self):
+        """
+        获取指定文件夹的图片列表（供无缝连播使用）
+        """
+        if not self.verify():
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+        raw_path = request.args.get('path', None)
+        if not raw_path:
+            return jsonify({'status': 'error', 'message': 'Path is required'}), 400
+
+        path = unescape(raw_path)
+        path = os.path.abspath(path)
+
+        if not os.path.exists(path):
+            return jsonify({'status': 'error', 'message': 'Path not found'}), 404
+
+        next_dir = self.file_manager.get_next_dir(path)
+        next_dir_path = quote(next_dir) if next_dir else ''
+
+        images = self.file_manager.get_jm_view_images(path)
+
+        return jsonify({
+            'status': 'ok',
+            'title': common.of_file_name(path),
+            'full_path': path,
+            'images': images,
+            'next_dir_path': next_dir_path
+        })
 
     def index(self):
         """
@@ -1001,6 +1035,7 @@ class JmServer:
         self.app.add_url_rule("/spa", 'spa_view', self.spa_view, methods=['GET'])
         self.app.add_url_rule("/api/list_files", 'api_list_files', self.api_list_files, methods=['GET'])
         self.app.add_url_rule("/api/album_images", 'api_album_images', self.api_album_images, methods=['GET'])
+        self.app.add_url_rule("/api/jm_images", 'api_jm_images', self.api_jm_images, methods=['GET'])
         self.app.add_url_rule("/api/open_file", 'api_open_file', self.api_open_file, methods=['GET'])
         self.app.add_url_rule("/api/delete", 'api_delete_path', self.api_delete_path, methods=['GET', 'POST'])
         self.app.add_url_rule("/api/download_zip", 'api_download_zip', self.api_download_zip, methods=['GET'])

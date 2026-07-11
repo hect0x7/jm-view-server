@@ -413,9 +413,8 @@
         .bookmark-path {
             font-size: 13px;
             font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            word-break: break-all;
+            line-height: 1.4;
         }
         .bookmark-time {
             font-size: 11px;
@@ -623,6 +622,16 @@
         }
         .card-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s var(--ease); }
         .card-item:hover .card-cover img { transform: scale(1.05); }
+        .card-cover .card-type-badge {
+            position: absolute; bottom: 8px; left: 8px; z-index: 5;
+            display: flex; align-items: center; justify-content: center;
+            width: 24px; height: 24px; border-radius: var(--r-sm, 6px);
+            background: color-mix(in srgb, var(--bg-elevated) 65%, transparent);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: var(--brand); border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+        .card-cover .card-type-badge svg { width: 13px; height: 13px; stroke-width: 2.2; }
         .card-cover .folder-ico { color: var(--text-muted); }
         .card-cover .folder-ico svg { width: 46px; height: 46px; }
         .card-meta { padding: 10px 12px 12px; }
@@ -901,6 +910,11 @@
                             <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
                             {% if file.first_img_url and file.first_img_url != '' %}
                             <img src="{{ file.first_img_url.data_original }}" alt="" loading="lazy">
+                            {% if 'dir' in file.type %}
+                            <div class="card-type-badge folder-badge" title="文件夹">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>
+                            </div>
+                            {% endif %}
                             {% else %}
                             <span class="folder-ico" id="cardFolderIco{{ loop.index }}"></span>
                             {% endif %}
@@ -919,7 +933,10 @@
                                    title="{{ file.name }}"
                                    onclick="{% if 'dir' in file.type %}event.preventDefault();changeDir(decodeURIComponent('{{ file.quoted_path }}')){% endif %}"
                                    path="{{ file.quoted_path }}"
-                                   dirname="{{ file.name }}">{{ file.name }}</a>
+                                   dirname="{{ file.name }}">
+                                    <span class="grid-icon" id="gridIcon{{ loop.index }}" style="display: inline-flex; align-items: center; vertical-align: middle; margin-right: 4px; color: var(--text-secondary); opacity: 0.85;"></span>
+                                    <span style="vertical-align: middle;">{{ file.name }}</span>
+                                </a>
                             </div>
                             <div class="info">
                                 <span class="size-col" style="display:none">{{ file.size }}</span>
@@ -1108,6 +1125,26 @@
         }
     })();
     {% endif %}
+    {% endfor %}
+
+    // 网格视图：文件名小图标
+    {% for file in data.files %}
+    (function() {
+        var el = document.getElementById('gridIcon{{ loop.index }}');
+        if (el) {
+            {% if 'dir' in file.type %}
+            el.innerHTML = icon('folder');
+            {% else %}
+            el.innerHTML = isImageName('{{ file.name }}') ? icon('images') : icon('file');
+            {% endif %}
+            var svg = el.querySelector('svg');
+            if (svg) {
+                svg.style.width = '13.5px';
+                svg.style.height = '13.5px';
+                svg.style.strokeWidth = '2';
+            }
+        }
+    })();
     {% endfor %}
 
     // 视图切换（grid / list）——选择记忆到 localStorage['jmv-view']，进入时恢复。

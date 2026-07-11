@@ -108,6 +108,8 @@
     .r-tools #tProg.active,
     .r-tools #tHead.active,
     .r-tools #tEye.active,
+    .r-tools #tSize.active,
+    .r-tools #tAutoNext.active,
     .r-tools #tMore.active {
       background: var(--brand);
       color: #fff;
@@ -116,7 +118,10 @@
       .r-tools #tProg.active:hover,
       .r-tools #tHead.active:hover,
       .r-tools #tEye.active:hover,
+      .r-tools #tSize.active:hover,
+      .r-tools #tAutoNext.active:hover,
       .r-tools #tMore.active:hover { background: var(--brand); }
+      #tSizeReset:hover { background: var(--surface-hover); color: var(--brand); }
     }
 
     /* 跳页浮层：不弹全屏 modal，而是贴附在工具栏左侧原地展开一个小浮窗
@@ -263,6 +268,22 @@
     <button id="tHead" title="顶部栏开关" data-tip="顶部栏开关"></button>
     <button id="tProg" title="进度条开关" data-tip="进度条开关"></button>
     <button id="tEye" title="护眼滤镜" data-tip="护眼滤镜"></button>
+    
+    <!-- 图片大小按钮，将其包裹，使 sizePop 相对其水平定位 -->
+    <div style="position:relative; width:42px; height:42px;">
+      <button id="tSize" title="图片大小" data-tip="图片大小" style="position:absolute; inset:0; margin:0;"></button>
+      
+      <!-- 图片大小调节浮窗 -->
+      <div class="jump-pop" id="sizePop" style="position:absolute; right:calc(100% + 12px); top:50%; transform:translateY(-50%) scale(0.96); display:flex; align-items:center; gap:8px; min-width:180px; padding:8px 12px; transform-origin:right center;">
+        <span id="tSizeVal" style="font-size:12px; font-family:var(--font-mono); color:var(--text-secondary); white-space:nowrap; min-width:42px;">800px</span>
+        <input type="range" id="tSizeRange" min="300" max="1600" step="50" value="800" title="拖动调节图片大小" style="flex:1; height:4px; accent-color:var(--brand); cursor:pointer; min-width:80px; margin:0;">
+        <button id="tSizeReset" title="恢复默认" style="border:none; background:none; color:var(--text-secondary); cursor:pointer; display:grid; place-items:center; width:22px; height:22px; border-radius:4px; padding:0; transition:all 0.14s;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px; height:13px;"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 3h5v5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 21H3v-5"/></svg>
+        </button>
+      </div>
+    </div>
+    
+    <button id="tAutoNext" title="自动连播下本" data-tip="自动连播下本"></button>
     <button id="tFull" title="全屏阅读" data-tip="全屏阅读"></button>
   </div>
   <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
@@ -299,6 +320,8 @@
   document.getElementById('loadAll').innerHTML = icon('download');
   document.getElementById('tHead').innerHTML = icon('panelTop');
   document.getElementById('tMore').innerHTML = icon('more');
+  document.getElementById('tSize').innerHTML = icon('fit');
+  document.getElementById('tAutoNext').innerHTML = icon('book');
   // 搜原本图标
   (function() {
     var links = document.querySelectorAll('.r-tools a, .more-pop a');
@@ -415,10 +438,16 @@
     jumpPop.classList.add('show');
   }
   function closeJump() { jumpPop.classList.remove('show'); }
+  function closeSize() {
+    if (sizePop) {
+      sizePop.classList.remove('show');
+      tSize.classList.remove('active');
+    }
+  }
 
   tJump.addEventListener('click', function(e) {
     e.stopPropagation();
-    if (jumpPop.classList.contains('show')) closeJump(); else openJump();
+    if (jumpPop.classList.contains('show')) closeJump(); else { openJump(); closeSize(); }
   });
   // 选中即跳页并收起浮窗
   jumpSelect.addEventListener('change', function() {
@@ -433,10 +462,11 @@
   // 点击浮窗外部收起（点浮窗内部不关，以免影响下拉展开）
   document.addEventListener('click', function(e) {
     if (jumpPop.classList.contains('show') && !jumpPop.contains(e.target) && e.target !== tJump) closeJump();
+    if (sizePop && sizePop.classList.contains('show') && !sizePop.contains(e.target) && e.target !== tSize) closeSize();
     if (morePop.classList.contains('show') && !morePop.contains(e.target) && e.target !== tMore) closeMore();
   });
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeJump(); closeMore(); }
+    if (e.key === 'Escape') { closeJump(); closeSize(); closeMore(); }
   });
 
   // 复刻旧版“双击隐藏功能栏”：切换 .r-tools 显隐。
@@ -507,6 +537,300 @@
     this.blur();
     applyEye(!stream.classList.contains('eye-care'));
   });
+
+  // ---------- 自定义图片大小滑动条重构（横向独立浮窗） ----------
+  var tSize = document.getElementById('tSize');
+  var sizePop = document.getElementById('sizePop');
+  var sizeRange = document.getElementById('tSizeRange');
+  var sizeVal = document.getElementById('tSizeVal');
+  var sizeReset = document.getElementById('tSizeReset');
+  
+  function applyImageSize(val, isInit) {
+    var v = Math.max(300, Math.min(1600, parseInt(val, 10) || 800));
+    
+    // 动态调节图片容器最大宽度
+    stream.style.maxWidth = v + 'px';
+    
+    // 同步滑块及文字显示
+    if (sizeRange) sizeRange.value = String(v);
+    if (sizeVal) sizeVal.textContent = v + 'px';
+    
+    try { localStorage.setItem('jmv-img-custom-size', String(v)); } catch (e) {}
+  }
+  
+  if (tSize && sizePop) {
+    tSize.addEventListener('click', function(e) {
+      this.blur();
+      e.stopPropagation();
+      var isShow = sizePop.classList.toggle('show');
+      tSize.classList.toggle('active', isShow);
+      if (isShow) {
+        closeJump();
+      }
+    });
+  }
+  
+  if (sizeRange) {
+    sizeRange.addEventListener('input', function() {
+      applyImageSize(sizeRange.value, false);
+    });
+    sizeRange.addEventListener('dblclick', function(e) { e.stopPropagation(); });
+    sizeRange.addEventListener('touchstart', function(e) { e.stopPropagation(); }, {passive:true});
+    sizeRange.addEventListener('touchmove', function(e) { e.stopPropagation(); }, {passive:true});
+  }
+  
+  if (sizeReset) {
+    sizeReset.addEventListener('click', function(e) {
+      e.stopPropagation();
+      applyImageSize(800, false);
+      if (window.toast) {
+        toast('图片大小已恢复默认 (800px)', 'success');
+      }
+    });
+  }
+  
+  // 恢复状态
+  (function initCustomImageSize() {
+    var saved = null;
+    try { saved = localStorage.getItem('jmv-img-custom-size'); } catch (e) {}
+    if (saved !== null) {
+      var val = parseInt(saved, 10);
+      if (!isNaN(val) && val >= 300 && val <= 1600) {
+        applyImageSize(val, true);
+        return;
+      }
+    }
+    applyImageSize(800, true); // 默认 800px
+  })();
+
+  // ---------- 自动连播下一本逻辑 ----------
+  var NEXT_DIR_PATH = {{ data.next_dir_path | tojson }};
+  var OPEN_FROM_DIR = {{ data.openFromDir | tojson }};
+  
+  var tAutoNext = document.getElementById('tAutoNext');
+  var isAutoNext = localStorage.getItem('jmv-auto-next') === '1'; // 默认关闭
+  
+  function setAutoNext(on) {
+    isAutoNext = !!on;
+    if (tAutoNext) tAutoNext.classList.toggle('active', isAutoNext);
+    try { localStorage.setItem('jmv-auto-next', isAutoNext ? '1' : '0'); } catch(e) {}
+  }
+  
+  setAutoNext(isAutoNext);
+  
+  if (tAutoNext) {
+    tAutoNext.addEventListener('click', function(e) {
+      this.blur();
+      e.stopPropagation();
+      setAutoNext(!isAutoNext);
+      if (window.toast) {
+        toast(isAutoNext ? '已开启连播下一本' : '已关闭连播下一本', 'success');
+      }
+    });
+  }
+  
+  var autoJumpTimer = null;
+  var countdownSec = 2;
+  var jumpBar = null;
+  var isCancelledThisTime = false;
+  var isLoadingNextAlbum = false;
+  
+  function checkTouchBottom() {
+    if (!isAutoNext || !NEXT_DIR_PATH || isCancelledThisTime || isLoadingNextAlbum) return;
+    
+    var threshold = 80;
+    var isBottom = (window.innerHeight + window.scrollY >= document.body.offsetHeight - threshold);
+    
+    if (isBottom) {
+      if (!autoJumpTimer && !jumpBar) {
+        showJumpCountdown();
+      }
+    } else {
+      if (jumpBar && !autoJumpTimer) {
+        // 已开始加载，无需处理
+      } else {
+        cancelJump();
+      }
+    }
+  }
+  
+  function showJumpCountdown() {
+    countdownSec = 2;
+    isCancelledThisTime = false;
+    
+    jumpBar = document.createElement('div');
+    jumpBar.className = 'resume-bar';
+    jumpBar.style.top = 'auto';
+    jumpBar.style.bottom = '100px';
+    jumpBar.style.transform = 'translateX(-50%) translateY(12px)';
+    
+    jumpBar.innerHTML = '<span style="overflow:hidden;text-overflow:ellipsis">即将连播下本: <b>' + countdownSec + 's</b></span>' +
+                        '<button class="resume-go" style="background:var(--brand); color:#fff; border:none; border-radius:var(--r-pill); font-size:13px; font-weight:500; height:32px; padding:0 16px; cursor:pointer;">立即进入</button>' +
+                        '<button class="resume-close" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:18px; padding:0 8px;">✕</button>';
+                        
+    document.body.appendChild(jumpBar);
+    
+    requestAnimationFrame(function() {
+      jumpBar.classList.add('show');
+      jumpBar.style.transform = 'translateX(-50%) translateY(0)';
+    });
+    
+    autoJumpTimer = setInterval(function() {
+      countdownSec--;
+      if (countdownSec <= 0) {
+        clearInterval(autoJumpTimer);
+        autoJumpTimer = null;
+        loadNextAlbum();
+      } else {
+        var numEl = jumpBar.querySelector('b');
+        if (numEl) numEl.textContent = countdownSec + 's';
+      }
+    }, 1000);
+    
+    jumpBar.querySelector('.resume-go').addEventListener('click', function(e) {
+      e.stopPropagation();
+      clearInterval(autoJumpTimer);
+      autoJumpTimer = null;
+      loadNextAlbum();
+    });
+    
+    jumpBar.querySelector('.resume-close').addEventListener('click', function(e) {
+      e.stopPropagation();
+      isCancelledThisTime = true;
+      cancelJump();
+    });
+  }
+  
+  function cancelJump() {
+    if (autoJumpTimer) {
+      clearInterval(autoJumpTimer);
+      autoJumpTimer = null;
+    }
+    if (jumpBar) {
+      var targetBar = jumpBar;
+      jumpBar = null;
+      targetBar.classList.remove('show');
+      targetBar.style.transform = 'translateX(-50%) translateY(12px)';
+      setTimeout(function() { targetBar.remove(); }, 200);
+    }
+  }
+  
+  window.addEventListener('scroll', function() {
+    var threshold = 180;
+    var nearBottom = (window.innerHeight + window.scrollY >= document.body.offsetHeight - threshold);
+    if (!nearBottom) {
+      isCancelledThisTime = false;
+    }
+    checkTouchBottom();
+  }, { passive: true });
+
+  function loadNextAlbum() {
+    if (isLoadingNextAlbum || !NEXT_DIR_PATH) return;
+    isLoadingNextAlbum = true;
+    
+    if (jumpBar) {
+      jumpBar.querySelector('span').innerHTML = '正在加载下一本...';
+      var goBtn = jumpBar.querySelector('.resume-go');
+      if (goBtn) goBtn.style.display = 'none';
+      var closeBtn = jumpBar.querySelector('.resume-close');
+      if (closeBtn) closeBtn.style.display = 'none';
+    }
+    
+    fetch('/api/jm_images?path=' + NEXT_DIR_PATH)
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        isLoadingNextAlbum = false;
+        if (res.status === 'ok') {
+          appendNextAlbumData(res);
+          cancelJump();
+          if (window.toast) {
+            toast('已连播下一本：《' + res.title + '》', 'success');
+          }
+        } else {
+          cancelJump();
+          if (window.toast) toast('载入下一本失败', 'error');
+        }
+      })
+      .catch(function(err) {
+        isLoadingNextAlbum = false;
+        cancelJump();
+        if (window.toast) toast('加载下一本失败，网络错误', 'error');
+      });
+  }
+
+  function appendNextAlbumData(res) {
+    var streamEl = document.getElementById('stream');
+    if (!streamEl) return;
+    
+    var startIdx = TOTAL;
+    var newImagesCount = res.images.length;
+    
+    res.images.forEach(function(imgData, localIdx) {
+      var globalIdx = startIdx + localIdx;
+      var container = document.createElement('div');
+      container.className = 'center scramble-page';
+      container.id = 'page_' + globalIdx;
+      container.setAttribute('data-page', String(globalIdx));
+      
+      var img = document.createElement('img');
+      img.className = 'lazyload page-img';
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      img.setAttribute('data-src', imgData.data_original);
+      img.setAttribute('data-original', imgData.data_original);
+      img.alt = '第 ' + (globalIdx + 1) + ' 页';
+      
+      container.appendChild(img);
+      streamEl.appendChild(container);
+    });
+    
+    var newObserver = new IntersectionObserver(function(entries, observerInstance) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var img = entry.target;
+          img.src = img.getAttribute("data-src");
+          img.classList.remove("lazyload");
+          observerInstance.unobserve(img);
+        }
+      });
+    });
+    for (var i = startIdx; i < startIdx + newImagesCount; i++) {
+      var imgEl = document.querySelector('#page_' + i + ' .lazyload');
+      if (imgEl) newObserver.observe(imgEl);
+    }
+    
+    TOTAL = startIdx + newImagesCount;
+    pages = document.querySelectorAll('.scramble-page');
+    NEXT_DIR_PATH = res.next_dir_path;
+    
+    ALBUM_RANGES.push({
+      start: startIdx,
+      end: startIdx + newImagesCount - 1,
+      key: 'jmv-progress:' + res.title,
+      title: res.title
+    });
+    
+    var ps = document.getElementById('pageselect');
+    if (ps) {
+      for (var i = 0; i < newImagesCount; i++) {
+        var pageNum = startIdx + i + 1;
+        var opt = document.createElement('option');
+        opt.value = String(startIdx + i);
+        opt.textContent = pageNum + '/' + TOTAL;
+        ps.appendChild(opt);
+      }
+    }
+    
+    var js = document.getElementById('jumpSelect');
+    if (js) {
+      for (var i = 0; i < newImagesCount; i++) {
+        var pageNum = startIdx + i + 1;
+        var opt = document.createElement('option');
+        opt.value = String(startIdx + i);
+        opt.textContent = '第 ' + pageNum + ' / ' + TOTAL + ' 页';
+        js.appendChild(opt);
+      }
+    }
+  }
 
   // ---------- 项11：图片临时旋转（右键/长按图片，0/90/180/270 循环，不记忆） ----------
   // 用 dataset 记每张图当前角度；
@@ -582,14 +906,24 @@
   });
 
   // ---------- 项1：阅读进度记忆 ----------
-  // 滚动时把当前页索引写入 localStorage；进入时若有 >0 记录，用非阻塞小提示条询问跳转。
-  var PROGRESS_KEY = 'jmv-progress:' + ALBUM_ID;
+  // 滚动时把当前页相对各本文件夹的索引分别写入各自的 localStorage
+  var ALBUM_RANGES = [
+    { start: 0, end: TOTAL - 1, key: 'jmv-progress:' + ALBUM_ID, title: ALBUM_ID }
+  ];
   var saveTimer = null;
   window.addEventListener('scroll', function() {
-    if (saveTimer) return; // 节流，避免频繁写入
+    if (saveTimer) return;
     saveTimer = setTimeout(function() {
       saveTimer = null;
-      try { localStorage.setItem(PROGRESS_KEY, String(currentPageIdx())); } catch (e) {}
+      var curIdx = currentPageIdx();
+      for (var i = 0; i < ALBUM_RANGES.length; i++) {
+        var r = ALBUM_RANGES[i];
+        if (curIdx >= r.start && curIdx <= r.end) {
+          var relativeIdx = curIdx - r.start;
+          try { localStorage.setItem(r.key, String(relativeIdx)); } catch (e) {}
+          break;
+        }
+      }
     }, 300);
   }, { passive: true });
 
