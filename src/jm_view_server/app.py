@@ -660,10 +660,18 @@ class JmServer:
         下载文件
         """
         if self.verify():
-            # 若文件存在
-            if filename in os.listdir(self.file_manager.get_current_path()):
+            # 优先从 url 参数获取文件夹路径，若没有则回落到 get_current_path()
+            raw_dir = request.args.get('dir', None)
+            if raw_dir:
+                directory = unescape(raw_dir)
+            else:
+                directory = self.file_manager.get_current_path()
+
+            directory = os.path.abspath(directory)
+            # 确保目录存在且文件在该目录下
+            if os.path.exists(directory) and filename in os.listdir(directory):
                 # 发送文件 参数：路径，文件名
-                return send_from_directory(self.file_manager.get_current_path(), filename)
+                return send_from_directory(directory, filename)
             else:
                 # 否则返回错误页面
                 device_isMobile = self.mobile_check()

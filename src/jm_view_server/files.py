@@ -96,11 +96,15 @@ class FileManager:
         quoted_path = quote(file_path)
         quoted_name = quote(name)
 
+        # 针对文件类型，提前计算其所在的父文件夹目录并 quote，供后端精确下载使用
+        dir_path = os.path.dirname(file_path).replace('\\', '/')
+        quoted_dir = quote(dir_path)
+
         return {
             "name": name,
             'path': file_path,
             'quoted_path': quoted_path,
-            'href': f'/?path={quoted_path}' if the_type == 'dir' else f'./download_file/{quoted_name}',
+            'href': f'/?path={quoted_path}' if the_type == 'dir' else f'/download_file/{quoted_name}?dir={quoted_dir}',
             "size": size,
             "ctime": time_str,
             "mtime": mtime_raw,
