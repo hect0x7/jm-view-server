@@ -10,6 +10,46 @@ import zipfile
 import requests
 
 
+def test_settings_page_route(live_server):
+    response = requests.get(live_server.url + '/settings')
+    assert response.status_code == 200
+    assert '<title>设置 · jm-view-server</title>' in response.text
+    assert 'id="readerModeSegment"' in response.text
+
+
+def test_reader_page_loads_split_assets(live_server):
+    album = os.path.join(live_server.root, '漫画A', 'images')
+    response = requests.get(
+        live_server.url + '/jm_view',
+        params={'path': album, 'openFromDir': os.path.dirname(album)},
+    )
+    assert response.status_code == 200
+    assert '/static/css/reader.css' in response.text
+    assert '/static/js/reader.js' in response.text
+    assert 'id="readerConfig"' in response.text
+
+
+def test_upload_page_shows_target_directory(live_server):
+    response = requests.get(live_server.url + '/upload_file')
+    assert response.status_code == 200
+    assert 'id="uploadTarget"' in response.text
+    assert os.path.abspath(live_server.root) in response.text
+
+
+def test_upload_response_contains_saved_target(live_server):
+    response = requests.post(
+        live_server.url + '/upload_file',
+        files={'file': ('upload-target.txt', b'upload target test')},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    target_path = os.path.join(os.path.abspath(live_server.root), 'upload-target.txt')
+    assert body['status'] == 'ok'
+    assert body['target_dir'] == os.path.abspath(live_server.root)
+    assert body['target_path'] == target_path
+    assert os.path.isfile(target_path)
+
+
 def _p(root, *parts):
     return os.path.join(root, *parts)
 

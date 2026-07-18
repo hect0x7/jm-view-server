@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>设置 · jm-view-server</title>
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#5b5bd6">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <script>
+    (function(){var s=localStorage.getItem('jmv-theme'),p=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.setAttribute('data-theme',s||(p?'dark':'light'));})();
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="settings-top-title">设置</span>
+      <div class="spacer"></div>
+      <span class="settings-local-badge">仅保存在此浏览器</span>
+    </div>
+
+    <div class="content settings-content">
+      <div class="settings-layout">
+        <nav class="settings-rail" aria-label="设置分类">
+          <a href="#appearance">外观</a>
+          <a href="#browser">文件浏览</a>
+          <a href="#reader">阅读</a>
+          <a href="#message">消息身份</a>
+          <a href="#shortcuts">快捷键</a>
+          <a href="#data">本地数据</a>
+        </nav>
+
+        <main class="settings-main">
+          <header class="settings-hero">
+            <span class="settings-hero-icon" id="settingsHeroIcon"></span>
+            <div>
+              <p class="settings-eyebrow">Browser control room</p>
+              <h1>把常用习惯提前设好</h1>
+              <p>这些设置只作用于当前浏览器。除标注需刷新生效的项目外，其余修改会立即应用。</p>
+            </div>
+          </header>
+
+          <section class="settings-section" id="appearance">
+            <div class="settings-section-head">
+              <div><span>01</span><h2>外观</h2></div>
+              <p>主题色和背景会立即应用到当前页面。</p>
+            </div>
+            <div class="settings-card-grid">
+              <div class="settings-card">
+                <label class="settings-label" for="themeSelect">颜色模式</label>
+                <select id="themeSelect" class="settings-select">
+                  <option value="system">跟随系统</option>
+                  <option value="light">浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+              </div>
+              <div class="settings-card settings-card-wide">
+                <div class="settings-label">主题色</div>
+                <div class="settings-swatches" id="brandSwatches"></div>
+                <div class="settings-inline">
+                  <label class="settings-color-input">自定义 <input id="brandPicker" type="color" value="#5b5bd6"></label>
+                  <button class="btn btn-outline" id="brandReset">恢复默认</button>
+                </div>
+              </div>
+              <div class="settings-card settings-card-wide">
+                <div class="settings-label">背景图片</div>
+                <div class="settings-inline">
+                  <label class="btn btn-outline settings-file-btn">选择图片<input id="backgroundFile" type="file" accept="image/*"></label>
+                  <button class="btn btn-outline" id="backgroundClear">清除背景</button>
+                </div>
+                <label class="settings-range-row" for="backgroundOpacity">
+                  <span>背景淡化</span><output id="backgroundOpacityValue">0%</output>
+                </label>
+                <input id="backgroundOpacity" class="settings-range" type="range" min="0" max="100" step="5" value="0">
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="browser">
+            <div class="settings-section-head">
+              <div><span>02</span><h2>文件浏览</h2></div>
+              <p>决定首页默认布局，并管理侧栏和列表尺寸。</p>
+            </div>
+            <div class="settings-card-grid">
+              <div class="settings-card">
+                <div class="settings-label">默认视图</div>
+                <div class="settings-segment" id="browserViewSegment">
+                  <button data-value="list">列表</button><button data-value="grid">网格</button>
+                </div>
+              </div>
+              <div class="settings-card">
+                <button class="settings-switch-row settings-switch-button" id="sidebarCollapsed" type="button" role="switch" aria-checked="false">
+                  <span><b>默认折叠侧栏</b><small>桌面端进入页面时使用</small></span><i aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="settings-card settings-card-wide settings-action-card">
+                <div><b>布局尺寸</b><p>如果拖拽后布局不顺手，可以单独恢复。</p></div>
+                <div class="settings-inline">
+                  <button class="btn btn-outline" id="sidebarWidthReset">恢复侧栏宽度</button>
+                  <button class="btn btn-outline" id="columnWidthReset">恢复列表列宽</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="reader">
+            <div class="settings-section-head">
+              <div><span>03</span><h2>阅读</h2></div>
+              <p>打开漫画前就确定默认阅读方式。</p>
+            </div>
+            <div class="settings-card-grid">
+              <div class="settings-card settings-card-wide">
+                <div class="settings-label">默认阅读模式</div>
+                <div class="settings-segment settings-segment-feature" id="readerModeSegment">
+                  <button data-value="scroll"><b>下拉阅读</b><small>连续纵向浏览</small></button>
+                  <button data-value="single"><b>单页阅读</b><small>点击或快捷键翻页</small></button>
+                </div>
+              </div>
+              <div class="settings-card settings-card-wide">
+                <div class="settings-label">单页图片适配</div>
+                <div class="settings-segment" id="singleFitSegment">
+                  <button data-value="contain">完整适应屏幕</button><button data-value="custom">自定义尺寸</button>
+                </div>
+                <label class="settings-range-row" for="imageSize">
+                  <span>自定义宽度</span><output id="imageSizeValue">800px</output>
+                </label>
+                <input id="imageSize" class="settings-range" type="range" min="300" max="1600" step="50" value="800">
+              </div>
+              <div class="settings-card settings-toggles">
+                <label class="settings-switch-row"><span><b>护眼滤镜</b><small>阅读区使用暖色调</small></span><input id="eyeCare" type="checkbox"><i></i></label>
+                <label class="settings-switch-row"><span><b>显示顶部栏</b><small>标题与页码信息</small></span><input id="headerVisible" type="checkbox"><i></i></label>
+              </div>
+              <div class="settings-card settings-toggles">
+                <label class="settings-switch-row"><span><b>显示底部进度</b><small>页码和跳转进度条</small></span><input id="progressVisible" type="checkbox"><i></i></label>
+                <label class="settings-switch-row"><span><b>自动连播下一本</b><small>到末页后倒计时进入</small></span><input id="autoNext" type="checkbox"><i></i></label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="message">
+            <div class="settings-section-head">
+              <div><span>04</span><h2>消息身份</h2></div>
+              <p>进入局域网消息页时自动填入。</p>
+            </div>
+            <div class="settings-card">
+              <label class="settings-label" for="chatNickname">默认昵称</label>
+              <input id="chatNickname" class="settings-input" maxlength="40" placeholder="留空时使用页面默认昵称">
+            </div>
+          </section>
+
+          <section class="settings-section" id="shortcuts">
+            <div class="settings-section-head">
+              <div><span>05</span><h2>阅读快捷键</h2></div>
+              <p>阅读页按 <kbd>?</kbd> 也能随时打开这份帮助。</p>
+            </div>
+            <div class="shortcut-grid" id="shortcutGrid"></div>
+          </section>
+
+          <section class="settings-section" id="data">
+            <div class="settings-section-head">
+              <div><span>06</span><h2>本地数据</h2></div>
+              <p>收藏、最近访问和阅读进度不会上传到服务器。</p>
+            </div>
+            <div class="settings-data-grid">
+              <div class="settings-data-card"><span id="bookmarkCount">0</span><b>收藏目录</b><button data-clear="bookmarks">清空收藏</button></div>
+              <div class="settings-data-card"><span id="recentCount">0</span><b>最近目录</b><button data-clear="recent">清空记录</button></div>
+              <div class="settings-data-card"><span id="progressCount">0</span><b>阅读进度</b><button data-clear="progress">清空进度</button></div>
+            </div>
+            <div class="settings-footer-actions">
+              <button class="btn btn-outline" id="replayOnboarding">重新查看新手引导</button>
+              <button class="btn btn-outline settings-danger" id="resetPreferences">恢复全部偏好默认值</button>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+  <nav class="mobile-bar"></nav>
+</div>
+
+<script src="/static/js/app.js?t={{ randomArg }}"></script>
+<script src="/static/js/settings.js?t={{ randomArg }}"></script>
+<script>renderShell('settings'); initSettingsPage();</script>
+</body>
+</html>

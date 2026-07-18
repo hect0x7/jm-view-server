@@ -6,3 +6,6 @@
 /.venv
 /.pytest_cache
 .superpowers/
+.trellis
+.agents
+.codex

@@ -113,20 +113,11 @@ class JmServer:
 
     def url_format(self, device_isMobile, default_load_url):
         """
-        根据设备类型返回对应的资源 url。
-        已响应式化的页面（PC/移动共用一套模板）无论设备都返回同名模板，
-        不再走 m_ 前缀；其余页面保持按设备切换 m_ 版的旧行为。
+        返回 PC/移动端共用的响应式模板。
+
+        保留 device_isMobile 参数以兼容现有调用点；旧 m_ 模板已经移除。
         """
-        responsive_pages = {
-            'login.html', 'index.html', 'jm_view.html',
-            'upload.html', 'message.html', 'download_error.html',
-        }
-        if default_load_url in responsive_pages:
-            return default_load_url
-        if device_isMobile:
-            return './m_' + default_load_url
-        else:
-            return default_load_url
+        return default_load_url
 
     def url_random_arg(self):
         """
@@ -722,19 +713,39 @@ class JmServer:
         if self.verify():
             if request.method == "POST":
                 # 获取文件 拼接存储路径并保存
-                upload_file = request.files['file']
+                upload_file = request.files.get('file')
+                if upload_file is None or not upload_file.filename:
+                    return jsonify({
+                        'status': 'error',
+                        'message': '请选择需要上传的文件'
+                    }), 400
+
                 from werkzeug.utils import secure_filename
                 safe_name = secure_filename(upload_file.filename)
                 if not safe_name:
-                    return '提示：文件名无效，请检查文件名', 400
-                upload_file.save(os.path.join(self.file_manager.get_current_path(), safe_name))
+                    return jsonify({
+                        'status': 'error',
+                        'message': '文件名无效，请检查文件名'
+                    }), 400
+
+                target_dir = os.path.abspath(self.file_manager.get_current_path())
+                target_path = os.path.join(target_dir, safe_name)
+                upload_file.save(target_path)
 
                 # 返回上传成功的消息给前端
-                return '提示：上传的%s已经存储到了服务器中!' % upload_file.filename
+                return jsonify({
+                    'status': 'ok',
+                    'message': '上传成功',
+                    'filename': upload_file.filename,
+                    'target_dir': target_dir,
+                    'target_path': target_path,
+                })
 
             # 如果是 GET 方法：
             device_isMobile = self.mobile_check()
+            upload_target = os.path.abspath(self.file_manager.get_current_path())
             return render_template(self.url_format(device_isMobile, "upload.html"),
+                                   uploadTarget=upload_target,
                                    randomArg=self.url_random_arg())
         else:
             return redirect('/login')
@@ -847,6 +858,16 @@ class JmServer:
                                    mimetype='application/manifest+json')
 
     # ===== 消息功能 =====
+
+    def settings_page(self):
+        """浏览器本地设置中心（PC/移动端共用响应式模板）。"""
+        if not self.verify():
+            return redirect('/login')
+
+        return render_template(
+            self.url_format(self.mobile_check(), 'settings.html'),
+            randomArg=self.url_random_arg()
+        )
 
     def message_page(self):
         """
@@ -1029,6 +1050,7 @@ class JmServer:
         self.app.add_url_rule("/download_file/<filename>", 'file_content', self.file_content)
         self.app.add_url_rule('/open/<path:directory>', 'open_directory', self.open_directory)
         self.app.add_url_rule("/upload_file", 'upload', self.upload, methods=['GET', 'POST'])
+        self.app.add_url_rule("/settings", 'settings_page', self.settings_page, methods=['GET'])
         self.app.add_url_rule("/stream", 'stream', self.stream, methods=['GET', 'POST'])
 
         # [New] SPA Routes

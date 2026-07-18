@@ -64,7 +64,7 @@ class FileManager:
     def check_dir_can_open_jm_view(self, dirpath):
         return any(f for f in self.files_of_dir_safe(dirpath) if self.is_image_file(f))
 
-    def build_one_path_info(self, file_path, dtype=''):
+    def build_one_path_info(self, file_path, dtype='', visited_links=None):
         jm_view, the_type = self.get_file_type(file_path)
 
         name = common.of_file_name(file_path)
@@ -83,9 +83,55 @@ class FileManager:
         except OSError:
             return
 
-        if name.endswith('.lnk'):
+        if name.lower().endswith('.lnk'):
             target_path = self.get_target_path(file_path)
-            return self.build_one_path_info(target_path, 'Link')
+            quoted_link_path = quote(file_path)
+            visited_links = set() if visited_links is None else set(visited_links)
+            normalized_link_path = os.path.abspath(file_path)
+            visited_links.add(normalized_link_path)
+
+            target_is_cycle = (
+                target_path and os.path.abspath(target_path) in visited_links
+            )
+            if target_path and not target_is_cycle and os.path.exists(target_path):
+                target_info = self.build_one_path_info(
+                    target_path, 'Link', visited_links
+                )
+                if target_info and not target_info.get('link_broken'):
+                    target_info.update({
+                        'name': name,
+                        'is_link': True,
+                        'link_broken': False,
+                        'link_path': file_path,
+                        'manage_quoted_path': quoted_link_path,
+                        'target_path': target_path,
+                        'target_type': target_info['type'],
+                        'ctime': time_str,
+                        'mtime': mtime_raw,
+                    })
+                    return target_info
+
+            return {
+                'name': name,
+                'path': file_path,
+                'quoted_path': quoted_link_path,
+                'manage_quoted_path': quoted_link_path,
+                'href': 'javascript:void(0)',
+                'size': 'Link',
+                'ctime': time_str,
+                'mtime': mtime_raw,
+                'type': 'file',
+                'target_type': 'missing',
+                'is_link': True,
+                'link_broken': True,
+                'link_path': file_path,
+                'target_path': (
+                    '检测到循环链接' if target_is_cycle
+                    else target_path or '无法解析目标'
+                ),
+                'jm_view': False,
+                'first_img_url': '',
+            }
 
         quoted_path = quote(file_path)
         quoted_name = quote(name)
@@ -115,6 +161,12 @@ class FileManager:
             "ctime": time_str,
             "mtime": mtime_raw,
             "type": the_type,
+            'target_type': the_type,
+            'is_link': False,
+            'link_broken': False,
+            'link_path': '',
+            'manage_quoted_path': quoted_path,
+            'target_path': '',
             'jm_view': jm_view,
             'first_img_url': first_img_url
         }
@@ -164,9 +216,38 @@ class FileManager:
         try:
             import pylnk3
             lnk = pylnk3.parse(lnk_path)
-            return lnk.path.replace("\\", '/').replace("//", '/')  # 获取目标文件/文件夹路径
-        except Exception as e:
-            return lnk_path
+            raw_path = getattr(lnk, 'path', None)
+            relative_path = getattr(lnk, 'relative_path', None)
+            working_dir = getattr(lnk, 'working_dir', None)
+
+            candidates = []
+            if raw_path:
+                candidates.append(raw_path)
+            if relative_path:
+                candidates.append(os.path.join(
+                    os.path.dirname(lnk_path), relative_path
+                ))
+                if working_dir:
+                    candidates.append(os.path.join(working_dir, relative_path))
+            if working_dir and relative_path:
+                relative_name = os.path.basename(os.path.normpath(relative_path))
+                working_name = os.path.basename(os.path.normpath(working_dir))
+                if relative_name == working_name:
+                    candidates.append(working_dir)
+
+            normalized_candidates = []
+            for candidate in candidates:
+                normalized = os.path.abspath(os.path.expandvars(candidate))
+                normalized = normalized.replace("\\", '/').replace("//", '/')
+                if normalized not in normalized_candidates:
+                    normalized_candidates.append(normalized)
+
+            for candidate in normalized_candidates:
+                if os.path.exists(candidate):
+                    return candidate
+            return normalized_candidates[0] if normalized_candidates else None
+        except Exception:
+            return None
 
     @staticmethod
     def file_size_format(size, the_type):

@@ -124,7 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="width: 8px; height: 8px; background: #818cf8; border-radius: 50%;"></div>
                         <span style="font-weight: 600; color: #f8fafc; font-size: 14px;">${msg.sender}</span>
                     </div>
-                    <span style="font-size: 11px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">通知</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">通知</span>
+                        <button class="site-notify-close" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:0; line-height:1;" aria-label="关闭">×</button>
+                    </div>
                 </div>
                 <div style="font-size: 13.5px; color: #cbd5e1; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                     ${msg.content}
@@ -141,7 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // 入场
         setTimeout(() => el.style.transform = 'translateX(0)', 100);
         
-        el.onclick = () => {
+        el.onclick = (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                el.remove();
+                return;
+            }
             if (msg.url) {
                 window.open(msg.url, '_blank');
             }

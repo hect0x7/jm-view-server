@@ -22,9 +22,23 @@ function fileSelected() {
   }
 }
 function uploadFile() {
+  var fileInput = document.getElementById('file');
+  var uploadButton = document.getElementById('submit');
+  var result = document.getElementById('result');
+
+  if (!fileInput.files.length) {
+    toast('请先选择需要上传的文件', 'error');
+    return;
+  }
+
   // 发送文件的异步请求
   var fd = new FormData();
-  fd.append("file", document.getElementById('file').files[0]);
+  fd.append("file", fileInput.files[0]);
+  result.style.display = 'none';
+  result.textContent = '';
+  uploadButton.disabled = true;
+  document.getElementById('progress-value').textContent = '准备上传';
+
   var xhr = new XMLHttpRequest();
   xhr.upload.addEventListener("progress", uploadProgress, false);
   xhr.addEventListener("load", uploadComplete, false);
@@ -47,16 +61,40 @@ function uploadProgress(evt) {
 }
 function uploadComplete(evt) {
   // 服务器端返回响应时候触发event事件
-  var message = evt.target.responseText;
-  document.getElementById('result').innerHTML = message;
-  alert(message);
-  document.getElementById('progress-value').innerHTML += ' (上传成功)'
+  var response = {};
+  var result = document.getElementById('result');
+  var uploadButton = document.getElementById('submit');
+
+  try {
+    response = JSON.parse(evt.target.responseText || '{}');
+  } catch (error) {
+    response = { message: evt.target.responseText || '服务器返回了无法识别的响应' };
+  }
+
+  uploadButton.disabled = false;
+  result.style.display = 'block';
+
+  if (evt.target.status >= 200 && evt.target.status < 300 && response.status === 'ok') {
+    result.textContent = '已上传到：' + response.target_path;
+    document.getElementById('progress-value').textContent = '100% · 上传成功';
+    document.getElementById('mask').style.left = '100%';
+    toast('上传成功，文件已保存到目标路径', 'success');
+    return;
+  }
+
+  result.textContent = response.message || '上传失败，请稍后重试';
+  document.getElementById('progress-value').textContent = '上传失败';
+  toast(result.textContent, 'error');
 }
 function uploadFailed(evt) {
-  alert("There was an error attempting to upload the file.");
+  document.getElementById('submit').disabled = false;
+  document.getElementById('progress-value').textContent = '上传失败';
+  toast('上传失败，请检查网络连接', 'error');
 }
 function uploadCanceled(evt) {
-  alert("The upload has been canceled by the user or the browser dropped the connection.");
+  document.getElementById('submit').disabled = false;
+  document.getElementById('progress-value').textContent = '上传已取消';
+  toast('上传已取消', 'default');
 }
 
 window.addEventListener('load', function () {
@@ -66,7 +104,9 @@ window.addEventListener('load', function () {
     var fileNameTip = document.getElementById('fileName');
 
     fileInput.addEventListener('change', function () {
-      fileNameTip.innerHTML = '已选: ' + fileInput.files[0].name;
+      if (fileInput.files.length) {
+        fileNameTip.textContent = '已选: ' + fileInput.files[0].name;
+      }
     })
   }());
 })

@@ -371,9 +371,13 @@ $(document).ready(function () {
                 }
             }
 
+            if (file.is_link) {
+                iconClass = 'fa-link';
+            }
+
             // Thumbnail Logic
             let thumbHtml = `<i class="fas ${iconClass}"></i>`;
-            if (file.first_img_url) {
+            if (file.first_img_url && !file.is_link) {
                 // Determine source for thumbnail
                 let thumbSrc;
                 if (typeof file.first_img_url === 'object' && file.first_img_url.data_original) {
@@ -394,6 +398,7 @@ $(document).ready(function () {
                     </div>
                     <div class="file-info">
                         <div class="file-name">${file.name}</div>
+                        ${file.is_link ? `<div class="file-link-target" title="${file.target_path}"><i class="fas fa-arrow-right"></i>${file.target_path}</div>` : ''}
                         <div class="file-meta">
                              <span>${file.size || ''}</span>
                              ${file.ctime ? `<span>• ${file.ctime}</span>` : ''}
@@ -416,7 +421,14 @@ $(document).ready(function () {
                 $('.file-item').removeClass('active');
                 $(this).addClass('active');
 
-                showContextMenu(e.pageX, e.pageY, file.path, file.name, typeStr, currentPath);
+                showContextMenu(
+                    e.pageX,
+                    e.pageY,
+                    file.is_link ? file.link_path : file.path,
+                    file.name,
+                    typeStr,
+                    currentPath
+                );
             });
 
             // Hover Preview Logic (Folders Only)

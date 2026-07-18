@@ -353,6 +353,23 @@ a {
     margin-bottom: 2px;
 }
 
+.file-link-target {
+    margin-top: 3px;
+    overflow: hidden;
+    color: #64748b;
+    font-family: monospace;
+    font-size: 10px;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-link-target i {
+    margin-right: 5px;
+    color: #6366f1;
+    font-size: 9px;
+}
+
 .file-meta {
     font-size: 0.75rem;
     color: var(--text-sec);

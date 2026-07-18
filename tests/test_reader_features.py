@@ -1,5 +1,5 @@
 """
-看本阅读页（jm_view.html）5 个前端增强功能的 playwright 端到端验收。
+看本阅读页（jm_view.html）前端增强功能的 playwright 端到端验收。
 
 复用 conftest.py 的 live_server（无密码 JmServer + 测试数据目录，漫画A 有 5 图）
 和 browser（headless chromium，无 pytest-playwright 插件，用 browser.new_page()）。
@@ -25,6 +25,19 @@ def _open(ctx, live_server):
     pg.goto(_view_url(live_server))
     pg.wait_for_selector('#stream .scramble-page', state='attached')
     # 等页面脚本执行完（TOTAL 计算、事件绑定）
+    pg.wait_for_function('() => window.icon && document.querySelectorAll(".scramble-page").length > 0')
+    return pg
+
+
+def _open_with_preferences(ctx, live_server, preferences):
+    pg = ctx.new_page()
+    pg.goto(live_server.url + '/')
+    pg.evaluate(
+        "prefs => Object.entries(prefs).forEach(([key, value]) => localStorage.setItem(key, value))",
+        preferences,
+    )
+    pg.goto(_view_url(live_server))
+    pg.wait_for_selector('#stream .scramble-page', state='attached')
     pg.wait_for_function('() => window.icon && document.querySelectorAll(".scramble-page").length > 0')
     return pg
 
@@ -97,25 +110,94 @@ def test_keyboard_shortcuts(browser, live_server):
     pg.close()
 
 
-# ---------- 项3：图片适配模式 ----------
-def test_fit_modes(browser, live_server):
-    pg = _open(browser.new_context(), live_server)
+# ---------- 单页阅读、适配与快捷键 ----------
+def test_single_page_mode_navigation_and_help(browser, live_server):
+    ctx = browser.new_context()
+    pg = _open_with_preferences(ctx, live_server, {
+        'jmv-reader-mode': 'single',
+        'jmv-single-fit': 'contain',
+    })
 
-    def stream_fit():
-        return pg.evaluate(
-            "() => { var s=document.getElementById('stream');"
-            "return ['fit-width','fit-height','fit-raw'].find(c=>s.classList.contains(c)); }")
+    assert pg.eval_on_selector('body', 'e => e.classList.contains("reader-single")')
+    assert pg.eval_on_selector('#stream', 'e => e.classList.contains("reader-single-mode")')
+    assert not pg.eval_on_selector('#stream', 'e => e.classList.contains("reader-single-custom")')
+    assert pg.locator('.scramble-page:visible').count() == 1
+    assert pg.inner_text('#curPage') == '第 1 页'
 
-    # 默认适宽
-    assert stream_fit() == 'fit-width'
-    # 循环切换：width -> height -> raw -> width
-    expected = ['fit-height', 'fit-raw', 'fit-width']
-    for exp in expected:
-        pg.click('#tFit')
-        pg.wait_for_timeout(100)
-        assert stream_fit() == exp, f'切换后应为 {exp}，实际 {stream_fit()}'
-        assert pg.evaluate("() => localStorage.getItem('jmv-fit')") == exp
-    pg.close()
+    pg.keyboard.press('ArrowRight')
+    assert pg.inner_text('#curPage') == '第 2 页'
+    pg.keyboard.press('Home')
+    assert pg.inner_text('#curPage') == '第 1 页'
+    pg.keyboard.press('End')
+    assert pg.inner_text('#curPage') == '第 5 页'
+
+    pg.keyboard.press('?')
+    assert pg.is_visible('#readerHelp.show')
+    pg.keyboard.press('Escape')
+    assert not pg.is_visible('#readerHelp.show')
+
+    pg.keyboard.press('m')
+    assert not pg.eval_on_selector('body', 'e => e.classList.contains("reader-single")')
+    assert pg.evaluate("localStorage.getItem('jmv-reader-mode')") == 'scroll'
+    pg.keyboard.press('m')
+    assert pg.eval_on_selector('body', 'e => e.classList.contains("reader-single")')
+    assert pg.evaluate("localStorage.getItem('jmv-reader-mode')") == 'single'
+    assert pg.locator('.reader-tools-main').count() == 1
+    assert pg.locator('.more-pop-head').inner_text().startswith('阅读设置')
+    ctx.close()
+
+
+def test_single_page_click_zones_and_input_guard(browser, live_server):
+    ctx = browser.new_context()
+    pg = _open_with_preferences(ctx, live_server, {
+        'jmv-reader-mode': 'single',
+        'jmv-single-fit': 'contain',
+    })
+    image = pg.locator('#page_0 .page-img')
+    image.wait_for(state='visible')
+    box = image.bounding_box()
+    image.click(position={'x': box['width'] * 0.75, 'y': box['height'] / 2})
+    pg.wait_for_timeout(300)
+    assert pg.inner_text('#curPage') == '第 2 页'
+
+    image = pg.locator('#page_1 .page-img')
+    box = image.bounding_box()
+    image.click(position={'x': box['width'] * 0.25, 'y': box['height'] / 2})
+    pg.wait_for_timeout(300)
+    assert pg.inner_text('#curPage') == '第 1 页'
+
+    page = pg.locator('#page_0')
+    page_box = page.bounding_box()
+    page.click(position={'x': page_box['width'] - 5, 'y': page_box['height'] / 2})
+    pg.wait_for_timeout(300)
+    assert pg.inner_text('#curPage') == '第 2 页'
+
+    page = pg.locator('#page_1')
+    page_box = page.bounding_box()
+    page.click(position={'x': 5, 'y': page_box['height'] / 2})
+    pg.wait_for_timeout(300)
+    assert pg.inner_text('#curPage') == '第 1 页'
+
+    pg.focus('#jumpSelect')
+    pg.keyboard.press('ArrowRight')
+    assert pg.inner_text('#curPage') == '第 1 页'
+    ctx.close()
+
+
+def test_single_page_custom_size_persisted(browser, live_server):
+    ctx = browser.new_context()
+    pg = _open_with_preferences(ctx, live_server, {
+        'jmv-reader-mode': 'single',
+        'jmv-single-fit': 'contain',
+    })
+    pg.click('#tSize')
+    pg.eval_on_selector(
+        '#tSizeRange',
+        "el => { el.value = '1200'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
+    assert pg.eval_on_selector('#stream', 'e => e.classList.contains("reader-single-custom")')
+    assert pg.evaluate("localStorage.getItem('jmv-single-fit')") == 'custom'
+    assert pg.evaluate("localStorage.getItem('jmv-img-custom-size')") == '1200'
+    ctx.close()
 
 
 # ---------- 项9：护眼滤镜 ----------
@@ -136,7 +218,7 @@ def test_eye_care(browser, live_server):
     pg.close()
 
 
-# ---------- 项11：图片临时旋转 + 空白双击仍切换工具栏 ----------
+# ---------- 项11：图片临时旋转 + 双击不误触工具栏 ----------
 def test_image_rotate_and_toolbar(browser, live_server):
     pg = _open(browser.new_context(), live_server)
     # 让首图加载出来（懒加载）
@@ -149,14 +231,46 @@ def test_image_rotate_and_toolbar(browser, live_server):
     transform = pg.eval_on_selector('#page_0 .page-img', 'el => el.style.transform')
     assert 'rotate' in transform, f'双击图片未旋转，transform={transform!r}'
 
-    # 空白处（工具栏本身之外、图片之外）双击仍切换工具栏显隐。
-    # 用 reader-top 标题区作为“非图片”双击目标。
-    before = pg.eval_on_selector('.r-tools', 'el => el.style.display')
-    pg.dblclick('.reader-top')
+    # 页面双击不再切换工具栏，避免连续点击控件时误触。
+    before = pg.eval_on_selector('.r-tools', 'el => el.className')
+    pg.dispatch_event('body', 'dblclick')
     pg.wait_for_timeout(150)
-    after = pg.eval_on_selector('.r-tools', 'el => el.style.display')
-    assert before != after, f'空白双击未切换工具栏显隐（{before!r} -> {after!r}）'
+    after = pg.eval_on_selector('.r-tools', 'el => el.className')
+    assert before == after, f'空白双击不应改变工具栏状态（{before!r} -> {after!r}）'
+
+    # 桌面端右侧热区移入展开，移出后延迟收起。
+    box = pg.locator('.r-tools').bounding_box()
+    pg.mouse.move(pg.viewport_size['width'] - 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(100)
+    assert pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
+
+    # 阅读设置打开期间保持展开；连续点击进度条开关不会隐藏工具栏。
+    pg.click('#tMore')
+    progress_before = pg.eval_on_selector('#rBottom', 'el => el.classList.contains("hidden")')
+    pg.dblclick('#tProg')
+    assert pg.eval_on_selector('.r-tools', 'el => getComputedStyle(el).display') == 'block'
+    assert pg.eval_on_selector('#rBottom', 'el => el.classList.contains("hidden")') == progress_before
+    pg.keyboard.press('Escape')
+    pg.mouse.move(80, 80)
+    pg.wait_for_timeout(550)
+    assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
     pg.close()
+
+
+def test_mobile_toolbar_is_touch_drawer(browser, live_server):
+    ctx = browser.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True)
+    pg = _open(ctx, live_server)
+    assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
+    assert pg.get_attribute('#toolsHandle', 'aria-expanded') == 'false'
+
+    pg.click('#toolsHandle')
+    assert pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
+    assert pg.get_attribute('#toolsHandle', 'aria-expanded') == 'true'
+
+    pg.dispatch_event('body', 'click')
+    assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
+    assert pg.get_attribute('#toolsHandle', 'aria-expanded') == 'false'
+    ctx.close()
 
 
 # ---------- 进度条开关状态记忆 ----------
@@ -170,7 +284,7 @@ def test_progressbar_toggle_persisted(browser, live_server):
     pg.click('#tProg')
     pg.wait_for_timeout(150)
     assert pg.eval_on_selector('#rBottom', 'e => e.classList.contains("hidden")'), '点击后应隐藏'
-    assert pg.evaluate("() => localStorage.getItem('jmv-progressbar')") == '0'
+    assert pg.evaluate("() => localStorage.getItem('jmv-prog-hidden')") == '1'
     # 重开页面 → 恢复为隐藏
     pg2 = _open(ctx, live_server)
     pg2.wait_for_timeout(150)
