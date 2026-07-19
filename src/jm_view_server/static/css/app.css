@@ -510,7 +510,8 @@ body.has-bg .app { position: relative; }
   padding: 5px 10px; border-radius: var(--r-pill); border: 1px solid var(--border);
   background: var(--bg-sunken); color: var(--text-secondary); font-size: 12px;
 }
-.settings-content { scroll-behavior: smooth; }
+.settings-content { scroll-behavior: smooth; overflow-anchor: none; scrollbar-gutter: stable; overflow-x: hidden; }
+.settings-content.settings-preserve-scroll { scroll-behavior: auto !important; }
 .settings-layout { width: min(1180px, 100%); margin: 0 auto; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: var(--sp-7); }
 .settings-rail { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3); border-left: 1px solid var(--border); }
 .settings-rail a { padding: 9px 12px; border-radius: var(--r-md); color: var(--text-secondary); font-size: 13px; }
@@ -551,10 +552,12 @@ body.has-bg .app { position: relative; }
 .settings-range { width: 100%; accent-color: var(--brand); }
 .settings-range:disabled { opacity: .4; }
 .settings-segment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; padding: 5px; background: var(--bg-sunken); border-radius: var(--r-md); }
+.settings-segment-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-segment button { min-height: 38px; border-radius: calc(var(--r-md) - 3px); color: var(--text-secondary); font-size: 13px; }
 .settings-segment button.active { background: var(--bg-elevated); color: var(--brand); box-shadow: var(--shadow-sm); font-weight: 600; }
 .settings-segment-feature button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; text-align: left; }
 .settings-segment-feature button small { color: var(--text-muted); font-weight: 400; }
+.settings-help { margin-top: 9px; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
 .settings-switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); cursor: pointer; }
 .settings-switch-button {
   width: 100%; padding: 0; border: 0; background: transparent;

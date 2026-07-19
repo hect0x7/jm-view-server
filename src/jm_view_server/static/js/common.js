@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     window.addEventListener('scroll', function () {
+        if (document.body.classList.contains('reader-single') ||
+            document.body.classList.contains('reader-double')) return;
         let wsTop = window.scrollY
         let pageDivs = document.querySelectorAll('div[id*="page_"]');
         let toPage = pageDivs.length - 1;

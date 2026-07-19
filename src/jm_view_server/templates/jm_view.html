@@ -46,7 +46,7 @@
 
 <!-- 右侧阅读工具抽屉：桌面端悬停展开，移动端点击把手展开。 -->
 <div class="r-tools" aria-label="阅读工具栏">
-  <button class="reader-tools-handle" id="toolsHandle" type="button" aria-label="展开阅读工具栏" aria-expanded="false"><i></i><i></i><i></i></button>
+  <button class="reader-tools-handle" id="toolsHandle" type="button" aria-label="展开阅读工具栏" aria-expanded="false" aria-pressed="false"><i></i><i></i><i></i></button>
   <!-- 跳页浮窗 -->
   <div class="jump-pop" id="jumpPop">
     <select id="jumpSelect">
@@ -61,6 +61,7 @@
     <div class="reader-mode-control" aria-label="阅读模式">
       <button id="modeScroll" type="button">下拉</button>
       <button id="modeSingle" type="button">单页</button>
+      <button id="modeDouble" type="button">双页</button>
     </div>
     <button id="tHead" title="顶部栏开关" data-tip="顶部栏"></button>
     <button id="tProg" title="进度条开关" data-tip="进度条"></button>
@@ -71,9 +72,16 @@
       <button id="tSize" title="图片大小" data-tip="图片大小" style="position:absolute; inset:0; margin:0;"></button>
       
       <!-- 图片大小调节浮窗 -->
-      <div class="jump-pop" id="sizePop" style="position:absolute; right:calc(100% + 12px); top:50%; transform:translateY(-50%) scale(0.96); display:flex; align-items:center; gap:8px; min-width:180px; padding:8px 12px; transform-origin:right center;">
-        <span id="tSizeVal" style="font-size:12px; font-family:var(--font-mono); color:var(--text-secondary); white-space:nowrap; min-width:42px;">800px</span>
-        <input type="range" id="tSizeRange" min="300" max="1600" step="50" value="800" title="拖动调节图片大小" style="flex:1; height:4px; accent-color:var(--brand); cursor:pointer; min-width:80px; margin:0;">
+      <div class="jump-pop reader-size-pop" id="sizePop" style="position:absolute; right:calc(100% + 12px); top:50%; transform:translateY(-50%) scale(0.96); transform-origin:right center;">
+        <span id="tSizeVal" class="reader-size-value">800px</span>
+        <div id="sizeRangeControl" class="reader-size-range-control">
+          <input type="range" id="tSizeRange" min="300" max="1600" step="50" value="800" title="拖动调节图片大小">
+        </div>
+        <label id="doubleWidthScaleControl" class="reader-double-scale-control" for="doubleWidthScaleRange" hidden>
+          <span>画面比例</span>
+          <input type="range" id="doubleWidthScaleRange" min="50" max="100" step="1" value="98">
+          <output id="doubleWidthScaleValue">98%</output>
+        </label>
         <button id="tSizeReset" title="恢复默认" style="border:none; background:none; color:var(--text-secondary); cursor:pointer; display:grid; place-items:center; width:22px; height:22px; border-radius:4px; padding:0; transition:all 0.14s;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px; height:13px;"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 3h5v5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 21H3v-5"/></svg>
         </button>
@@ -88,12 +96,34 @@
     <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
     <a id="gobottom" href="javascript:void(0)" title="跳到最后" data-tip="跳到最后"></a>
     <a id="tJump" href="javascript:void(0)" title="跳转页码" data-tip="跳转页码"></a>
+    <button id="tGrid" type="button" title="缩略图总览" data-tip="缩略图总览" aria-label="打开缩略图总览" aria-haspopup="dialog" aria-controls="readerGridOverlay">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="6.5" height="7" rx="1"/><rect x="14" y="3.5" width="6.5" height="7" rx="1"/>
+        <rect x="3.5" y="13.5" width="6.5" height="7" rx="1"/><rect x="14" y="13.5" width="6.5" height="7" rx="1"/>
+      </svg>
+    </button>
     <span class="reader-tool-divider" aria-hidden="true"></span>
     <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
     <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
     <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
     <button id="tMore" title="更多功能" data-tip="阅读设置"></button>
   </div>
+</div>
+
+<output class="reader-scroll-progress" id="readerScrollProgress" aria-hidden="true">0%</output>
+
+<div class="reader-grid-overlay" id="readerGridOverlay" role="dialog" aria-modal="true" aria-labelledby="readerGridTitle" aria-describedby="readerGridDescription" aria-hidden="true">
+  <section class="reader-grid-sheet" aria-label="漫画缩略图总览">
+    <header class="reader-grid-head">
+      <div class="reader-grid-heading">
+        <span class="reader-grid-kicker">Contact sheet</span>
+        <h2 id="readerGridTitle">缩略图总览</h2>
+        <p id="readerGridDescription">浏览整本页面，选择缩略图即可跳转。</p>
+      </div>
+      <button class="reader-grid-close" id="readerGridClose" type="button" aria-label="关闭缩略图总览">×</button>
+    </header>
+    <div class="reader-grid" id="readerGrid" role="group" aria-label="漫画页面缩略图"></div>
+  </section>
 </div>
 
 <div class="reader-help-overlay" id="readerHelp" role="dialog" aria-modal="true" aria-labelledby="readerHelpTitle">
@@ -104,6 +134,14 @@
     </div>
     <div class="reader-shortcut-list" id="readerShortcutList"></div>
   </div>
+</div>
+
+<div class="rotate-radial" id="rotateRadial" role="menu" aria-label="图片旋转方向" aria-hidden="true" inert>
+  <button class="rotate-sector rotate-sector-top" type="button" role="menuitemradio" data-rotate="0" aria-label="恢复原始方向" aria-checked="false" tabindex="-1"><span>0°</span></button>
+  <button class="rotate-sector rotate-sector-right" type="button" role="menuitemradio" data-rotate="90" aria-label="向右旋转 90 度" aria-checked="false" tabindex="-1"><span>90°</span></button>
+  <button class="rotate-sector rotate-sector-bottom" type="button" role="menuitemradio" data-rotate="180" aria-label="旋转 180 度" aria-checked="false" tabindex="-1"><span>180°</span></button>
+  <button class="rotate-sector rotate-sector-left" type="button" role="menuitemradio" data-rotate="270" aria-label="向左旋转 90 度" aria-checked="false" tabindex="-1"><span>270°</span></button>
+  <span class="rotate-radial-center" aria-hidden="true">旋转</span>
 </div>
 
 <!-- 底部进度区 -->

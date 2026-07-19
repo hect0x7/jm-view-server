@@ -69,7 +69,9 @@ var JMV_PREF_DEFS = {
   sidebarCollapsed: { key: 'jmv-sidebar-collapsed', type: 'bool', fallback: false },
   sidebarWidth: { key: 'jmv-sidebar-w', type: 'number', min: 180, max: 420, fallback: 248 },
   browserView: { key: 'jmv-view', type: 'enum', values: ['list', 'grid'], fallback: 'list' },
-  readerMode: { key: 'jmv-reader-mode', type: 'enum', values: ['scroll', 'single'], fallback: 'scroll' },
+  readerMode: { key: 'jmv-reader-mode', type: 'enum', values: ['scroll', 'single', 'double'], fallback: 'scroll' },
+  readingDirection: { key: 'jmv-reading-direction', type: 'enum', values: ['ltr', 'rtl'], fallback: 'ltr' },
+  doubleWidthScale: { key: 'jmv-double-width-scale', type: 'number', min: 50, max: 100, fallback: 98 },
   singleFit: { key: 'jmv-single-fit', type: 'enum', values: ['contain', 'custom'], fallback: 'contain' },
   imageSize: { key: 'jmv-img-custom-size', type: 'number', min: 300, max: 1600, fallback: 800 },
   eyeCare: { key: 'jmv-eyecare', type: 'bool', fallback: false },
@@ -79,24 +81,33 @@ var JMV_PREF_DEFS = {
   chatNickname: { key: 'jm_chat_nickname', type: 'string', fallback: '' }
 };
 
+function normalizeNumberPreference(def, value) {
+  var numberValue = parseInt(value, 10);
+  if (isNaN(numberValue)) return def.fallback;
+  return Math.max(def.min, Math.min(def.max, numberValue));
+}
+
 function parsePreference(def, raw) {
   if (raw == null || raw === '') return def.fallback;
   if (def.type === 'bool') return raw === '1' || raw === 'true';
-  if (def.type === 'number') {
-    var value = parseInt(raw, 10);
-    if (isNaN(value)) return def.fallback;
-    return Math.max(def.min, Math.min(def.max, value));
-  }
+  if (def.type === 'number') return normalizeNumberPreference(def, raw);
   if (def.type === 'enum') return def.values.indexOf(raw) >= 0 ? raw : def.fallback;
   return String(raw);
 }
 
 function serializePreference(def, value) {
   if (def.type === 'bool') return value ? '1' : '0';
-  if (def.type === 'number') return String(Math.max(def.min, Math.min(def.max, parseInt(value, 10) || def.fallback)));
+  if (def.type === 'number') return String(normalizeNumberPreference(def, value));
   if (def.type === 'enum') return def.values.indexOf(value) >= 0 ? value : def.fallback;
   return String(value == null ? '' : value);
 }
+
+function formatDoubleWidthScale(value) {
+  var percentage = parseInt(value, 10);
+  if (isNaN(percentage)) percentage = 98;
+  return Math.max(50, Math.min(100, percentage)) + '%';
+}
+window.formatDoubleWidthScale = formatDoubleWidthScale;
 
 var JmvPrefs = {
   definitions: JMV_PREF_DEFS,
@@ -151,13 +162,14 @@ var JmvPrefs = {
 window.JmvPrefs = JmvPrefs;
 
 window.JMV_READER_SHORTCUTS = [
-  { keys: ['←'], label: '上一页' },
-  { keys: ['→'], label: '下一页' },
-  { keys: ['PageUp'], label: '向上滚动，页首后上一页' },
-  { keys: ['PageDown', 'Space'], label: '向下滚动，页尾后下一页' },
+  { keys: ['←'], label: '单页：上一页；连续模式：无操作' },
+  { keys: ['→'], label: '单页：下一页；连续模式：无操作' },
+  { keys: ['PageUp'], label: '单页：向上滚动，页首后上一页；连续模式：向上滚动' },
+  { keys: ['PageDown', 'Space'], label: '单页：向下滚动，页尾后下一页；连续模式：向下滚动' },
   { keys: ['Home', 'End'], label: '第一 / 最后一页' },
   { keys: ['G'], label: '跳转页码' },
-  { keys: ['M'], label: '切换下拉 / 单页阅读' },
+  { keys: ['T'], label: '打开 / 关闭缩略图总览' },
+  { keys: ['M'], label: '切换下拉 / 单页 / 双页' },
   { keys: ['F'], label: '切换全屏' },
   { keys: ['H'], label: '固定 / 自动收起阅读工具栏' },
   { keys: ['?'], label: '快捷键帮助' },
@@ -172,7 +184,7 @@ window.JMV_READER_SHORTCUTS = [
   document.documentElement.setAttribute('data-theme', theme);
 })();
 
-function toggleTheme() {
+function applyThemeToggle() {
   const cur = document.documentElement.getAttribute('data-theme');
   const next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
@@ -180,6 +192,12 @@ function toggleTheme() {
   document.querySelectorAll('.theme-toggle .knob').forEach(k => {
     k.innerHTML = next === 'dark' ? icon('moon') : icon('sun');
   });
+}
+function toggleTheme(control) {
+  if (control && window.runSettingsUpdate) {
+    return window.runSettingsUpdate(control, applyThemeToggle, { keepFocus: true });
+  }
+  return applyThemeToggle();
 }
 window.toggleTheme = toggleTheme;
 
@@ -429,7 +447,7 @@ function showJmvOnboarding(force) {
       <h2 id="onboardingTitle">新的阅读方式，先看这三件事</h2>
       <div class="onboarding-steps">
         <div><span>01</span><b>设置集中管理</b><p>在设置页提前选择外观、默认阅读模式、图片大小和自动连播。</p></div>
-        <div><span>02</span><b>单页或下拉</b><p>单页模式点击图片左侧上一页、右侧下一页，也可以继续使用下拉阅读。</p></div>
+        <div><span>02</span><b>三种阅读布局</b><p>单页模式点击两侧翻页；双页模式在桌面端每行两页，窄屏自动单列并连续滚动。</p></div>
         <div><span>03</span><b>快捷键随时可查</b><p>方向键翻页，按 M 切换模式，按 ? 打开完整快捷键帮助。</p></div>
       </div>
       <div class="onboarding-actions">
@@ -493,9 +511,9 @@ function renderShell(active) {
       <div class="sidebar-foot">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px">
           <span style="font-size:13px;color:var(--text-secondary)">深色模式</span>
-          <div class="theme-toggle" onclick="toggleTheme()"><span class="knob"></span></div>
+          <div class="theme-toggle" onclick="toggleTheme(this)"><span class="knob"></span></div>
         </div>
-        <button class="nav-item" onclick="toggleSidebarCollapse()" style="width:100%;text-align:left">${icon('panelLeft')}<span>收起/展开侧栏</span></button>
+        <button class="nav-item" onclick="toggleSidebarCollapse(this)" style="width:100%;text-align:left">${icon('panelLeft')}<span>收起/展开侧栏</span></button>
         <a href="/logout" class="nav-item">${icon('logout')}<span>退出登录</span></a>
       </div>
       <div class="sidebar-resizer" id="sidebarResizer" title="拖拽调整宽度，拖到最窄自动折叠"></div>`;
@@ -611,7 +629,7 @@ function initSidebarResize() {
 }
 window.initSidebarResize = initSidebarResize;
 
-window.toggleSidebarCollapse = function() {
+function applySidebarCollapse() {
   var app = document.querySelector('.app');
   var sidebar = app.querySelector('.sidebar');
   if (!app || !sidebar) return;
@@ -635,4 +653,11 @@ window.toggleSidebarCollapse = function() {
     });
     try { localStorage.setItem('jmv-sidebar-collapsed', '1'); } catch(e){}
   }
+}
+
+window.toggleSidebarCollapse = function(control) {
+  if (control && window.runSettingsUpdate) {
+    return window.runSettingsUpdate(control, applySidebarCollapse, { keepFocus: true });
+  }
+  return applySidebarCollapse();
 };

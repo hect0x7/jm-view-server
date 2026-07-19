@@ -115,20 +115,37 @@
             <div class="settings-card-grid">
               <div class="settings-card settings-card-wide">
                 <div class="settings-label">默认阅读模式</div>
-                <div class="settings-segment settings-segment-feature" id="readerModeSegment">
-                  <button data-value="scroll"><b>下拉阅读</b><small>连续纵向浏览</small></button>
-                  <button data-value="single"><b>单页阅读</b><small>点击或快捷键翻页</small></button>
+                <div class="settings-segment settings-segment-feature settings-segment-three" id="readerModeSegment">
+                  <button type="button" data-value="scroll"><b>下拉阅读</b><small>连续纵向浏览</small></button>
+                  <button type="button" data-value="single"><b>单页阅读</b><small>逐页沉浸阅读</small></button>
+                  <button type="button" data-value="double"><b>双页</b><small>桌面端每行两页并连续滚动，窄屏自动单列</small></button>
                 </div>
               </div>
-              <div class="settings-card settings-card-wide">
+              <div class="settings-card">
+                <div class="settings-label">阅读方向</div>
+                <div class="settings-segment" id="readingDirectionSegment">
+                  <button type="button" data-value="ltr">从左向右</button>
+                  <button type="button" data-value="rtl">从右向左</button>
+                </div>
+                <p class="settings-help">决定双页行内的页面排列顺序。</p>
+              </div>
+              <div class="settings-card">
                 <div class="settings-label">单页图片适配</div>
                 <div class="settings-segment" id="singleFitSegment">
-                  <button data-value="contain">完整适应屏幕</button><button data-value="custom">自定义尺寸</button>
+                  <button type="button" data-value="contain">完整适应屏幕</button><button type="button" data-value="custom">自定义尺寸</button>
                 </div>
                 <label class="settings-range-row" for="imageSize">
                   <span>自定义宽度</span><output id="imageSizeValue">800px</output>
                 </label>
                 <input id="imageSize" class="settings-range" type="range" min="300" max="1600" step="50" value="800">
+              </div>
+              <div class="settings-card">
+                <div class="settings-label">双页连续阅读</div>
+                <label id="doubleWidthScaleControl" class="settings-range-row" for="doubleWidthScale">
+                  <span>双页画面比例</span><output id="doubleWidthScaleValue">98%</output>
+                </label>
+                <input id="doubleWidthScale" class="settings-range" type="range" min="50" max="100" step="1" value="98">
+                <p class="settings-help">双页始终连续适宽；默认显示 98% 画面，100% 为满宽。</p>
               </div>
               <div class="settings-card settings-toggles">
                 <label class="settings-switch-row"><span><b>护眼滤镜</b><small>阅读区使用暖色调</small></span><input id="eyeCare" type="checkbox"><i></i></label>
