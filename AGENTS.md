@@ -119,7 +119,9 @@
    - **工作流配置**：依赖 `.github/workflows/release_auto.yml`。
    - **触发条件**：将代码 `push` 到 `master` 分支，且本次 commit message **必须以小写字母 `v` 开头**。
    - **Commit Message 格式**：`v<版本号>: <发版说明>`。
-     - *示例*：`git commit -m "v0.2.5: 修复面包屑溢出与移动端UI问题"`
+     - *示例*：`git commit -m "v0.3.2: 发布 v0.3.2"`
+   - **更新记录**：发版前必须在 `CHANGELOG.md` 新增 `## [v<版本号>] - YYYY-MM-DD` 章节；GitHub Release 正文优先从该章节提取，缺失时才回退到 commit message。
+   - **README 边界**：`README.md` 只维护当前稳定能力、安装和使用方式，不堆叠逐版本更新公告；历史变化统一写入 `CHANGELOG.md`。
    - **执行动作**：触发工作流后，会自动提取版本号创建对应的 Git Tag 和 GitHub Release，最后构建打包并发布到 PyPI。
 
 2. **重定向兼容包手动发版 (`plugin_jm_server`)**
