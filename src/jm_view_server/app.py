@@ -812,7 +812,7 @@ class JmServer:
     def open_directory(self, directory):
         if not self.verify():
             return abort(403)
-        import subprocess
+        import subprocess  # nosec B404
         import sys
         # Flask 的 <path:...> 转换器会吃掉前导 '/'，导致 mac/linux 绝对路径
         # （如 /Users/x）到这里变成相对路径 Users/x，os.path.abspath 会基于 cwd
@@ -835,7 +835,7 @@ class JmServer:
                     subprocess.Popen(['open', path])          # 直接进入该目录
             elif sys.platform.startswith('win'):
                 if reveal or not is_dir:
-                    subprocess.Popen(f'explorer /select,"{path}"')  # 选中
+                    subprocess.Popen(['explorer', f'/select,{path}'])  # 选中
                 else:
                     subprocess.Popen(['explorer', path])            # 直接进入
             else:
