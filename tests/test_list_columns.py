@@ -4,11 +4,14 @@
   C  表头列右边界拖拽调宽 + localStorage 记忆
   D  删除 / 在文件管理器中显示 收进操作 ⋯ 菜单（删除保留二次确认）
 """
+from urllib.parse import unquote
 
 
 def _open(live_server, browser):
     pg = browser.new_page()
     pg.goto(live_server.url + '/')
+    pg.evaluate("localStorage.setItem('jmv-onboarding-settings-v1', '1')")
+    pg.reload()
     pg.wait_for_selector('.file-item')
     return pg
 
@@ -41,11 +44,11 @@ def test_delete_and_reveal_in_more_menu(live_server, browser):
     assert has_del_btn == 0, '大小列不应再有删除按钮（已移入 ⋯）'
 
 
-def test_delete_keeps_confirm(live_server, browser):
-    """点 ⋯ 里的删除会弹二次确认；取消则不删。"""
+def test_delete_uses_site_confirm_modal(live_server, browser):
+    """单删使用站内弹窗，支持焦点循环、Escape、遮罩取消和焦点返回。"""
     pg = _open(live_server, browser)
-    # 取消 confirm
-    pg.on('dialog', lambda d: d.dismiss())
+    native_dialogs = []
+    pg.on('dialog', lambda dialog: (native_dialogs.append(dialog.type), dialog.dismiss()))
     # 打开漫画A行的 ⋯ 菜单并点删除
     clicked = pg.eval_on_selector_all(
         '.list-view .file-item',
@@ -57,11 +60,115 @@ def test_delete_keeps_confirm(live_server, browser):
             return true;
         }""")
     assert clicked
-    pg.wait_for_timeout(400)
+    modal = pg.locator('#deleteConfirmOverlay.open')
+    modal.wait_for(state='visible')
+    assert native_dialogs == []
+    assert modal.get_by_role('heading').inner_text() == '彻底删除此项目？'
+    assert '漫画A' in pg.locator('#deleteConfirmMessage').inner_text()
+    assert pg.evaluate('document.activeElement.id') == 'deleteConfirmCancel'
+    pg.keyboard.press('Tab')
+    assert pg.evaluate('document.activeElement.id') == 'deleteConfirmSubmit'
+    pg.keyboard.press('Tab')
+    assert pg.evaluate('document.activeElement.id') == 'deleteConfirmCancel'
+    pg.keyboard.press('Escape')
+    assert not pg.locator('#deleteConfirmOverlay').is_visible()
+    assert pg.evaluate('document.activeElement.classList.contains("more-btn")')
+    assert pg.locator('.more-btn:focus').is_visible()
+
+    # 再次打开，点击遮罩同样只取消，不执行删除。
+    pg.eval_on_selector_all(
+        '.list-view .file-item',
+        """items => {
+            const row = items.find(el => el.querySelector('.file-name-col').innerText.includes('漫画A'));
+            row.querySelector('.more-btn').click();
+            [...row.querySelectorAll('.more-item')].find(a => a.textContent.includes('删除')).click();
+        }""")
+    modal.wait_for(state='visible')
+    pg.locator('#deleteConfirmOverlay').click(position={'x': 4, 'y': 4})
+    assert not pg.locator('#deleteConfirmOverlay').is_visible()
     # 取消后漫画A仍在
     still = pg.eval_on_selector_all('.list-view .file-item',
         'items => items.some(el => el.querySelector(".file-name-col").innerText.includes("漫画A"))')
     assert still, '取消确认后不应删除'
+
+
+def test_batch_delete_uses_site_confirm_modal(live_server, browser):
+    """批量删除复用站内弹窗，并显示选中数量。"""
+    pg = _open(live_server, browser)
+    native_dialogs = []
+    pg.on('dialog', lambda dialog: (native_dialogs.append(dialog.type), dialog.dismiss()))
+    pg.get_by_role('button', name='多选').click()
+    pg.locator('.row-select').first.check()
+    pg.get_by_role('button', name='批量删除').click()
+    modal = pg.locator('#deleteConfirmOverlay.open')
+    modal.wait_for(state='visible')
+    assert native_dialogs == []
+    assert pg.locator('#deleteConfirmTitle').inner_text() == '批量删除 1 个项目？'
+    assert pg.locator('#deleteConfirmSubmit').inner_text() == '删除 1 项'
+    pg.locator('#deleteConfirmCancel').click()
+
+
+def test_select_mode_clicks_whole_item_but_keeps_actions(live_server, browser):
+    """列表与网格普通区域可切换选择，链接/按钮/复选框仍优先。"""
+    pg = _open(live_server, browser)
+    pg.get_by_role('button', name='多选').click()
+    row = pg.locator('.list-view .file-item').filter(has_text='漫画A')
+    checkbox = row.locator('.row-select')
+
+    row.locator('.date-col').click()
+    assert checkbox.is_checked()
+    assert 'is-selected' in (row.get_attribute('class') or '')
+    assert pg.locator('#batchCount').inner_text() == '已选 1 项'
+
+    row.locator('.date-col').click()
+    assert not checkbox.is_checked()
+    assert 'is-selected' not in (row.get_attribute('class') or '')
+
+    row.locator('.more-btn').click()
+    assert not checkbox.is_checked(), '更多操作按钮应优先，不应切换选择'
+    assert 'open' in (row.locator('.more-menu').get_attribute('class') or '')
+
+    pg.locator('body').click(position={'x': 4, 'y': 4})
+    row.locator('.row-select').check()
+    assert checkbox.is_checked()
+    assert 'is-selected' in (row.get_attribute('class') or '')
+    row.locator('.row-select').uncheck()
+    assert not checkbox.is_checked()
+
+    pg.evaluate(
+        """() => {
+          document.getElementById('pathForm').addEventListener(
+            'submit', event => event.preventDefault(), {once: true});
+        }""")
+    before_url = pg.url
+    row.locator('.file-link').click()
+    assert pg.url == before_url
+    assert pg.locator('#pathForm input[name="path"]').input_value().endswith('漫画A')
+    assert not checkbox.is_checked(), '文件链接应优先，不应切换选择'
+
+    pg.reload()
+    pg.wait_for_selector('.grid-view .card-item', state='attached')
+    pg.locator('#segGrid').click()
+    pg.get_by_role('button', name='多选').click()
+    card = pg.locator('.grid-view .card-item').filter(has_text='漫画A')
+    card_checkbox = card.locator('.row-select')
+    card.locator('.info').click()
+    assert card_checkbox.is_checked()
+    assert 'is-selected' in (card.get_attribute('class') or '')
+    assert pg.locator('#batchCount').inner_text() == '已选 1 项'
+    card.locator('.info').click()
+    assert not card_checkbox.is_checked()
+
+    card.hover()
+    card.locator('.card-delete-btn').click()
+    assert not card_checkbox.is_checked(), '删除按钮应优先，不应切换选择'
+    pg.locator('#deleteConfirmOverlay.open').wait_for(state='visible')
+    pg.locator('#deleteConfirmCancel').click()
+
+    pg.get_by_role('button', name='多选').click()
+    card.locator('.info').click()
+    pg.wait_for_url('**/?path=*')
+    assert unquote(pg.url).endswith('/漫画A')
 
 
 # ---------- C：列宽拖拽 + 记忆 ----------

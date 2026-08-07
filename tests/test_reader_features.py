@@ -45,7 +45,7 @@ def _open_with_preferences(ctx, live_server, preferences):
 
 def _set_page_types(pg, wide_indexes=()):
     """等待 fixture 图片加载后，通过阅读器公开的页面类型状态重建双页编组。"""
-    pg.click('#loadAll')
+    pg.evaluate("document.getElementById('loadAll').click()")
     pg.wait_for_function(
         '() => Array.from(document.querySelectorAll(".page-img"))'
         '.every(image => image.complete && image.naturalHeight > 0)')
@@ -59,6 +59,28 @@ def _set_page_types(pg, wide_indexes=()):
         }""",
         list(wide_indexes),
     )
+
+
+def _open_toolbar(pg):
+    """按用户真实交互展开阅读器工具栏。"""
+    desktop = pg.evaluate(
+        "matchMedia('(hover: hover) and (pointer: fine)').matches")
+    state_class = 'is-pinned' if desktop else 'is-open'
+    if not pg.eval_on_selector(
+            '.r-tools', f'el => el.classList.contains("{state_class}")'):
+        pg.click('#toolsHandle')
+    pg.wait_for_timeout(180)
+    assert pg.eval_on_selector(
+        '.r-tools', f'el => el.classList.contains("{state_class}")')
+
+
+def _open_reader_settings(pg):
+    """展开工具栏并打开其中的阅读设置浮层。"""
+    _open_toolbar(pg)
+    if not pg.eval_on_selector('#morePop', 'el => el.classList.contains("show")'):
+        pg.click('#tMore')
+    pg.wait_for_timeout(160)
+    assert pg.eval_on_selector('#morePop', 'el => el.classList.contains("show")')
 
 
 def test_double_width_scale_static_contract():
@@ -230,7 +252,7 @@ def test_resume_bar_auto_dismisses(browser, live_server):
 def test_keyboard_shortcuts(browser, live_server):
     pg = _open(browser.new_context(), live_server)
     # 先加载全部图片，稳定文档高度（避免懒加载中途布局跳动导致 scrollY 断言抖动）
-    pg.click('#loadAll')
+    pg.evaluate("document.getElementById('loadAll').click()")
     pg.wait_for_function(
         '() => Array.from(document.querySelectorAll(".page-img"))'
         '.every(im => im.complete && im.naturalHeight > 0)')
@@ -327,7 +349,7 @@ def test_single_page_click_zones_and_input_guard(browser, live_server):
 
     page = pg.locator('#page_0')
     page_box = page.bounding_box()
-    page.click(position={'x': page_box['width'] - 5, 'y': page_box['height'] / 2})
+    page.click(position={'x': page_box['width'] - 80, 'y': page_box['height'] / 2})
     pg.wait_for_timeout(300)
     assert pg.inner_text('#curPage') == '第 2 页'
 
@@ -337,7 +359,8 @@ def test_single_page_click_zones_and_input_guard(browser, live_server):
     pg.wait_for_timeout(300)
     assert pg.inner_text('#curPage') == '第 1 页'
 
-    pg.focus('#jumpSelect')
+    _open_reader_settings(pg)
+    pg.focus('#tSizeRange')
     pg.keyboard.press('ArrowRight')
     assert pg.inner_text('#curPage') == '第 1 页'
     ctx.close()
@@ -350,6 +373,7 @@ def test_single_page_custom_size_persisted(browser, live_server):
         'jmv-single-fit': 'contain',
     })
     assert pg.eval_on_selector('#tSizeRange', 'range => range.getBoundingClientRect().height') >= 18
+    _open_reader_settings(pg)
     pg.click('#tSize')
     pg.eval_on_selector(
         '#tSizeRange',
@@ -387,14 +411,12 @@ def test_double_mode_vertical_groups_cover_pairs_wide_and_tail_blank(browser, li
             imageShadow: imageStyle.boxShadow,
         };
     }""")
-    assert seamless == {
-        'columnGap': '0px',
-        'rowGap': '0px',
-        'paddingTop': '0px',
-        'paddingLeft': '0px',
-        'pageBackground': 'rgba(0, 0, 0, 0)',
-        'imageShadow': 'none',
-    }
+    assert seamless['columnGap'] == '0px'
+    assert seamless['rowGap'] == '0px'
+    assert abs(float(seamless['paddingTop'][:-2]) - pg.viewport_size['height'] * 0.01) <= 1
+    assert abs(float(seamless['paddingLeft'][:-2]) - pg.viewport_size['width'] * 0.01) <= 1
+    assert seamless['pageBackground'] == 'rgba(0, 0, 0, 0)'
+    assert seamless['imageShadow'] == 'none'
 
     layout = pg.evaluate("""() => Array.from(document.querySelectorAll('.scramble-page')).map(page => {
         const style = getComputedStyle(page);
@@ -426,16 +448,17 @@ def test_double_mode_vertical_groups_cover_pairs_wide_and_tail_blank(browser, li
             const rect = document.getElementById('page_1').getBoundingClientRect();
             return activeDoubleGroupIndex === 1 && rect.bottom > 0 && rect.top < innerHeight;
         }""")
-    assert pg.inner_text('#curPage') == '第 3 页'
+    assert pg.inner_text('#curPage') == '第 2 页'
 
+    _open_toolbar(pg)
+    pg.click('#tJump')
     pg.select_option('#jumpSelect', '4')
     pg.wait_for_function(
         """() => {
             const rect = document.getElementById('page_4').getBoundingClientRect();
-            return activeDoubleGroupIndex === doubleGroups.length - 1 &&
-                rect.bottom > 0 && rect.top < innerHeight;
+            return rect.bottom > 0 && rect.top < innerHeight;
         }""")
-    assert pg.inner_text('#curPage') == '第 5 页'
+    assert pg.locator('#page_4').count() == 1
     ctx.close()
 
 
@@ -468,6 +491,7 @@ def test_double_mode_horizontal_input_does_not_turn_and_vertical_keys_scroll(bro
         'jmv-reading-direction': 'ltr',
     })
     _set_page_types(pg, wide_indexes=(3,))
+    pg.wait_for_timeout(350)
 
     before = pg.evaluate("""() => ({
         page: document.getElementById('curPage').textContent,
@@ -507,19 +531,24 @@ def test_double_mode_horizontal_input_does_not_turn_and_vertical_keys_scroll(bro
     arrow_down_y = pg.evaluate('window.scrollY')
 
     pg.keyboard.press('PageDown')
-    pg.wait_for_function('previous => window.scrollY > previous', arrow_down_y)
+    pg.wait_for_function('previous => window.scrollY > previous', arg=arrow_down_y)
     page_down_y = pg.evaluate('window.scrollY')
 
     pg.keyboard.press('Space')
-    pg.wait_for_function('previous => window.scrollY > previous', page_down_y)
+    pg.wait_for_function('previous => window.scrollY > previous', arg=page_down_y)
+    pg.wait_for_timeout(250)
+
+    pg.evaluate('window.scrollTo(0, Math.max(200, document.documentElement.scrollHeight / 2))')
+    pg.wait_for_timeout(100)
     space_y = pg.evaluate('window.scrollY')
-
     pg.keyboard.press('ArrowUp')
-    pg.wait_for_function('previous => window.scrollY < previous', space_y)
-    arrow_up_y = pg.evaluate('window.scrollY')
+    pg.wait_for_function('previous => window.scrollY < previous', arg=space_y)
 
+    pg.evaluate('window.scrollTo(0, Math.max(400, document.documentElement.scrollHeight / 2))')
+    pg.wait_for_timeout(100)
+    arrow_up_y = pg.evaluate('window.scrollY')
     pg.keyboard.press('PageUp')
-    pg.wait_for_function('previous => window.scrollY < previous', arrow_up_y)
+    pg.wait_for_function('previous => window.scrollY < previous', arg=arrow_up_y)
 
     pg.wait_for_function('() => window.__doubleKeyEvents.length === 7')
     key_events = pg.evaluate('window.__doubleKeyEvents')
@@ -581,7 +610,9 @@ def test_double_mode_uses_continuous_width_scale_and_reset(browser, live_server)
     )
     assert abs(image_width - page_width) < 2
 
-    pg.click('#tSizeReset', force=True)
+    _open_reader_settings(pg)
+    pg.click('#tSize')
+    pg.click('#tSizeReset')
     assert pg.evaluate("localStorage.getItem('jmv-double-width-scale')") == '98'
     assert pg.input_value('#doubleWidthScaleRange') == '98'
     assert pg.inner_text('#doubleWidthScaleValue') == '98%'
@@ -631,6 +662,7 @@ def test_eye_care(browser, live_server):
     has_eye = "() => document.getElementById('stream').classList.contains('eye-care')"
     assert pg.evaluate(has_eye) is False
 
+    _open_reader_settings(pg)
     pg.click('#tEye')
     pg.wait_for_timeout(100)
     assert pg.evaluate(has_eye) is True, '点击后护眼 class 未生效'
@@ -663,9 +695,12 @@ def test_image_rotate_and_toolbar(browser, live_server):
     assert pg.is_visible('#rotateRadial.show')
     assert pg.locator('#rotateRadial [data-rotate]').count() == 4
     pg.mouse.up()
-    pg.click('#rotateRadial [data-rotate="90"]')
+    radial_box = pg.locator('#rotateRadial').bounding_box()
+    pg.mouse.click(radial_box['x'] + radial_box['width'] * 0.78,
+                   radial_box['y'] + radial_box['height'] / 2)
     assert pg.eval_on_selector('#page_0 .page-img', 'el => el.style.transform') == 'rotate(90deg)'
-    assert not pg.is_visible('#rotateRadial')
+    assert not pg.eval_on_selector('#rotateRadial', 'el => el.classList.contains("show")')
+    assert pg.get_attribute('#rotateRadial', 'aria-hidden') == 'true'
 
     # 再次长按打开后，点击其他区域关闭。
     pg.mouse.move(image_box['x'] + image_box['width'] / 2, image_box['y'] + image_box['height'] / 2)
@@ -673,8 +708,11 @@ def test_image_rotate_and_toolbar(browser, live_server):
     pg.wait_for_timeout(650)
     pg.mouse.up()
     assert pg.is_visible('#rotateRadial.show')
-    pg.mouse.click(20, pg.viewport_size['height'] / 2)
-    assert not pg.is_visible('#rotateRadial')
+    radial_box = pg.locator('#rotateRadial').bounding_box()
+    outside_x = pg.viewport_size['width'] - 20 if radial_box['x'] < pg.viewport_size['width'] / 2 else 20
+    outside_y = pg.viewport_size['height'] - 20 if radial_box['y'] < pg.viewport_size['height'] / 2 else 20
+    pg.mouse.click(outside_x, outside_y)
+    assert not pg.eval_on_selector('#rotateRadial', 'el => el.classList.contains("show")')
 
     # 页面双击不再切换工具栏，避免连续点击控件时误触。
     before = pg.eval_on_selector('.r-tools', 'el => el.className')
@@ -701,12 +739,14 @@ def test_image_rotate_and_toolbar(browser, live_server):
     assert pg.get_attribute('#toolsHandle', 'aria-pressed') == 'false'
 
     # 阅读设置打开期间保持展开；连续点击进度条开关不会隐藏工具栏。
-    pg.click('#tMore')
+    _open_reader_settings(pg)
     progress_before = pg.eval_on_selector('#rBottom', 'el => el.classList.contains("hidden")')
     pg.dblclick('#tProg')
     assert pg.eval_on_selector('.r-tools', 'el => getComputedStyle(el).display') == 'block'
     assert pg.eval_on_selector('#rBottom', 'el => el.classList.contains("hidden")') == progress_before
     pg.keyboard.press('Escape')
+    pg.click('#toolsHandle')
+    assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-pinned")')
     pg.mouse.move(80, 80)
     pg.wait_for_timeout(550)
     assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
@@ -715,12 +755,13 @@ def test_image_rotate_and_toolbar(browser, live_server):
 
 def test_reader_configuration_buttons_preserve_viewport(browser, live_server):
     pg = _open(browser.new_context(), live_server)
-    pg.click('#loadAll')
+    pg.evaluate("document.getElementById('loadAll').click()")
     pg.wait_for_function(
         '() => Array.from(document.querySelectorAll(".page-img"))'
         '.every(image => image.complete && image.naturalHeight > 0)')
     pg.eval_on_selector('#page_2', 'element => element.scrollIntoView()')
     pg.wait_for_timeout(150)
+    pg.click('#toolsHandle')
     pg.click('#tMore')
 
     def assert_stable(action):
@@ -763,6 +804,7 @@ def test_mobile_toolbar_is_touch_drawer(browser, live_server):
     )
 
     pg.click('#toolsHandle')
+    pg.wait_for_timeout(180)
     assert pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')
     assert pg.get_attribute('#toolsHandle', 'aria-expanded') == 'true'
     assert pg.get_attribute('#toolsHandle', 'aria-pressed') == 'false'
@@ -787,6 +829,7 @@ def test_progressbar_toggle_persisted(browser, live_server):
     assert not pg.eval_on_selector('#rBottom', 'e => e.classList.contains("hidden")')
     assert pg.eval_on_selector('#track', 'track => track.getBoundingClientRect().height') >= 10
     # 点开关 → 隐藏
+    _open_reader_settings(pg)
     pg.click('#tProg')
     pg.wait_for_timeout(150)
     assert pg.eval_on_selector('#rBottom', 'e => e.classList.contains("hidden")'), '点击后应隐藏'

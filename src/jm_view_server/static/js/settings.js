@@ -6,8 +6,98 @@ function initSettingsPage() {
 
   var scrollHost = document.querySelector('.settings-content');
   var settingsMain = document.querySelector('.settings-main');
+  var settingsRailLinks = document.querySelectorAll('.settings-rail a[href^="#"]');
   var interactionSnapshots = new WeakMap();
   var activeTransaction = null;
+
+  function resetSettingsDocumentScroll() {
+    var scrollingElement = document.scrollingElement || document.documentElement;
+    if (scrollingElement.scrollTop !== 0) scrollingElement.scrollTop = 0;
+    if (scrollingElement.scrollLeft !== 0) scrollingElement.scrollLeft = 0;
+  }
+
+  function stabilizeSettingsDocumentScroll() {
+    resetSettingsDocumentScroll();
+    window.requestAnimationFrame(function() {
+      resetSettingsDocumentScroll();
+      window.requestAnimationFrame(resetSettingsDocumentScroll);
+    });
+    window.setTimeout(resetSettingsDocumentScroll, 0);
+    window.setTimeout(resetSettingsDocumentScroll, 120);
+  }
+
+  function settingsSectionFromHash(hash) {
+    if (!hash || hash === '#') return null;
+    var id = hash.slice(1);
+    try { id = decodeURIComponent(id); } catch (error) {}
+    return document.getElementById(id);
+  }
+
+  function updateSettingsRailState(section) {
+    settingsRailLinks.forEach(function(link) {
+      var active = section && link.getAttribute('href') === '#' + section.id;
+      link.classList.toggle('active', Boolean(active));
+      if (active) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  function scrollToSettingsSection(section, updateHistory) {
+    if (!scrollHost || !section || !scrollHost.contains(section)) {
+      stabilizeSettingsDocumentScroll();
+      return;
+    }
+    cancelActiveTransaction();
+    var hostRect = scrollHost.getBoundingClientRect();
+    var sectionRect = section.getBoundingClientRect();
+    var maxScroll = Math.max(0, scrollHost.scrollHeight - scrollHost.clientHeight);
+    var targetTop = scrollHost.scrollTop + sectionRect.top - hostRect.top;
+    scrollHost.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+    updateSettingsRailState(section);
+    if (updateHistory) {
+      var nextHash = '#' + encodeURIComponent(section.id);
+      if (window.location.hash !== nextHash) {
+        window.history.pushState({ settingsSection: section.id }, '', nextHash);
+      }
+    }
+    stabilizeSettingsDocumentScroll();
+  }
+
+  function restoreSettingsHashPosition() {
+    var section = settingsSectionFromHash(window.location.hash);
+    if (section) scrollToSettingsSection(section, false);
+    else {
+      updateSettingsRailState(null);
+      stabilizeSettingsDocumentScroll();
+    }
+  }
+
+  settingsRailLinks.forEach(function(link) {
+    link.addEventListener('click', function(event) {
+      var section = settingsSectionFromHash(link.getAttribute('href'));
+      if (!section) return;
+      event.preventDefault();
+      scrollToSettingsSection(section, true);
+    });
+  });
+  window.addEventListener('scroll', resetSettingsDocumentScroll, { passive: true });
+  window.addEventListener('hashchange', restoreSettingsHashPosition);
+  window.addEventListener('popstate', restoreSettingsHashPosition);
+  var settingsResizeTimer = null;
+  window.addEventListener('resize', function() {
+    stabilizeSettingsDocumentScroll();
+    window.requestAnimationFrame(function() {
+      window.requestAnimationFrame(restoreSettingsHashPosition);
+    });
+    if (settingsResizeTimer !== null) window.clearTimeout(settingsResizeTimer);
+    settingsResizeTimer = window.setTimeout(restoreSettingsHashPosition, 180);
+  });
+  window.addEventListener('pageshow', function() {
+    window.requestAnimationFrame(restoreSettingsHashPosition);
+  });
+  window.requestAnimationFrame(function() {
+    window.requestAnimationFrame(restoreSettingsHashPosition);
+  });
 
   function clearInteractionSnapshots() {
     interactionSnapshots = new WeakMap();
@@ -217,11 +307,14 @@ function initSettingsPage() {
   }
 
   function bindBoolean(id, prefName, invert, message) {
-    var input = document.getElementById(id);
-    input.checked = invert ? !prefs.get(prefName) : !!prefs.get(prefName);
-    input.addEventListener('change', function() {
-      runSettingsUpdate(input, function() {
-        prefs.set(prefName, invert ? !input.checked : input.checked);
+    var button = document.getElementById(id);
+    function render(value) { button.setAttribute('aria-checked', value ? 'true' : 'false'); }
+    render(invert ? !prefs.get(prefName) : !!prefs.get(prefName));
+    button.addEventListener('click', function() {
+      runSettingsUpdate(button, function() {
+        var value = button.getAttribute('aria-checked') !== 'true';
+        render(value);
+        prefs.set(prefName, invert ? !value : value);
         notify(message || '设置已更新');
       }, { keepFocus: true });
     });
@@ -238,6 +331,15 @@ function initSettingsPage() {
         render(value);
         notify(message);
       }, { keepFocus: true });
+    });
+    window.addEventListener('jmv:preference-change', function(event) {
+      if (event.detail && event.detail.name === prefName) render(!!event.detail.value);
+    });
+    window.addEventListener('storage', function(event) {
+      var definition = prefs.definitions[prefName];
+      if (definition && event.key === definition.key) {
+        render(event.newValue == null ? !!definition.fallback : (event.newValue === '1' || event.newValue === 'true'));
+      }
     });
   }
 
@@ -352,6 +454,7 @@ function initSettingsPage() {
 
   bindSegment('browserViewSegment', 'browserView');
   bindDeferredSwitch('sidebarCollapsed', 'sidebarCollapsed', '已保存，刷新页面后生效');
+  bindDeferredSwitch('browserOperations', 'browserOperations', '分栏操作入口设置已即时生效');
   document.getElementById('sidebarWidthReset').addEventListener('click', function(event) {
     runSettingsUpdate(event.currentTarget, function() {
       prefs.remove('sidebarWidth');

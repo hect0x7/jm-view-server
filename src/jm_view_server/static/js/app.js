@@ -68,7 +68,8 @@ var JMV_PREF_DEFS = {
   backgroundOpacity: { key: 'jmv-bg-opacity', type: 'number', min: 0, max: 100, fallback: 0 },
   sidebarCollapsed: { key: 'jmv-sidebar-collapsed', type: 'bool', fallback: false },
   sidebarWidth: { key: 'jmv-sidebar-w', type: 'number', min: 180, max: 420, fallback: 248 },
-  browserView: { key: 'jmv-view', type: 'enum', values: ['list', 'grid'], fallback: 'list' },
+  browserView: { key: 'jmv-view', type: 'enum', values: ['list', 'grid', 'column'], fallback: 'list' },
+  browserOperations: { key: 'jmv-browser-operations', type: 'bool', fallback: true },
   readerMode: { key: 'jmv-reader-mode', type: 'enum', values: ['scroll', 'single', 'double'], fallback: 'scroll' },
   readingDirection: { key: 'jmv-reading-direction', type: 'enum', values: ['ltr', 'rtl'], fallback: 'ltr' },
   doubleWidthScale: { key: 'jmv-double-width-scale', type: 'number', min: 50, max: 100, fallback: 98 },
@@ -506,7 +507,7 @@ function renderShell(active) {
       </a>
       <div class="nav">
         <div class="nav-label">浏览</div>
-        ${nav.map(n => `<a href="${n.href}" class="nav-item ${n.key===active?'active':''}">${icon(n.icon)}<span>${n.label}</span></a>`).join('')}
+        ${nav.map(n => `<a href="${n.href}" class="nav-item ${n.key===active?'active':''}"${n.key==='upload'?' data-jmv-upload-link':''}>${icon(n.icon)}<span>${n.label}</span></a>`).join('')}
       </div>
       <div class="sidebar-foot">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px">
@@ -521,7 +522,7 @@ function renderShell(active) {
   initSidebarResize();
   const mbar = document.querySelector('.mobile-bar');
   if (mbar) {
-    mbar.innerHTML = nav.map(n => `<a href="${n.href}" class="${n.key===active?'active':''}">${icon(n.icon)}<span>${n.label.replace('局域网','')}</span></a>`).join('');
+    mbar.innerHTML = nav.map(n => `<a href="${n.href}" class="${n.key===active?'active':''}"${n.key==='upload'?' data-jmv-upload-link':''}>${icon(n.icon)}<span>${n.label.replace('局域网','')}</span></a>`).join('');
   }
   // 主题开关初始图标
   document.querySelectorAll('.theme-toggle .knob').forEach(k => {
@@ -546,6 +547,7 @@ function initSidebarResize() {
   var app = document.querySelector('.app');
   var resizer = document.getElementById('sidebarResizer');
   if (!app || !resizer) return;
+  app.classList.add('sidebar-initializing');
 
   var MIN = 180;          // 最小展开宽度
   var MAX = 420;          // 最大宽度
@@ -561,6 +563,11 @@ function initSidebarResize() {
       if (w >= MIN && w <= MAX) app.style.setProperty('--sidebar-w', w + 'px');
     }
   } catch (e) {}
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      app.classList.remove('sidebar-initializing');
+    });
+  });
 
   function setCollapsed(on) {
     app.classList.toggle('sidebar-collapsed', on);

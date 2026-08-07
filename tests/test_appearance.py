@@ -2,6 +2,7 @@
 import glob
 import os
 import tempfile
+from pathlib import Path
 
 from PIL import Image
 
@@ -52,6 +53,154 @@ def _brand(page):
         "getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()")
 
 
+def test_settings_mobile_uses_single_scroll_container(live_server, browser):
+    """窄屏设置页只允许内容区滚动，滚到底后不得继续滚入页面外黑色空白。"""
+    css = (Path(__file__).parents[1] / 'src/jm_view_server/static/css/app.css').read_text(encoding='utf-8')
+    assert 'height: 100dvh' in css
+    assert 'grid-template-rows: 100dvh' in css
+
+    page = _open_settings(live_server, browser)
+    page.set_viewport_size({'width': 806, 'height': 865})
+    page.reload()
+    page.wait_for_selector('#shortcuts')
+
+    metrics = page.evaluate(
+        """async () => {
+          const root = document.documentElement;
+          const host = document.querySelector('.settings-content');
+          host.scrollTop = host.scrollHeight;
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          return {
+            rootOverflow: getComputedStyle(root).overflowY,
+            bodyOverflow: getComputedStyle(document.body).overflowY,
+            hostOverscroll: getComputedStyle(host).overscrollBehaviorY,
+            hostScrollTop: host.scrollTop,
+            hostMaxScroll: host.scrollHeight - host.clientHeight,
+            documentScrollTop: document.scrollingElement.scrollTop,
+            viewportWidth: window.innerWidth,
+            documentWidth: root.clientWidth
+          };
+        }""")
+
+    assert metrics['rootOverflow'] == 'hidden'
+    assert metrics['bodyOverflow'] == 'hidden'
+    assert metrics['hostOverscroll'] == 'contain'
+    assert metrics['hostMaxScroll'] > 0
+    assert abs(metrics['hostScrollTop'] - metrics['hostMaxScroll']) <= 1
+    assert metrics['documentScrollTop'] == 0
+    assert metrics['documentWidth'] == metrics['viewportWidth']
+
+    host_box = page.locator('.settings-content').bounding_box()
+    page.mouse.move(host_box['x'] + host_box['width'] / 2,
+                    host_box['y'] + host_box['height'] / 2)
+    page.mouse.wheel(0, 1400)
+    page.evaluate(
+        """() => {
+          const host = document.querySelector('.settings-content');
+          host.tabIndex = -1;
+          host.focus({preventScroll: true});
+        }""")
+    page.keyboard.press('PageDown')
+    page.keyboard.press('End')
+    page.wait_for_timeout(180)
+    after_extra_scroll = page.evaluate(
+        """() => {
+          const host = document.querySelector('.settings-content');
+          const app = document.querySelector('.app').getBoundingClientRect();
+          return {
+            hostScrollTop: host.scrollTop,
+            hostMaxScroll: host.scrollHeight - host.clientHeight,
+            documentScrollTop: document.scrollingElement.scrollTop,
+            appTop: app.top,
+            appBottom: app.bottom,
+            viewportHeight: window.innerHeight
+          };
+        }""")
+    assert abs(after_extra_scroll['hostScrollTop'] - after_extra_scroll['hostMaxScroll']) <= 1
+    assert after_extra_scroll['documentScrollTop'] == 0
+    assert abs(after_extra_scroll['appTop']) <= 1
+    assert after_extra_scroll['appBottom'] >= after_extra_scroll['viewportHeight'] - 1
+
+
+def test_settings_rail_navigation_never_scrolls_document(live_server, browser):
+    """桌面设置菜单只滚动内容区，所有分类均不得把 App Shell 推出视口。"""
+    page = _open_settings(live_server, browser)
+    page.set_viewport_size({'width': 1280, 'height': 720})
+    page.reload()
+    page.wait_for_selector('.settings-rail')
+
+    for href in ('#appearance', '#browser', '#reader', '#message', '#shortcuts', '#data'):
+        page.locator(f'.settings-rail a[href="{href}"]').click()
+        metrics = page.evaluate(
+            """async hash => {
+              await new Promise(resolve => requestAnimationFrame(resolve));
+              await new Promise(resolve => requestAnimationFrame(resolve));
+              await new Promise(resolve => setTimeout(resolve, 140));
+              const app = document.querySelector('.app').getBoundingClientRect();
+              const host = document.querySelector('.settings-content').getBoundingClientRect();
+              const target = document.querySelector(hash).getBoundingClientRect();
+              return {
+                documentTop: document.scrollingElement.scrollTop,
+                appTop: app.top,
+                appBottom: app.bottom,
+                viewportHeight: window.innerHeight,
+                targetVisible: target.bottom > host.top && target.top < host.bottom,
+                active: document.querySelector('.settings-rail a[aria-current="location"]')?.getAttribute('href'),
+                hash: window.location.hash
+              };
+            }""",
+            href)
+        assert metrics['documentTop'] == 0, href
+        assert abs(metrics['appTop']) <= 1, href
+        assert metrics['appBottom'] >= metrics['viewportHeight'] - 1, href
+        assert metrics['targetVisible'] is True, href
+        assert metrics['active'] == href
+        assert metrics['hash'] == href
+
+
+def test_settings_hash_navigation_and_history_never_scroll_document(live_server, browser):
+    """直接 hash、hashchange 和历史返回均由内容滚动区接管。"""
+    page = browser.new_page(viewport={'width': 1280, 'height': 720})
+    page.goto(live_server.url + '/settings#shortcuts')
+    page.wait_for_selector('#shortcuts')
+    page.wait_for_timeout(180)
+
+    def assert_hash_stable(expected_hash):
+        metrics = page.evaluate(
+            """hash => {
+              const app = document.querySelector('.app').getBoundingClientRect();
+              const host = document.querySelector('.settings-content').getBoundingClientRect();
+              const target = document.querySelector(hash).getBoundingClientRect();
+              return {
+                documentTop: document.scrollingElement.scrollTop,
+                appTop: app.top,
+                appBottom: app.bottom,
+                viewportHeight: window.innerHeight,
+                targetVisible: target.bottom > host.top && target.top < host.bottom,
+                hash: location.hash
+              };
+            }""",
+            expected_hash)
+        assert metrics['documentTop'] == 0
+        assert abs(metrics['appTop']) <= 1
+        assert metrics['appBottom'] >= metrics['viewportHeight'] - 1
+        assert metrics['targetVisible'] is True
+        assert metrics['hash'] == expected_hash
+
+    assert_hash_stable('#shortcuts')
+    page.evaluate("location.hash = '#data'")
+    page.wait_for_timeout(180)
+    assert_hash_stable('#data')
+    page.go_back()
+    page.wait_for_timeout(180)
+    assert_hash_stable('#shortcuts')
+
+    for viewport in ({'width': 860, 'height': 500}, {'width': 861, 'height': 500}):
+        page.set_viewport_size(viewport)
+        page.wait_for_timeout(220)
+        assert_hash_stable('#shortcuts')
+
+
 def _assert_settings_mutation_stable(page, selector, action, label_selector=None):
     samples = page.evaluate(
         """async ({selector, action, labelSelector}) => {
@@ -73,10 +222,11 @@ def _assert_settings_mutation_stable(page, selector, action, label_selector=None
             || Array.from(document.querySelectorAll('.settings-card')).find(card => {
               const rect = card.getBoundingClientRect();
               return rect.bottom > hostRect.top && rect.top < hostRect.bottom;
-            });
+            }) || main;
           const snapshot = () => ({
             scrollTop: host.scrollTop,
             targetTop: target.getBoundingClientRect().top,
+            targetInHost: host.contains(target),
             stableTop: stable.getBoundingClientRect().top,
             hostWidth: host.clientWidth,
             documentWidth: document.documentElement.scrollWidth,
@@ -127,11 +277,13 @@ def _assert_settings_mutation_stable(page, selector, action, label_selector=None
     before = samples.pop('before')
     assert samples.pop('cleanedUp') is True
     assert before['scrollTop'] > 100
-    for sample in samples.values():
-        assert abs(sample['scrollTop'] - before['scrollTop']) <= 2
-        assert abs(sample['targetTop'] - before['targetTop']) <= 2
-        assert abs(sample['stableTop'] - before['stableTop']) <= 2
-        assert sample['hostWidth'] == before['hostWidth']
+    for phase, sample in samples.items():
+        assert abs(sample['scrollTop'] - before['scrollTop']) <= 2, (selector, phase, before, sample)
+        if before['targetInHost']:
+            assert abs(sample['targetTop'] - before['targetTop']) <= 2, (selector, phase, before, sample)
+        assert abs(sample['stableTop'] - before['stableTop']) <= 2, (selector, phase, before, sample)
+        if before['targetInHost']:
+            assert sample['hostWidth'] == before['hostWidth']
         assert sample['documentWidth'] == sample['viewportWidth']
 
 
@@ -185,11 +337,15 @@ def test_settings_mutations_preserve_scroll_and_control_anchor(live_server, brow
     page = _open_settings(live_server, browser)
     cases = [
         ('#browserViewSegment [data-value="grid"]', 'click'),
-        ('#eyeCare', 'checkbox'),
+        ('#eyeCare', 'click'),
+        ('#headerVisible', 'click'),
+        ('#progressVisible', 'click'),
+        ('#autoNext', 'click'),
         ('#doubleWidthScale', 'double-range'),
         ('#imageSize', 'image-range'),
         ('#themeSelect', 'theme'),
         ('#sidebarCollapsed', 'click'),
+        ('#browserOperations', 'click'),
         ('.sidebar button[onclick*="toggleSidebarCollapse"]', 'click'),
     ]
     for selector, action in cases:
@@ -202,13 +358,33 @@ def test_settings_mutations_preserve_scroll_and_control_anchor(live_server, brow
     assert '刷新页面后生效' in page.inner_text('#toastHost')
 
 
+def test_browser_operations_setting_persists(live_server, browser):
+    page = _open_settings(live_server, browser)
+    operation_switch = page.locator('#browserOperations')
+    assert operation_switch.get_attribute('aria-checked') == 'true'
+
+    page.evaluate("JmvPrefs.set('browserOperations', false)")
+    assert operation_switch.get_attribute('aria-checked') == 'false'
+    page.evaluate("window.dispatchEvent(new StorageEvent('storage', {key: 'jmv-browser-operations', newValue: '1'}))")
+    assert operation_switch.get_attribute('aria-checked') == 'true'
+    page.evaluate("window.dispatchEvent(new StorageEvent('storage', {key: 'jmv-browser-operations', newValue: null}))")
+    assert operation_switch.get_attribute('aria-checked') == 'true'
+
+    operation_switch.click()
+    assert operation_switch.get_attribute('aria-checked') == 'false'
+    assert page.evaluate("localStorage.getItem('jmv-browser-operations')") == '0'
+
+    page.reload()
+    page.wait_for_selector('#browserOperations')
+    assert page.locator('#browserOperations').get_attribute('aria-checked') == 'false'
+
+
 def test_settings_labels_keep_focusable_controls_stable(live_server, browser):
     page = _open_settings(live_server, browser)
     labels = [
         ('#doubleWidthScaleControl', '#doubleWidthScale', 'double-range'),
         ('label[for="imageSize"]', '#imageSize', 'image-range'),
         ('label[for="themeSelect"]', '#themeSelect', 'theme'),
-        ('.settings-switch-row:has(#eyeCare)', '#eyeCare', 'checkbox'),
     ]
     for label_selector, control_selector, action in labels:
         page.reload()
@@ -218,6 +394,75 @@ def test_settings_labels_keep_focusable_controls_stable(live_server, browser):
         assert page.evaluate(
             "selector => document.activeElement === document.querySelector(selector)",
             control_selector)
+
+
+def test_reader_switches_never_jump_and_persist(live_server, browser):
+    """阅读开关在桌面/移动端以鼠标和键盘操作时保持内容锚点，并持久化状态。"""
+    page = _open_settings(live_server, browser)
+    selectors = ('#eyeCare', '#headerVisible', '#progressVisible', '#autoNext')
+    operations = ('click', 'Enter', 'Space')
+
+    for viewport in ({'width': 1280, 'height': 720}, {'width': 390, 'height': 844}):
+        page.set_viewport_size(viewport)
+        for selector in selectors:
+            for operation in operations:
+                page.reload()
+                page.wait_for_selector(selector)
+                page.evaluate(
+                    """selector => {
+                      const host = document.querySelector('.settings-content');
+                      const control = document.querySelector(selector);
+                      host.scrollTop += control.getBoundingClientRect().top
+                        - host.getBoundingClientRect().top - host.clientHeight * 0.45;
+                      control.focus({preventScroll: true});
+                    }""",
+                    selector)
+                before = page.evaluate(
+                    """selector => {
+                      const host = document.querySelector('.settings-content');
+                      const control = document.querySelector(selector);
+                      const card = control.closest('.settings-card');
+                      return {
+                        scrollTop: host.scrollTop,
+                        controlTop: control.getBoundingClientRect().top,
+                        cardTop: card.getBoundingClientRect().top,
+                        documentTop: document.scrollingElement.scrollTop,
+                        checked: control.getAttribute('aria-checked')
+                      };
+                    }""",
+                    selector)
+
+                if operation == 'click':
+                    page.locator(selector).click()
+                else:
+                    page.locator(selector).press(operation)
+                page.wait_for_timeout(500)
+
+                after = page.evaluate(
+                    """selector => {
+                      const host = document.querySelector('.settings-content');
+                      const control = document.querySelector(selector);
+                      const card = control.closest('.settings-card');
+                      return {
+                        scrollTop: host.scrollTop,
+                        controlTop: control.getBoundingClientRect().top,
+                        cardTop: card.getBoundingClientRect().top,
+                        documentTop: document.scrollingElement.scrollTop,
+                        checked: control.getAttribute('aria-checked')
+                      };
+                    }""",
+                    selector)
+
+                assert before['scrollTop'] > 100, (viewport, selector, operation)
+                assert after['documentTop'] == 0, (viewport, selector, operation, before, after)
+                assert abs(after['scrollTop'] - before['scrollTop']) <= 2, (viewport, selector, operation, before, after)
+                assert abs(after['controlTop'] - before['controlTop']) <= 2, (viewport, selector, operation, before, after)
+                assert abs(after['cardTop'] - before['cardTop']) <= 2, (viewport, selector, operation, before, after)
+                assert after['checked'] != before['checked'], (viewport, selector, operation)
+
+                page.reload()
+                page.wait_for_selector(selector)
+                assert page.locator(selector).get_attribute('aria-checked') == after['checked']
 
 
 def test_rapid_settings_interactions_cancel_previous_anchor(live_server, browser):
