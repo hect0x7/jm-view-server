@@ -168,7 +168,7 @@ class JmServer:
         if common.file_not_exists(path):
             return jsonify({'error': 'Path not found'}), 404
 
-        files_data = self.file_manager.get_files_data(path)
+        files_data = self.file_manager.get_files_data(path, update_current=False)
         return jsonify({
             'currentPath': path,
             'files': files_data
@@ -270,9 +270,6 @@ class JmServer:
         path_abs, err = self._guard_dangerous_path(path)
         if err:
             return jsonify({'error': err[0]}), err[1]
-
-        if not self._within_root(path_abs):
-            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
 
         if not os.path.exists(path_abs):
             return jsonify({'error': 'Path not found'}), 404
@@ -466,7 +463,7 @@ class JmServer:
             return jsonify({'error': f'Move failed: {e}'}), 500
 
     def api_batch_delete(self):
-        """[New] API: 批量删除。body: paths（换行分隔或 JSON 数组）。逐个安全删除，返回成功/失败清单。"""
+        """[New] API: 批量删除。body: paths（换行分隔或 JSON 数组）。逐个应用危险路径护栏后删除。"""
         if not self.verify():
             return abort(403)
 
@@ -491,9 +488,6 @@ class JmServer:
             path_abs, err = self._guard_dangerous_path(p)
             if err:
                 failed.append({'path': p, 'error': err[0]})
-                continue
-            if not self._within_root(path_abs):
-                failed.append({'path': p, 'error': 'Path escapes shared root.'})
                 continue
             if not os.path.exists(path_abs):
                 failed.append({'path': p, 'error': 'Path not found'})
@@ -728,7 +722,13 @@ class JmServer:
                         'message': '文件名无效，请检查文件名'
                     }), 400
 
-                target_dir = os.path.abspath(self.file_manager.get_current_path())
+                requested_path = request.form.get('path', '')
+                target_dir = os.path.abspath(requested_path or self.file_manager.get_current_path())
+                if not os.path.isdir(target_dir):
+                    return jsonify({
+                        'status': 'error',
+                        'message': '上传目标目录不存在'
+                    }), 404
                 target_path = os.path.join(target_dir, safe_name)
                 upload_file.save(target_path)
 
@@ -743,7 +743,13 @@ class JmServer:
 
             # 如果是 GET 方法：
             device_isMobile = self.mobile_check()
-            upload_target = os.path.abspath(self.file_manager.get_current_path())
+            requested_path = request.args.get('path', '')
+            upload_target = os.path.abspath(requested_path or self.file_manager.get_current_path())
+            if not os.path.isdir(upload_target):
+                return render_template(
+                    self.url_format(device_isMobile, "download_error.html"),
+                    filename=upload_target,
+                    randomArg=self.url_random_arg()), 404
             return render_template(self.url_format(device_isMobile, "upload.html"),
                                    uploadTarget=upload_target,
                                    randomArg=self.url_random_arg())

@@ -18,8 +18,10 @@
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
     <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+    <link rel="stylesheet" href="/static/css/column-view.css?t={{ randomArg }}">
     <script src="/static/js/app.js?t={{ randomArg }}"></script>
     <script src="/static/js/index.js?t={{ randomArg }}"></script>
+    <script src="/static/js/column-view.js?t={{ randomArg }}"></script>
     <script src="/static/js/common.js?t={{ randomArg }}"></script>
     <style>
         /* ---- 文件浏览页局部样式 ---- */
@@ -140,6 +142,10 @@
         }
         .list-view .file-item:last-child { border-bottom: none; }
         .list-view .file-item:hover { background: var(--surface-hover); }
+        .list-view .file-item.is-selected {
+            background: color-mix(in srgb, var(--brand) 10%, var(--bg-elevated));
+            box-shadow: inset 3px 0 0 var(--brand);
+        }
 
         /* 文件名列 */
         .file-name-col {
@@ -593,6 +599,75 @@
             display: flex; justify-content: flex-end;
         }
 
+        /* 删除确认弹窗：替代浏览器原生 confirm，保持全站视觉与主题一致 */
+        .delete-confirm-overlay {
+            position: fixed; inset: 0; z-index: 340;
+            display: none; align-items: center; justify-content: center;
+            padding: var(--sp-4);
+            background: rgba(10, 12, 18, .54);
+            backdrop-filter: blur(5px);
+        }
+        .delete-confirm-overlay.open { display: flex; }
+        .delete-confirm-card {
+            width: 420px; max-width: 100%;
+            padding: var(--sp-6);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-lg);
+            animation: deleteConfirmIn .18s var(--ease) both;
+        }
+        .delete-confirm-icon {
+            width: 48px; height: 48px;
+            display: grid; place-items: center;
+            margin-bottom: var(--sp-4);
+            border-radius: 16px;
+            color: var(--danger);
+            background: color-mix(in srgb, var(--danger) 14%, transparent);
+        }
+        .delete-confirm-icon svg { width: 22px; height: 22px; }
+        .delete-confirm-card h3 {
+            margin: 0 0 var(--sp-2);
+            font-size: 18px; font-weight: 650;
+        }
+        .delete-confirm-card p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px; line-height: 1.65;
+            overflow-wrap: anywhere;
+        }
+        .delete-confirm-warning {
+            display: inline-flex; align-items: center;
+            margin-top: var(--sp-3);
+            color: var(--danger);
+            font-size: 12px; font-weight: 600;
+        }
+        :root:not([data-theme="dark"]) .delete-confirm-warning {
+            color: #a1262a;
+        }
+        .delete-confirm-actions {
+            display: flex; justify-content: flex-end; gap: var(--sp-3);
+            margin-top: var(--sp-6);
+        }
+        .delete-confirm-danger {
+            color: #fff;
+            background: color-mix(in srgb, var(--danger) 58%, #000);
+            border-color: color-mix(in srgb, var(--danger) 58%, #000);
+        }
+        .delete-confirm-danger:hover {
+            color: #fff;
+            background: color-mix(in srgb, var(--danger) 68%, #000);
+            border-color: color-mix(in srgb, var(--danger) 68%, #000);
+        }
+        .delete-confirm-actions .btn:focus-visible {
+            outline: 3px solid color-mix(in srgb, var(--brand) 38%, transparent);
+            outline-offset: 2px;
+        }
+        @keyframes deleteConfirmIn {
+            from { opacity: 0; transform: translateY(8px) scale(.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
         /* 视图切换段控件 */
         .segmented {
             display: inline-flex;
@@ -634,6 +709,10 @@
             position: relative;
         }
         .card-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
+        .card-item.is-selected {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 2px var(--brand-ring), var(--shadow-md);
+        }
         .card-cover {
             aspect-ratio: 3/4;
             position: relative;
@@ -697,6 +776,8 @@
         .app.grid-mode .list-view { display: none; }
         .app.grid-mode .grid-view { display: grid; }
         .app:not(.grid-mode) .grid-view { display: none; }
+        .app.column-mode .list-view,
+        .app.column-mode .grid-view { display: none; }
 
         /* 移动端适配 */
         @media (max-width: 860px) {
@@ -809,7 +890,7 @@
             <button class="btn btn-outline btn-sm" onclick="toggleBookmarks()">
                 <span id="starIco"></span> 收藏夹
             </button>
-            <a href="/upload_file" class="btn btn-primary btn-sm">
+            <a href="/upload_file?path={{ data.currentPath|urlencode }}" class="btn btn-primary btn-sm" id="uploadLink" data-jmv-upload-link>
                 <span id="uploadIco"></span> 上传
             </a>
         </div>
@@ -829,9 +910,15 @@
                         <input type="text" id="fileFilter" placeholder="过滤当前目录…" autocomplete="off" />
                     </div>
                     <div class="segmented" id="seg">
-                        <button class="on" data-v="list" id="segList" title="列表视图"></button>
-                        <button data-v="grid" id="segGrid" title="网格视图"></button>
+                        <button class="on" data-v="list" id="segList" title="列表视图" aria-label="列表视图" aria-pressed="true"></button>
+                        <button data-v="grid" id="segGrid" title="网格视图" aria-label="网格视图" aria-pressed="false"></button>
+                        <button data-v="column" id="segColumn" title="分栏视图" aria-label="分栏视图" aria-pressed="false"></button>
                     </div>
+                    <button class="column-operations-toggle" id="columnOperationsToggle" type="button"
+                            role="switch" aria-checked="true" aria-label="显示分栏操作入口"
+                            title="显示分栏操作入口">
+                        <span>操作</span><i aria-hidden="true"></i>
+                    </button>
                 </div>
 
                 <!-- 列表视图 -->
@@ -853,7 +940,8 @@
                         {% for file in data.files %}
                         <div class="file-item"
                              data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
-                             type="{{ file.jm_view }}">
+                             type="{{ file.jm_view }}"
+                             onclick="handleFileItemClick(event, this)">
 
                             <!-- 文件名列 -->
                             <div class="file-name-col {{ file.type }}">
@@ -932,7 +1020,7 @@
                          data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
                          type="{{ file.jm_view }}"
                          style="animation-delay:{{ loop.index0 * 0.03 }}s; cursor:pointer;"
-                         onclick="if(event.target.closest('input')||event.target.closest('a')||event.target.closest('button'))return; this.querySelector('.card-name-link').click();">
+                         onclick="handleFileItemClick(event, this)">
                         <div class="card-cover">
                             <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
                             {% if file.first_img_url and file.first_img_url != '' %}
@@ -989,6 +1077,21 @@
                     <div class="filter-empty" id="filterEmptyGrid">没有匹配的文件或文件夹</div>
                 </div>
 
+                <!-- Finder 风格分栏视图：目录内容由 /api/list_files 按列增量加载 -->
+                <section class="column-view" id="columnView"
+                         data-initial-path="{{ data.currentPath }}"
+                         data-root-path="{{ data.defaultPath }}"
+                         aria-label="文件分栏浏览" hidden>
+                    <div class="column-view-toolbar">
+                        <button type="button" class="column-back" id="columnBack" aria-label="返回上一层">
+                            <span aria-hidden="true">‹</span><span>上一层</span>
+                        </button>
+                        <div class="column-location" id="columnLocation"></div>
+                    </div>
+                    <div class="column-track" id="columnTrack"></div>
+                    <div class="sr-only" id="columnLive" aria-live="polite"></div>
+                </section>
+
             </div>
         </div>
     </div>
@@ -1016,6 +1119,21 @@
         <div class="move-list" id="moveList"></div>
         <div class="move-footer">
             <button class="btn btn-outline btn-sm" onclick="closeMove()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认弹窗（单删与批删复用） -->
+<div class="delete-confirm-overlay" id="deleteConfirmOverlay" aria-hidden="true">
+    <div class="delete-confirm-card" role="alertdialog" aria-modal="true"
+         aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmMessage">
+        <div class="delete-confirm-icon" id="deleteConfirmIcon"></div>
+        <h3 id="deleteConfirmTitle">确认删除</h3>
+        <p id="deleteConfirmMessage"></p>
+        <span class="delete-confirm-warning">此操作不可恢复</span>
+        <div class="delete-confirm-actions">
+            <button class="btn btn-outline" id="deleteConfirmCancel" type="button">取消</button>
+            <button class="btn delete-confirm-danger" id="deleteConfirmSubmit" type="button">彻底删除</button>
         </div>
     </div>
 </div>
@@ -1119,6 +1237,8 @@
     document.getElementById('crumbs-home').innerHTML     = icon('folder');
     document.getElementById('segList').innerHTML   = icon('list');
     document.getElementById('segGrid').innerHTML   = icon('grid');
+    document.getElementById('segColumn').innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>';
     document.getElementById('mkdirIco').innerHTML  = icon('folder');
     document.getElementById('selectIco').innerHTML = icon('check');
     // 每行“更多操作”按钮的三点图标（class 批量注入）
@@ -1195,24 +1315,51 @@
     {% endif %}
     {% endfor %}
 
-    // 视图切换（grid / list）——选择记忆到 localStorage['jmv-view']，进入时恢复。
+    // 视图切换（list / grid / column）——选择记忆到 localStorage['jmv-view']，进入时恢复。
     var VIEW_KEY = 'jmv-view';
     function applyView(mode) {
         var app = document.getElementById('app');
         var isGrid = (mode === 'grid');
+        var isColumn = (mode === 'column');
         app.classList.toggle('grid-mode', isGrid);
+        app.classList.toggle('column-mode', isColumn);
+        if (window.JmvColumnView) {
+            if (isColumn) window.JmvColumnView.activate();
+            else window.JmvColumnView.deactivate();
+        }
         document.querySelectorAll('#seg button').forEach(function(x) {
-            x.classList.toggle('on', x.dataset.v === (isGrid ? 'grid' : 'list'));
+            var selected = x.dataset.v === mode;
+            x.classList.toggle('on', selected);
+            x.setAttribute('aria-pressed', selected ? 'true' : 'false');
         });
     }
+    var columnOperationsToggle = document.getElementById('columnOperationsToggle');
+    function renderColumnOperations(value) {
+        var visible = value !== false;
+        columnOperationsToggle.setAttribute('aria-checked', visible ? 'true' : 'false');
+        if (window.JmvColumnView) window.JmvColumnView.setOperationsVisible(visible);
+    }
+    columnOperationsToggle.addEventListener('click', function() {
+        var visible = columnOperationsToggle.getAttribute('aria-checked') !== 'true';
+        if (window.JmvPrefs) window.JmvPrefs.set('browserOperations', visible);
+        else renderColumnOperations(visible);
+    });
+    window.addEventListener('jmv:preference-change', function(event) {
+        if (event.detail && event.detail.name === 'browserOperations') renderColumnOperations(event.detail.value);
+    });
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'jmv-browser-operations') renderColumnOperations(event.newValue !== '0' && event.newValue !== 'false');
+    });
     document.getElementById('seg').addEventListener('click', function(e) {
         var b = e.target.closest('button');
         if (!b) return;
-        applyView(b.dataset.v);
         try { localStorage.setItem(VIEW_KEY, b.dataset.v); } catch (e) {}
+        applyView(b.dataset.v);
     });
     // 恢复上次视图（默认 list）
-    applyView((function(){ try { return localStorage.getItem(VIEW_KEY); } catch(e){ return null; } })() || 'list');
+    var savedView = (function(){ try { return localStorage.getItem(VIEW_KEY); } catch(e){ return null; } })() || 'list';
+    applyView(['list', 'grid', 'column'].indexOf(savedView) >= 0 ? savedView : 'list');
+    renderColumnOperations(window.JmvPrefs ? window.JmvPrefs.get('browserOperations') : true);
 
     // 功能 C：列表列宽拖拽调整 + 记忆。拖表头列右边界改对应列 CSS 变量，作用于 .list-view，
     // 表头与所有行共用同组变量，故同步。列宽记 localStorage['jmv-cols']（{size,date,action,preview}）。
@@ -1274,28 +1421,91 @@
         btn.innerHTML = icon('trash');
     });
 
-    // 删除文件/文件夹：原生 confirm 二次确认（不可恢复，用阻塞式更安全），
-    // 结果用统一 toast() 反馈。POST /api/delete，成功后刷新目录。
+    // 删除文件/文件夹：站内确认弹窗二次确认，结果用统一 toast() 反馈。
+    var deleteConfirmState = { resolve: null, lastFocus: null };
+    var deleteConfirmOverlay = document.getElementById('deleteConfirmOverlay');
+    var deleteConfirmCancel = document.getElementById('deleteConfirmCancel');
+    var deleteConfirmSubmit = document.getElementById('deleteConfirmSubmit');
+    document.getElementById('deleteConfirmIcon').innerHTML = icon('trash');
+
+    function closeDeleteConfirm(confirmed) {
+        if (!deleteConfirmOverlay.classList.contains('open')) return;
+        deleteConfirmOverlay.classList.remove('open');
+        deleteConfirmOverlay.setAttribute('aria-hidden', 'true');
+        var resolve = deleteConfirmState.resolve;
+        var lastFocus = deleteConfirmState.lastFocus;
+        deleteConfirmState.resolve = null;
+        deleteConfirmState.lastFocus = null;
+        if (resolve) resolve(Boolean(confirmed));
+        if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+    }
+
+    function openDeleteConfirm(options) {
+        if (deleteConfirmState.resolve) closeDeleteConfirm(false);
+        document.getElementById('deleteConfirmTitle').textContent = options.title;
+        document.getElementById('deleteConfirmMessage').textContent = options.message;
+        deleteConfirmSubmit.textContent = options.confirmText || '彻底删除';
+        deleteConfirmState.lastFocus = options.trigger || document.activeElement;
+        deleteConfirmOverlay.classList.add('open');
+        deleteConfirmOverlay.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(function() { deleteConfirmCancel.focus(); });
+        return new Promise(function(resolve) { deleteConfirmState.resolve = resolve; });
+    }
+
+    deleteConfirmCancel.addEventListener('click', function() { closeDeleteConfirm(false); });
+    deleteConfirmSubmit.addEventListener('click', function() { closeDeleteConfirm(true); });
+    deleteConfirmOverlay.addEventListener('click', function(event) {
+        if (event.target === deleteConfirmOverlay) closeDeleteConfirm(false);
+    });
+    document.addEventListener('keydown', function(event) {
+        if (!deleteConfirmOverlay.classList.contains('open')) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeDeleteConfirm(false);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        var first = deleteConfirmCancel;
+        var last = deleteConfirmSubmit;
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+
     function deleteItem(event, quotedPath, fileName) {
         event.stopPropagation();
         event.preventDefault();
         var decodedPath = decodeURIComponent(quotedPath);
-        if (!confirm('确定要彻底删除 "' + fileName + '" 吗？（此操作不可恢复）')) return;
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/delete', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState !== 4) return;
-            if (xhr.status === 200) {
-                toast('已删除 “' + fileName + '”', 'success');
-                setTimeout(function() { window.location.reload(); }, 600);
-            } else {
-                var errMsg = '删除失败';
-                try { errMsg += '：' + (JSON.parse(xhr.responseText).error || ''); } catch (e) {}
-                toast(errMsg, 'error');
-            }
-        };
-        xhr.send('path=' + encodeURIComponent(decodedPath));
+        var trigger = event.currentTarget;
+        var moreMenu = trigger.closest('.more-menu');
+        if (moreMenu) trigger = moreMenu.querySelector('.more-btn') || trigger;
+        openDeleteConfirm({
+            title: '彻底删除此项目？',
+            message: '“' + fileName + '”将从磁盘中永久删除。',
+            confirmText: '彻底删除',
+            trigger: trigger
+        }).then(function(confirmed) {
+            if (!confirmed) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/delete', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status === 200) {
+                    toast('已删除 “' + fileName + '”', 'success');
+                    setTimeout(function() { window.location.reload(); }, 600);
+                } else {
+                    var errMsg = '删除失败';
+                    try { errMsg += '：' + (JSON.parse(xhr.responseText).error || ''); } catch (e) {}
+                    toast(errMsg, 'error');
+                }
+            };
+            xhr.send('path=' + encodeURIComponent(decodedPath));
+        });
     }
     window.deleteItem = deleteItem;
 
@@ -1364,21 +1574,24 @@
     // #7 移动到其它目录：弹浮层列出可移入的目标（当前目录下的子文件夹 + 上级目录），
     // 目标从页面已渲染的目录项收集（纯前端，不发额外请求），点选即 POST /api/move。
     var moveSrcPath = null;   // 待移动项的解码后绝对路径
-    function moveItem(quotedPath, name) {
+    function moveItem(quotedPath, name, options) {
+        options = options || {};
         moveSrcPath = decodeURIComponent(quotedPath);
         document.getElementById('moveSub').textContent = '把 “' + name + '” 移动到：';
 
         // 收集目标目录：当前目录下的子文件夹（排除自身），来自已渲染的列表项
-        var targets = [];
-        document.querySelectorAll('.list-view .file-item[data-type="dir"]').forEach(function(item) {
-            var a = item.querySelector('a.file-link');
-            if (!a) return;
-            var p = decodeURIComponent(a.getAttribute('path') || '');
-            var nm = a.getAttribute('dirname') || a.textContent.trim();
-            if (p && p !== moveSrcPath) targets.push({ path: p, name: nm });
-        });
+        var targets = Array.isArray(options.targets) ? options.targets.slice() : [];
+        if (!Array.isArray(options.targets)) {
+            document.querySelectorAll('.list-view .file-item[data-type="dir"]').forEach(function(item) {
+                var a = item.querySelector('a.file-link');
+                if (!a) return;
+                var p = decodeURIComponent(a.getAttribute('path') || '');
+                var nm = a.getAttribute('dirname') || a.textContent.trim();
+                if (p && p !== moveSrcPath) targets.push({ path: p, name: nm });
+            });
+        }
         // 加“上级目录”作为目标（移出当前目录）
-        var cur = getCurPath();
+        var cur = options.currentPath || getCurPath();
         var defaultPath = {{ data.defaultPath | tojson }}.replace(/\\/g, '/');
         var curNorm = cur.replace(/\/+$/, '');
         var defNorm = defaultPath.replace(/\/+$/, '');
@@ -1456,11 +1669,40 @@
 
     // #10 多选模式：切换复选框显示 + 批量操作栏
     var selectMode = false;
+    function isFileItemAction(target) {
+        return Boolean(target.closest('a, button, input, select, textarea, label, .col-resizer'));
+    }
+
+    function toggleFileItemSelection(item) {
+        var checkbox = item.querySelector('.row-select');
+        if (!checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function handleFileItemClick(event, item) {
+        if (isFileItemAction(event.target)) return;
+        if (selectMode) {
+            event.preventDefault();
+            toggleFileItemSelection(item);
+            return;
+        }
+        if (item.classList.contains('card-item')) {
+            var cardLink = item.querySelector('.card-name-link');
+            if (cardLink) cardLink.click();
+        }
+    }
+    window.handleFileItemClick = handleFileItemClick;
+
     function toggleSelectMode() {
         selectMode = !selectMode;
         document.querySelectorAll('.row-select').forEach(function(cb) {
             cb.style.display = selectMode ? 'inline-block' : 'none';
-            if (!selectMode) cb.checked = false;
+            if (!selectMode) {
+                cb.checked = false;
+                var item = cb.closest('.file-item');
+                if (item) item.classList.remove('is-selected');
+            }
         });
         document.getElementById('batchBar').style.display = selectMode ? 'flex' : 'none';
         document.getElementById('selectModeBtn').classList.toggle('btn-primary', selectMode);
@@ -1482,29 +1724,40 @@
         if (el) el.textContent = '已选 ' + n + ' 项';
     }
     document.addEventListener('change', function(e) {
-        if (e.target && e.target.classList.contains('row-select')) updateBatchCount();
+        if (e.target && e.target.classList.contains('row-select')) {
+            var item = e.target.closest('.file-item');
+            if (item) item.classList.toggle('is-selected', e.target.checked);
+            updateBatchCount();
+        }
     });
 
     // #10 批量删除：复用 /api/batch_delete（换行分隔多路径）
     function batchDelete() {
         var paths = selectedPaths();
         if (!paths.length) { toast('请先勾选项目', 'error'); return; }
-        if (!confirm('确定批量删除选中的 ' + paths.length + ' 项吗？（不可恢复）')) return;
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/batch_delete', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState !== 4) return;
-            if (xhr.status === 200) {
-                var r = JSON.parse(xhr.responseText);
-                toast('成功 ' + r.succeeded.length + ' 项，失败 ' + r.failed.length + ' 项',
-                      r.failed.length ? 'error' : 'success');
-                setTimeout(function() { window.location.reload(); }, 700);
-            } else {
-                toast('批量删除失败', 'error');
-            }
-        };
-        xhr.send('paths=' + encodeURIComponent(paths.join('\n')));
+        openDeleteConfirm({
+            title: '批量删除 ' + paths.length + ' 个项目？',
+            message: '选中的文件和文件夹将从磁盘中永久删除。',
+            confirmText: '删除 ' + paths.length + ' 项',
+            trigger: document.activeElement
+        }).then(function(confirmed) {
+            if (!confirmed) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/batch_delete', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status === 200) {
+                    var r = JSON.parse(xhr.responseText);
+                    toast('成功 ' + r.succeeded.length + ' 项，失败 ' + r.failed.length + ' 项',
+                          r.failed.length ? 'error' : 'success');
+                    setTimeout(function() { window.location.reload(); }, 700);
+                } else {
+                    toast('批量删除失败', 'error');
+                }
+            };
+            xhr.send('paths=' + encodeURIComponent(paths.join('\n')));
+        });
     }
     window.batchDelete = batchDelete;
 

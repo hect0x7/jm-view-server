@@ -4,8 +4,12 @@
 用 requests 直接打接口。测试数据：漫画A/images/*5张jpg、漫画B/*3png、cover.jpg、readme.txt、空文件夹。
 """
 import io
+import html
+import ntpath
 import os
+import re
 import zipfile
+from unittest import mock
 
 import requests
 
@@ -48,6 +52,61 @@ def test_upload_response_contains_saved_target(live_server):
     assert body['target_dir'] == os.path.abspath(live_server.root)
     assert body['target_path'] == target_path
     assert os.path.isfile(target_path)
+
+
+def _upload_target_from_html(response):
+    match = re.search(r'id="uploadTarget">([^<]+)</div>', response.text)
+    assert match is not None
+    return html.unescape(match.group(1))
+
+
+def test_upload_explicit_target_get_post_and_missing_directory(live_server):
+    target_dir = os.path.join(live_server.root, '漫画B')
+    response = requests.get(
+        live_server.url + '/upload_file', params={'path': target_dir})
+    assert response.status_code == 200
+    assert _upload_target_from_html(response) == os.path.abspath(target_dir)
+
+    response = requests.post(
+        live_server.url + '/upload_file',
+        data={'path': target_dir},
+        files={'file': ('explicit-target.txt', b'explicit upload target')},
+    )
+    assert response.status_code == 200
+    target_path = os.path.join(os.path.abspath(target_dir), 'explicit-target.txt')
+    assert response.json()['target_dir'] == os.path.abspath(target_dir)
+    assert response.json()['target_path'] == target_path
+    assert os.path.isfile(target_path)
+
+    missing_dir = os.path.join(live_server.root, 'missing-upload-target')
+    get_missing = requests.get(
+        live_server.url + '/upload_file', params={'path': missing_dir})
+    assert get_missing.status_code == 404
+    post_missing = requests.post(
+        live_server.url + '/upload_file',
+        data={'path': missing_dir},
+        files={'file': ('not-created.txt', b'must not be written')},
+    )
+    assert post_missing.status_code == 404
+    assert post_missing.json()['message'] == '上传目标目录不存在'
+    assert not os.path.exists(os.path.join(missing_dir, 'not-created.txt'))
+
+
+def test_list_files_does_not_change_global_upload_target(live_server):
+    before = requests.get(live_server.url + '/upload_file')
+    assert before.status_code == 200
+    initial_target = _upload_target_from_html(before)
+
+    listed_dir = os.path.join(live_server.root, '漫画B')
+    response = requests.get(
+        live_server.url + '/api/list_files', params={'path': listed_dir})
+    assert response.status_code == 200
+    assert os.path.normcase(os.path.realpath(response.json()['currentPath'])) == (
+        os.path.normcase(os.path.realpath(listed_dir)))
+
+    after = requests.get(live_server.url + '/upload_file')
+    assert after.status_code == 200
+    assert _upload_target_from_html(after) == initial_target
 
 
 def _p(root, *parts):
@@ -159,18 +218,60 @@ def test_move_to_dangerous_path_denied(live_server):
     assert os.path.exists(src)
 
 
-# ===== 安全护栏（rename/move/delete 穿越到根外被拒） =====
+# ===== 安全护栏（删除可操作已浏览路径，rename/move 仍限制在共享根内） =====
 
-def test_guard_traversal_outside_root(live_server, tmp_path):
-    """在 root 外造一个文件，用 .. 穿越去 rename/move/delete，都应被拒，外部文件不动。"""
+def test_delete_outside_shared_root_allowed(live_server, tmp_path):
+    """浏览器可进入共享根外目录时，单删和批删也能删除其中的普通项目。"""
+    outside_single = tmp_path / 'outside-single.txt'
+    outside_batch = tmp_path / 'outside-batch.txt'
+    outside_single.write_text('delete me')
+    outside_batch.write_text('delete me too')
+
+    resp = requests.post(live_server.url + '/api/delete',
+                         data={'path': str(outside_single)})
+    assert resp.status_code == 200
+    assert not outside_single.exists()
+
+    resp = requests.post(live_server.url + '/api/batch_delete',
+                         data={'paths': str(outside_batch)})
+    assert resp.status_code == 200
+    assert resp.json()['succeeded'] == [str(outside_batch)]
+    assert not outside_batch.exists()
+
+
+def test_delete_protects_shared_root_drive_root_and_windows_system_dirs(live_server):
+    shared_root = requests.post(
+        live_server.url + '/api/delete', data={'path': live_server.root})
+    assert shared_root.status_code == 403
+    assert 'default shared root' in shared_root.json()['error']
+    assert os.path.isdir(live_server.root)
+
+    drive_root_path = os.path.abspath(os.sep)
+    drive_root = requests.post(
+        live_server.url + '/api/delete', data={'path': drive_root_path})
+    assert drive_root.status_code == 403
+    assert 'drive root' in drive_root.json()['error']
+
+    batch_root = requests.post(
+        live_server.url + '/api/batch_delete', data={'paths': live_server.root})
+    assert batch_root.status_code == 200
+    assert batch_root.json()['succeeded'] == []
+    assert 'default shared root' in batch_root.json()['failed'][0]['error']
+
+    from jm_view_server import app as app_module
+    from jm_view_server.app import JmServer
+    server = JmServer(live_server.root, '')
+    with mock.patch.object(app_module.os, 'path', ntpath):
+        _, error = server._guard_dangerous_path(r'C:\Windows\System32')
+    assert error == (
+        'Permission denied: Cannot operate on critical system directories.', 403)
+
+
+def test_rename_and_move_outside_root_still_denied(live_server, tmp_path):
+    """放开删除不影响 rename/move 的共享根边界。"""
     outside = tmp_path / 'outside.txt'
     outside.write_text('keep')
-    # 用相对穿越路径指向外部文件
-    escape = os.path.join(live_server.root, '..', '..',
-                          os.path.relpath(str(outside), os.path.dirname(os.path.dirname(live_server.root))))
-    # 直接用绝对外部路径也应被 within_root 拦下
     for endpoint, data in [
-        ('/api/delete', {'path': str(outside)}),
         ('/api/rename', {'path': str(outside), 'new_name': 'x.txt'}),
         ('/api/move', {'src': str(outside), 'dst_dir': live_server.root}),
     ]:

@@ -230,7 +230,7 @@ input, textarea { font-family: inherit; }
   height: 100vh;
 }
 /* 侧栏宽度过渡（折叠/展开丝滑动画）；拖拽中临时关闭过渡以跟手 */
-.app:not(.sidebar-dragging) { transition: grid-template-columns .26s var(--ease); }
+.app:not(.sidebar-dragging):not(.sidebar-initializing) { transition: grid-template-columns .26s var(--ease); }
 
 /* 折叠态：侧栏收窄为图标条，隐藏文字 */
 .app.sidebar-collapsed { --sidebar-w: 64px; }
@@ -510,12 +510,28 @@ body.has-bg .app { position: relative; }
   padding: 5px 10px; border-radius: var(--r-pill); border: 1px solid var(--border);
   background: var(--bg-sunken); color: var(--text-secondary); font-size: 12px;
 }
-.settings-content { scroll-behavior: smooth; overflow-anchor: none; scrollbar-gutter: stable; overflow-x: hidden; }
+html.settings-page-root,
+body.settings-page { height: 100%; overflow: hidden; }
+.settings-page .app {
+  height: 100vh;
+  height: 100dvh;
+  grid-template-rows: 100vh;
+  grid-template-rows: 100dvh;
+}
+.settings-content {
+  min-height: 0;
+  scroll-behavior: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
 .settings-content.settings-preserve-scroll { scroll-behavior: auto !important; }
 .settings-layout { width: min(1180px, 100%); margin: 0 auto; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: var(--sp-7); }
 .settings-rail { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3); border-left: 1px solid var(--border); }
 .settings-rail a { padding: 9px 12px; border-radius: var(--r-md); color: var(--text-secondary); font-size: 13px; }
 .settings-rail a:hover { color: var(--text); background: var(--surface-hover); }
+.settings-rail a.active { color: var(--brand); background: var(--brand-soft); font-weight: 600; }
 .settings-main { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-8); padding-bottom: 80px; }
 .settings-hero {
   display: flex; align-items: center; gap: var(--sp-5); padding: var(--sp-6);

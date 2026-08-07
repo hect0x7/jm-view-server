@@ -171,9 +171,10 @@ class FileManager:
             'first_img_url': first_img_url
         }
 
-    def get_files_data(self, path):
+    def get_files_data(self, path, update_current=True):
         files = list(filter(bool, map(self.build_one_path_info, self.files_of_dir_safe(path))))
-        self.current_path = path
+        if update_current:
+            self.current_path = path
         files = self.sort_files(files)
         return files
 

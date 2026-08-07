@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="settings-page-root">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -13,7 +13,7 @@
   </script>
   <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
 </head>
-<body>
+<body class="settings-page">
 <div class="app">
   <aside class="sidebar"></aside>
   <div class="main">
@@ -89,12 +89,17 @@
               <div class="settings-card">
                 <div class="settings-label">默认视图</div>
                 <div class="settings-segment" id="browserViewSegment">
-                  <button data-value="list">列表</button><button data-value="grid">网格</button>
+                  <button data-value="list">列表</button><button data-value="grid">网格</button><button data-value="column">分栏</button>
                 </div>
               </div>
               <div class="settings-card">
                 <button class="settings-switch-row settings-switch-button" id="sidebarCollapsed" type="button" role="switch" aria-checked="false">
                   <span><b>默认折叠侧栏</b><small>桌面端进入页面时使用</small></span><i aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="settings-card">
+                <button class="settings-switch-row settings-switch-button" id="browserOperations" type="button" role="switch" aria-checked="true">
+                  <span><b>显示分栏操作入口</b><small>默认显示 Finder 分栏每行的操作菜单</small></span><i aria-hidden="true"></i>
                 </button>
               </div>
               <div class="settings-card settings-card-wide settings-action-card">
@@ -148,12 +153,12 @@
                 <p class="settings-help">双页始终连续适宽；默认显示 98% 画面，100% 为满宽。</p>
               </div>
               <div class="settings-card settings-toggles">
-                <label class="settings-switch-row"><span><b>护眼滤镜</b><small>阅读区使用暖色调</small></span><input id="eyeCare" type="checkbox"><i></i></label>
-                <label class="settings-switch-row"><span><b>显示顶部栏</b><small>标题与页码信息</small></span><input id="headerVisible" type="checkbox"><i></i></label>
+                <button class="settings-switch-row settings-switch-button" id="eyeCare" type="button" role="switch" aria-checked="false"><span><b>护眼滤镜</b><small>阅读区使用暖色调</small></span><i aria-hidden="true"></i></button>
+                <button class="settings-switch-row settings-switch-button" id="headerVisible" type="button" role="switch" aria-checked="true"><span><b>显示顶部栏</b><small>标题与页码信息</small></span><i aria-hidden="true"></i></button>
               </div>
               <div class="settings-card settings-toggles">
-                <label class="settings-switch-row"><span><b>显示底部进度</b><small>页码和跳转进度条</small></span><input id="progressVisible" type="checkbox"><i></i></label>
-                <label class="settings-switch-row"><span><b>自动连播下一本</b><small>到末页后倒计时进入</small></span><input id="autoNext" type="checkbox"><i></i></label>
+                <button class="settings-switch-row settings-switch-button" id="progressVisible" type="button" role="switch" aria-checked="true"><span><b>显示底部进度</b><small>页码和跳转进度条</small></span><i aria-hidden="true"></i></button>
+                <button class="settings-switch-row settings-switch-button" id="autoNext" type="button" role="switch" aria-checked="false"><span><b>自动连播下一本</b><small>到末页后倒计时进入</small></span><i aria-hidden="true"></i></button>
               </div>
             </div>
           </section>

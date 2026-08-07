@@ -111,6 +111,10 @@ function getCurPath() {
 }
 
 function goBack() {
+    if (window.JmvColumnView && window.JmvColumnView.isActive()) {
+        window.JmvColumnView.goBack();
+        return;
+    }
     let curPath = getCurPath();
     let backPath = curPath + '/..';
     console.log(`go back -> ${backPath}`);

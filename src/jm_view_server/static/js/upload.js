@@ -34,6 +34,8 @@ function uploadFile() {
   // 发送文件的异步请求
   var fd = new FormData();
   fd.append("file", fileInput.files[0]);
+  var uploadTarget = document.getElementById('uploadTarget');
+  if (uploadTarget) fd.append('path', uploadTarget.textContent.trim());
   result.style.display = 'none';
   result.textContent = '';
   uploadButton.disabled = true;

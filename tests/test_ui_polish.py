@@ -80,9 +80,9 @@ def test_more_menu_download_only_for_image_dir(live_server, browser):
 
 
 def test_no_kanben_for_plain_file(live_server, browser):
-    """非目录文件（readme.txt / cover.jpg）不应出现看本按钮，即便所在目录含图片。"""
+    """普通文本文件不能看本，图片文件可直接进入看本。"""
     pg = _open_index(live_server, browser)
-    for fname in ('readme.txt', 'cover.jpg'):
+    for fname, should_have_kanben in (('readme.txt', False), ('cover.jpg', True)):
         labels = pg.eval_on_selector_all(
             '.list-view .file-item',
             """(items, fname) => {
@@ -92,7 +92,8 @@ def test_no_kanben_for_plain_file(live_server, browser):
                          .map(a => (a.textContent || '').trim());
             }""", fname)
         assert labels is not None, f'应找到 {fname} 行'
-        assert not any('看本' in l for l in labels), f'{fname}(文件) 不应有看本: {labels}'
+        has_kanben = any('看本' in label for label in labels)
+        assert has_kanben is should_have_kanben, f'{fname} 看本入口错误: {labels}'
 
 
 # ---------- todo #2：网格文件名两行截断 ----------
