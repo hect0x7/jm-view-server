@@ -518,9 +518,9 @@
             top: calc(100% + 6px);
             left: 0;
             z-index: 150;
-            width: 300px;
-            max-width: 86vw;
-            max-height: 320px;
+            width: clamp(360px, 48vw, 680px);
+            max-width: 92vw;
+            max-height: 380px;
             overflow-y: auto;
             background: var(--bg-elevated);
             border: 1px solid var(--border);
@@ -539,18 +539,34 @@
             padding: var(--sp-2) var(--sp-3) var(--sp-1);
         }
         .recent-entry {
-            display: block;
+            display: flex;
+            align-items: flex-start;
+            gap: var(--sp-2);
             padding: var(--sp-2) var(--sp-3);
             border-radius: var(--r-sm);
             font-size: 13px;
+            line-height: 1.45;
             color: var(--text);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-all;
             cursor: pointer;
-            transition: background .12s;
+            transition: background .12s, color .12s;
+            text-decoration: none;
         }
         .recent-entry:hover { background: var(--surface-hover); color: var(--brand); }
+        .recent-entry-icon {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            margin-top: 2px;
+            color: var(--text-muted);
+        }
+        .recent-entry:hover .recent-entry-icon { color: var(--brand); }
+        .recent-entry-text {
+            flex: 1 1 auto;
+            white-space: normal;
+            word-break: break-all;
+        }
         .recent-empty { padding: var(--sp-3); color: var(--text-muted); font-size: 13px; }
 
         /* 移动到其它目录浮层（功能 #7，居中 modal，随主题） */
@@ -1843,7 +1859,18 @@
             a.className = 'recent-entry';
             a.href = 'javascript:';
             a.title = p;
-            a.textContent = p;
+
+            var iconSpan = document.createElement('span');
+            iconSpan.className = 'recent-entry-icon';
+            iconSpan.innerHTML = (typeof icon === 'function' && icon('folder')) ? icon('folder') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
+
+            var textSpan = document.createElement('span');
+            textSpan.className = 'recent-entry-text';
+            textSpan.textContent = p;
+
+            a.appendChild(iconSpan);
+            a.appendChild(textSpan);
+
             a.addEventListener('click', function () {
                 toggleRecent();          // 先收起面板
                 changeDir(p);            // 复用现有跳转逻辑

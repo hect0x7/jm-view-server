@@ -337,6 +337,61 @@ body.reader-double {
   background: #07080c;
   box-shadow: none;
 }
+.stream.reader-double-mode > .reader-double-blank.is-inserted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: clamp(320px, 45vh, 680px);
+  padding: 32px 16px;
+  border: 1.5px dashed color-mix(in srgb, var(--brand) 40%, rgba(255,255,255,.14));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--brand) 3%, #08090e);
+  color: var(--text-secondary);
+  text-align: center;
+  user-select: none;
+  box-sizing: border-box;
+  transition: all .16s var(--ease);
+}
+.stream.reader-double-mode > .reader-double-blank.is-inserted:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 7%, #08090e);
+}
+.reader-double-blank-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--brand);
+  opacity: .85;
+}
+.reader-double-blank-label {
+  font: 600 13px/1.4 var(--font-sans);
+  color: var(--text-primary, #e2e4ee);
+}
+.reader-double-blank-sub {
+  font: 11px/1.3 var(--font-mono);
+  color: var(--text-muted);
+}
+.reader-double-blank-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font: 500 12px/1 var(--font-sans);
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+.reader-double-blank-remove:hover {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+  transform: scale(1.03);
+}
 .reader-mode-control {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; width: 184px;
   padding: 3px; border-radius: var(--r-md); background: var(--bg-sunken);
@@ -466,15 +521,6 @@ body.reader-double {
   color: var(--text-muted); font-family: var(--font-mono);
   font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
 }
-.more-pop .reader-mode-control {
-  grid-column: 1 / -1; width: 100%; height: auto;
-  margin-bottom: 2px; padding: 4px; gap: 4px; border-radius: 14px;
-}
-.more-pop .reader-mode-control button {
-  width: auto !important; height: 36px !important;
-  border-radius: 10px !important; padding: 0 8px;
-  background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 600;
-}
 .more-pop .reader-mode-control button.active {
   background: var(--bg-elevated); color: var(--brand); box-shadow: var(--shadow-sm);
 }
@@ -506,6 +552,7 @@ body.reader-double {
 .more-pop #tHead.active,
 .more-pop #tEye.active,
 .more-pop #tSize.active,
+.more-pop #tInsertPage.active,
 .more-pop #tAutoNext.active {
   background: color-mix(in srgb, var(--brand) 14%, var(--bg-elevated));
   color: var(--brand); box-shadow: inset 3px 0 0 var(--brand);
@@ -519,16 +566,32 @@ body.reader-double {
   .more-pop #tHead.active:hover,
   .more-pop #tEye.active:hover,
   .more-pop #tSize.active:hover,
+  .more-pop #tInsertPage.active:hover,
   .more-pop #tAutoNext.active:hover {
     background: color-mix(in srgb, var(--brand) 20%, var(--bg-elevated)); color: var(--brand);
   }
 }
+.more-pop .reader-mode-control {
+  grid-column: 1 / -1; width: 100%; height: auto;
+  margin-bottom: 2px; padding: 4px; gap: 4px; border-radius: 14px;
+}
+.more-pop .reader-mode-control button {
+  width: auto !important; height: 34px !important;
+  border-radius: 10px !important; padding: 0 6px; border: 0;
+  background: transparent; color: var(--text-secondary); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .14s var(--ease);
+}
+.more-pop .reader-mode-control button.active {
+  background: color-mix(in srgb, var(--brand) 22%, transparent) !important;
+  color: var(--brand) !important;
+}
 .reader-help-overlay {
   position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
   padding: 20px; background: rgba(8, 10, 18, .58); backdrop-filter: blur(8px);
-  opacity: 0; pointer-events: none; transition: opacity .18s var(--ease);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .18s var(--ease), visibility .18s var(--ease);
 }
-.reader-help-overlay.show { opacity: 1; pointer-events: auto; }
+.reader-help-overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
 .reader-help-card {
   width: min(560px, 100%); max-height: min(720px, 85vh); overflow: auto;
   padding: 22px; border: 1px solid var(--border); border-radius: var(--r-xl);
@@ -570,84 +633,318 @@ body.reader-double {
 .reader-grid-overlay.show .reader-grid-sheet,
 .reader-grid-overlay[aria-hidden="false"] .reader-grid-sheet { transform: translateY(0) scale(1); }
 .reader-grid-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
-  padding: 20px clamp(18px, 3vw, 32px) 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 16px clamp(16px, 2.5vw, 28px);
   border-bottom: 1px solid rgba(255,255,255,.09);
   background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
 }
 .reader-grid-heading { min-width: 0; }
 .reader-grid-kicker {
-  display: block; margin-bottom: 5px; color: var(--brand);
+  display: block; margin-bottom: 3px; color: var(--brand);
   font: 600 10px/1 var(--font-mono); letter-spacing: .16em; text-transform: uppercase;
 }
-.reader-grid-head h2 { margin: 0; color: #f3f4f8; font: 600 clamp(19px, 2vw, 24px)/1.2 var(--font-brand); }
-.reader-grid-head p { margin: 6px 0 0; color: #9699a8; font-size: 13px; }
+.reader-grid-head h2 { margin: 0; color: #f3f4f8; font: 600 clamp(18px, 1.8vw, 22px)/1.2 var(--font-brand); }
+.reader-grid-head p { margin: 4px 0 0; color: #9699a8; font-size: 12px; }
+
+/* 缩略图总览顶部操作栏 */
+.reader-grid-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.reader-grid-stats {
+  font: 600 12px/1 var(--font-mono); color: #8e92a2;
+  margin-right: 4px; white-space: nowrap;
+}
+.reader-grid-dir-control {
+  display: inline-flex; align-items: center; padding: 2px;
+  height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  gap: 2px;
+}
+.reader-grid-dir-btn {
+  height: 26px; padding: 0 10px; border-radius: 6px; border: 0;
+  background: transparent; color: #aeb1bd; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .14s var(--ease); white-space: nowrap;
+}
+.reader-grid-dir-btn:hover {
+  color: #fff; background: rgba(255,255,255,.07);
+}
+.reader-grid-dir-btn.active {
+  background: color-mix(in srgb, var(--brand) 26%, transparent);
+  color: var(--brand); font-weight: 600;
+}
+.reader-grid-toolbar-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  color: #c5c8d4; font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all .14s var(--ease); white-space: nowrap;
+}
+.reader-grid-toolbar-btn:hover {
+  background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.2);
+}
+.reader-grid-toolbar-btn.active {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+  border-color: var(--brand); color: var(--brand);
+}
+.reader-grid-persist-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; user-select: none; margin: 0 4px;
+}
+.reader-grid-persist-toggle input { display: none; }
+.reader-grid-persist-slider {
+  position: relative; width: 34px; height: 18px; border-radius: 9px;
+  background: rgba(255,255,255,.14); transition: background .16s var(--ease);
+}
+.reader-grid-persist-slider::before {
+  content: ''; position: absolute; left: 2px; top: 2px;
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  transition: transform .16s var(--ease);
+}
+.reader-grid-persist-toggle input:checked + .reader-grid-persist-slider {
+  background: var(--brand);
+}
+.reader-grid-persist-toggle input:checked + .reader-grid-persist-slider::before {
+  transform: translateX(16px);
+}
+.reader-grid-persist-text {
+  font-size: 12px; color: #9da1b0; font-weight: 500; white-space: nowrap;
+}
+
 .reader-grid-close {
-  width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center;
+  width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center;
   border: 1px solid rgba(255,255,255,.09); border-radius: 50%;
   background: rgba(255,255,255,.035); color: #aeb1bd;
-  font-size: 22px; line-height: 1; cursor: pointer;
+  font-size: 20px; line-height: 1; cursor: pointer;
   transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease);
 }
 .reader-grid-close:hover { color: #fff; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.08); }
+
 .reader-grid {
   min-height: 0; overflow: auto; overscroll-behavior: contain;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
-  align-content: start; gap: clamp(12px, 1.6vw, 20px) clamp(10px, 1.4vw, 18px);
-  padding: clamp(18px, 3vw, 32px);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  align-content: start; gap: clamp(14px, 1.8vw, 22px) clamp(12px, 1.6vw, 20px);
+  padding: clamp(16px, 2.5vw, 28px);
   scrollbar-color: rgba(255,255,255,.2) transparent;
 }
-.reader-grid-item,
-.reader-grid > button {
-  position: relative; min-width: 0; padding: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto;
-  border: 0; border-radius: 2px; background: transparent; color: #b9bbc5;
-  text-align: left; cursor: pointer; isolation: isolate;
+
+/* 缩略图卡片（支持拖拽排序与悬停插页） */
+.reader-grid-item {
+  position: relative; min-width: 0; padding: 0;
+  display: flex; flex-direction: column;
+  border: 0; border-radius: 6px; background: transparent; color: #b9bbc5;
+  text-align: left; cursor: grab; isolation: isolate;
+  transition: transform .14s var(--ease), opacity .14s var(--ease);
 }
-.reader-grid-item::before,
-.reader-grid > button::before {
-  content: ''; position: absolute; z-index: -1; inset: -6px;
-  border: 1px solid rgba(255,255,255,.075); border-radius: 6px;
+.reader-grid-item:active { cursor: grabbing; }
+.reader-grid-item::before {
+  content: ''; position: absolute; z-index: -1; inset: -4px;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
   background: #08090d;
-  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+  box-shadow: 0 8px 20px rgba(0,0,0,.26);
   transition: border-color .14s var(--ease), box-shadow .14s var(--ease), transform .14s var(--ease);
 }
-.reader-grid-item img,
-.reader-grid > button img {
-  width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block;
-  background: #15161c; filter: saturate(.84) contrast(.98);
+.reader-grid-item:hover::before { border-color: rgba(255,255,255,.24); transform: translateY(-2px); }
+
+.reader-grid-thumb-wrap {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden;
+  border-radius: 4px; background: #15161c;
 }
-.reader-grid-number,
-.reader-grid-item > span,
-.reader-grid > button > span {
-  min-width: 0; padding-top: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: inherit; font: 600 11px/1.2 var(--font-mono); letter-spacing: .04em;
+.reader-grid-thumb-wrap img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: saturate(.88) contrast(.98); pointer-events: none;
 }
-.reader-grid-item:hover::before,
-.reader-grid > button:hover::before { border-color: rgba(255,255,255,.2); transform: translateY(-2px); }
-.reader-grid-item[aria-current="page"],
-.reader-grid-item.is-current,
-.reader-grid > button[aria-current="page"],
-.reader-grid > button.is-current { color: #fff; }
-.reader-grid-item[aria-current="page"]::before,
-.reader-grid-item.is-current::before,
-.reader-grid > button[aria-current="page"]::before,
-.reader-grid > button.is-current::before {
-  border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 28%, transparent), 0 16px 32px rgba(0,0,0,.34);
+
+.reader-grid-badge {
+  position: absolute; top: 5px; left: 5px; z-index: 2;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(0,0,0,.75); color: #f0f1f5;
+  font: 600 10px/1.2 var(--font-mono); letter-spacing: .02em;
+  backdrop-filter: blur(4px); pointer-events: none;
 }
-.reader-grid-item[aria-current="page"]::after,
-.reader-grid-item.is-current::after,
-.reader-grid > button[aria-current="page"]::after,
-.reader-grid > button.is-current::after {
-  content: '当前'; position: absolute; top: 6px; right: 6px;
-  padding: 4px 6px; border-radius: 3px; background: var(--brand); color: #fff;
-  font: 700 9px/1 var(--font-mono); letter-spacing: .08em;
+.reader-grid-current-badge {
+  position: absolute; top: 5px; right: 5px; z-index: 2;
+  padding: 2px 6px; border-radius: 4px;
+  background: var(--brand); color: #fff;
+  font: 700 9px/1.2 var(--font-mono); letter-spacing: .04em;
+  pointer-events: none;
 }
-.reader-grid-item:focus-visible,
-.reader-grid > button:focus-visible,
-.reader-grid-close:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--brand) 72%, white);
-  outline-offset: 5px;
+
+/* 卡片悬停浮现的“在此插页”按钮 */
+.reader-grid-insert-btn {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3;
+  height: 24px; padding: 0 8px; border-radius: 12px;
+  background: color-mix(in srgb, var(--brand) 92%, #000);
+  border: 1px solid color-mix(in srgb, var(--brand) 65%, #fff);
+  color: #fff; font: 600 11px/1 var(--font-mono);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  white-space: nowrap; overflow: hidden;
+  opacity: 0; transform: translateY(4px); pointer-events: none;
+  cursor: pointer; backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.45);
+  transition: opacity .14s var(--ease), transform .14s var(--ease), background .14s var(--ease), box-shadow .14s var(--ease);
 }
+.reader-grid-insert-btn svg {
+  width: 12px; height: 12px; flex: 0 0 12px; stroke-width: 2.2; display: block;
+}
+.reader-grid-insert-btn span {
+  white-space: nowrap; line-height: 1; font-size: 11px;
+}
+.reader-grid-item:hover .reader-grid-insert-btn {
+  opacity: 1; transform: translateY(0); pointer-events: auto;
+}
+.reader-grid-insert-btn:hover {
+  background: var(--brand); color: #fff; border-color: #fff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 50%, rgba(0,0,0,.6));
+  transform: translateY(-1px) scale(1.02);
+}
+@media (hover: none) {
+  .reader-grid-insert-btn { opacity: .88; transform: none; pointer-events: auto; }
+}
+
+.reader-grid-item-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 6px; min-width: 0;
+  color: inherit; font: 600 11px/1.2 var(--font-mono);
+}
+
+/* 拖拽状态与放置指示线 */
+.reader-grid-item.is-dragging,
+.reader-grid-blank.is-dragging {
+  opacity: .35 !important;
+  transform: scale(.95) !important;
+}
+.reader-grid-item.drop-before::before,
+.reader-grid-blank.drop-before::before {
+  border-left: 3px solid var(--brand) !important;
+  box-shadow: -4px 0 16px color-mix(in srgb, var(--brand) 50%, transparent), 0 8px 20px rgba(0,0,0,.26);
+}
+.reader-grid-item.drop-after::before,
+.reader-grid-blank.drop-after::before {
+  border-right: 3px solid var(--brand) !important;
+  box-shadow: 4px 0 16px color-mix(in srgb, var(--brand) 50%, transparent), 0 8px 20px rgba(0,0,0,.26);
+}
+
+/* 当前阅读项高亮 */
+.reader-grid-item.is-current::before {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 28%, transparent), 0 16px 32px rgba(0,0,0,.34);
+}
+
+/* 缩略图总览：空白卡片一等公民设计（支持自由拖拽与一键删除） */
+.reader-grid-blank {
+  position: relative; min-width: 0; padding: 12px 8px; aspect-ratio: 3 / 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px dashed color-mix(in srgb, var(--brand) 55%, rgba(255,255,255,.2));
+  border-radius: 6px; background: color-mix(in srgb, var(--brand) 8%, #0d0e14);
+  color: var(--brand); cursor: grab; isolation: isolate; user-select: none;
+  transition: transform .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease);
+}
+.reader-grid-blank:active { cursor: grabbing; }
+.reader-grid-blank::before {
+  content: ''; position: absolute; z-index: -1; inset: -4px;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
+  background: #08090d;
+  box-shadow: 0 8px 20px rgba(0,0,0,.26);
+  transition: all .14s var(--ease);
+}
+.reader-grid-blank:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 15%, #0d0e14);
+  transform: translateY(-2px);
+}
+.reader-grid-blank:hover::before { border-color: rgba(255,255,255,.2); }
+
+.reader-grid-blank-del {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08); color: #ccc;
+  display: grid; place-items: center; font-size: 13px; line-height: 1;
+  cursor: pointer; transition: all .14s var(--ease);
+}
+.reader-grid-blank-del:hover {
+  background: #e03131; border-color: #e03131; color: #fff; transform: scale(1.1);
+}
+.reader-grid-blank-badge-tag {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  padding: 2px 6px; border-radius: 4px;
+  background: color-mix(in srgb, var(--brand) 85%, #000); color: #fff;
+  font: 700 9px/1.2 var(--font-mono); letter-spacing: .04em;
+}
+.reader-grid-blank-icon { width: 28px; height: 28px; opacity: .9; }
+.reader-grid-blank-title { font: 700 12px/1.2 var(--font-brand); letter-spacing: .02em; }
+.reader-grid-blank-desc { font-size: 10px; color: #8e92a2; text-align: center; }
+.reader-grid-blank-drag-tip {
+  margin-top: 4px; font: 500 9px/1 var(--font-mono); color: color-mix(in srgb, var(--brand) 80%, #fff);
+  opacity: .75;
+}
+
+/* 缩略图总览：双页对开预览排版（紧凑多列画板） */
+.reader-grid.is-double-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 280px));
+  justify-content: center;
+  gap: 18px 14px;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+.reader-grid-spread-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 14px 8px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand) 4%, rgba(255,255,255,.025));
+  border: 1px solid rgba(255,255,255,.08);
+  position: relative;
+  transition: border-color .14s var(--ease), background .14s var(--ease);
+}
+.reader-grid-spread-row:hover {
+  border-color: rgba(255,255,255,.16);
+  background: color-mix(in srgb, var(--brand) 6%, rgba(255,255,255,.035));
+}
+.reader-grid-spread-row.is-wide-spread {
+  grid-template-columns: 1fr;
+}
+.reader-grid-spread-badge {
+  position: absolute; top: -8px; left: 10px; z-index: 4;
+  font: 700 9px/1 var(--font-mono); color: var(--text-secondary);
+  background: #11131c; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.14); letter-spacing: .03em;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45);
+}
+.reader-grid-spread-badge b { color: var(--brand); font-weight: 700; margin-left: 2px; }
+
+/* 双页预览下的卡片微调：保持紧凑精致 */
+.reader-grid-spread-row .reader-grid-item {
+  width: 100%;
+}
+.reader-grid-spread-row .reader-grid-blank {
+  padding: 8px 4px;
+  gap: 3px;
+}
+.reader-grid-spread-row .reader-grid-blank-icon {
+  width: 20px; height: 20px;
+}
+.reader-grid-spread-row .reader-grid-blank-title {
+  font-size: 11px;
+}
+.reader-grid-spread-row .reader-grid-blank-desc {
+  font-size: 9px;
+}
+.reader-grid-spread-row .reader-grid-blank-drag-tip {
+  display: none;
+}
+.reader-grid-placeholder-card {
+  position: relative; min-width: 0; padding: 0; aspect-ratio: 3 / 4;
+  border-radius: 4px; border: 1.5px dashed rgba(255,255,255,.08);
+  background: rgba(255,255,255,.015);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: rgba(255,255,255,.2); font: 600 10px/1.2 var(--font-mono);
+  user-select: none;
+}
+.reader-grid-placeholder-card span { font-size: 9px; opacity: .6; }
 
 /* 项9：护眼滤镜——给 .stream 加暖色调滤镜（仅作用于阅读区图片） */
 .stream.eye-care { filter: sepia(.35) brightness(.92) saturate(.95); }

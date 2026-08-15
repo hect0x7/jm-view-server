@@ -108,6 +108,7 @@ function updateProgress(idx) {
   var toolSelect = document.getElementById('jumpSelect');
   if (bottomSelect) bottomSelect.value = String(p);
   if (toolSelect) toolSelect.value = String(p);
+  updateInsertPageButtonState();
 }
 
 // 根据滚动位置计算当前页（与 common.js scroll 监听各自独立，不冲突）
@@ -365,6 +366,91 @@ tHead.addEventListener('click', function(e) {
 // 相册标识：优先用标题，作为 localStorage key 的一部分
 var ALBUM_ID = readerConfig.albumId;
 var PROGRESS_KEY = 'jmv-progress:' + ALBUM_ID;
+var CUSTOM_SEQUENCE_KEY = 'jmv-custom-seq:' + ALBUM_ID;
+var PERSIST_SEQUENCE_KEY = 'jmv-persist-seq:' + ALBUM_ID;
+
+// 原始页面元素引用与索引
+var rawPages = Array.from(pages);
+var originalSequence = rawPages.map(function(p, i) {
+  return { type: 'page', pageIndex: i };
+});
+
+function cloneSequence(seq) {
+  return seq.map(function(item) {
+    return { type: item.type, pageIndex: item.pageIndex, id: item.id };
+  });
+}
+
+// 记忆开关状态：默认关闭 (false)，刷新重置
+var isSequencePersisted = (function() {
+  try {
+    return localStorage.getItem(PERSIST_SEQUENCE_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+})();
+
+// 当前画板序列：包含常规图片项与虚拟空白项
+var pageSequence = cloneSequence(originalSequence);
+
+// 若开启了记忆，则尝试恢复保存的序列
+if (isSequencePersisted) {
+  try {
+    var savedSeqRaw = localStorage.getItem(CUSTOM_SEQUENCE_KEY);
+    if (savedSeqRaw) {
+      var parsedSeq = JSON.parse(savedSeqRaw);
+      if (Array.isArray(parsedSeq) && parsedSeq.length) {
+        var validSeq = parsedSeq.filter(function(item) {
+          if (!item) return false;
+          if (item.type === 'blank') return true;
+          if (item.type === 'page' && typeof item.pageIndex === 'number' && item.pageIndex >= 0 && item.pageIndex < rawPages.length) return true;
+          return false;
+        });
+        if (validSeq.length) pageSequence = validSeq;
+      }
+    }
+  } catch (e) {}
+}
+
+function saveSequenceState() {
+  if (isSequencePersisted) {
+    try {
+      localStorage.setItem(PERSIST_SEQUENCE_KEY, '1');
+      localStorage.setItem(CUSTOM_SEQUENCE_KEY, JSON.stringify(pageSequence));
+    } catch (e) {}
+  } else {
+    try {
+      localStorage.removeItem(PERSIST_SEQUENCE_KEY);
+      localStorage.removeItem(CUSTOM_SEQUENCE_KEY);
+    } catch (e) {}
+  }
+}
+
+// 同步主阅读流 DOM 顺序与双页重排
+function applySequenceToDOM(options) {
+  options = options || {};
+  
+  // 1. 同步 stream 中的 DOM 节点挂载顺序
+  var pageItems = pageSequence.filter(function(item) { return item.type === 'page'; });
+  pageItems.forEach(function(item) {
+    var el = rawPages[item.pageIndex];
+    if (el && el.parentNode === stream) {
+      stream.appendChild(el);
+    }
+  });
+
+  // 2. 双页模式下重新构建双页组
+  if (readerMode === 'double') {
+    rebuildDoubleGroups(activePageIndex, { scroll: false });
+  }
+
+  // 3. 更新统计状态与控件
+  updateGridStats();
+}
+
+function updateInsertPageButtonState() {
+  // 旧按钮已移除，保留空函数避免外部生命周期调用报错
+}
 
 var stream = document.getElementById('stream');
 // 默认使用适宽
@@ -859,51 +945,103 @@ function getAlbumRangesForGrouping() {
   return pages.length ? [{ start: 0, end: pages.length - 1 }] : [];
 }
 
-function pushDoublePair(groups, firstIdx, secondIdx) {
+function pushDoublePair(groups, firstIdx, secondIdx, meta) {
   var physicalSlots = readingDirection === 'rtl' ? [secondIdx, firstIdx] : [firstIdx, secondIdx];
+  var pageList = [];
+  if (typeof firstIdx === 'number') pageList.push(firstIdx);
+  if (typeof secondIdx === 'number') pageList.push(secondIdx);
+  var anchorIdx = typeof firstIdx === 'number' ? firstIdx : (typeof secondIdx === 'number' ? secondIdx : 0);
   groups.push({
-    pages: secondIdx === null ? [firstIdx] : [firstIdx, secondIdx],
+    pages: pageList,
     slots: physicalSlots,
-    anchor: firstIdx,
-    kind: secondIdx === null ? 'single' : 'pair'
+    anchor: anchorIdx,
+    kind: (firstIdx === null || secondIdx === null) ? 'single' : 'pair',
+    insertedSlots: (meta && meta.insertedSlots) || [],
+    beforePage: meta && meta.beforePage
   });
 }
 
 function buildDoubleGroups() {
   var groups = [];
-  getAlbumRangesForGrouping().forEach(function(range) {
-    var start = Math.max(0, range.start);
-    var end = Math.min(pages.length - 1, range.end);
-    if (start > end) return;
+  var seq = (typeof pageSequence !== 'undefined' && pageSequence && pageSequence.length) ?
+            pageSequence :
+            Array.from(pages).map(function(p, i) { return { type: 'page', pageIndex: i }; });
+  if (!seq.length) return groups;
 
-    var cursor = start;
-    if (!isWidePage(cursor)) {
-      groups.push({
-        pages: [cursor],
-        slots: readingDirection === 'rtl' ? [cursor, null] : [null, cursor],
-        anchor: cursor,
-        kind: 'cover'
-      });
-      cursor += 1;
-    }
+  var cursor = 0;
+  var end = seq.length - 1;
 
-    var pending = null;
-    for (; cursor <= end; cursor++) {
-      if (isWidePage(cursor)) {
-        if (pending !== null) {
-          pushDoublePair(groups, pending, null);
-          pending = null;
+  // 封面判定：第一项若为常规非宽图单页（且第一项不是空白插页），作为单页封面
+  var firstItem = seq[cursor];
+  if (firstItem.type === 'page' && !isWidePage(firstItem.pageIndex)) {
+    groups.push({
+      pages: [firstItem.pageIndex],
+      slots: readingDirection === 'rtl' ? [firstItem.pageIndex, null] : [null, firstItem.pageIndex],
+      anchor: firstItem.pageIndex,
+      kind: 'cover',
+      insertedSlots: [],
+      beforePage: null
+    });
+    cursor += 1;
+  }
+
+  var pendingItem = null;
+
+  for (; cursor <= end; cursor++) {
+    var item = seq[cursor];
+
+    if (item.type === 'page' && isWidePage(item.pageIndex)) {
+      if (pendingItem !== null) {
+        if (pendingItem.type === 'page') {
+          pushDoublePair(groups, pendingItem.pageIndex, null);
+        } else {
+          var pairMeta = { insertedSlots: [readingDirection === 'rtl' ? 1 : 0], beforePage: item.pageIndex };
+          pushDoublePair(groups, null, null, pairMeta);
         }
-        groups.push({ pages: [cursor], slots: [cursor, cursor], anchor: cursor, kind: 'wide' });
-      } else if (pending === null) {
-        pending = cursor;
-      } else {
-        pushDoublePair(groups, pending, cursor);
-        pending = null;
+        pendingItem = null;
       }
+      groups.push({ pages: [item.pageIndex], slots: [item.pageIndex, item.pageIndex], anchor: item.pageIndex, kind: 'wide' });
+      continue;
     }
-    if (pending !== null) pushDoublePair(groups, pending, null);
-  });
+
+    if (pendingItem === null) {
+      pendingItem = item;
+    } else {
+      var first = pendingItem;
+      var second = item;
+      var firstIdx = first.type === 'page' ? first.pageIndex : null;
+      var secondIdx = second.type === 'page' ? second.pageIndex : null;
+
+      var insertedSlots = [];
+      var nextRealPage = null;
+      if (first.type === 'blank') {
+        insertedSlots.push(readingDirection === 'rtl' ? 1 : 0);
+        if (second.type === 'page') nextRealPage = second.pageIndex;
+      }
+      if (second.type === 'blank') {
+        insertedSlots.push(readingDirection === 'rtl' ? 0 : 1);
+        if (nextRealPage === null) {
+          for (var k = cursor + 1; k <= end; k++) {
+            if (seq[k].type === 'page') { nextRealPage = seq[k].pageIndex; break; }
+          }
+        }
+      }
+
+      var pairMeta = { insertedSlots: insertedSlots, beforePage: nextRealPage };
+      pushDoublePair(groups, firstIdx, secondIdx, pairMeta);
+      pendingItem = null;
+    }
+  }
+
+  if (pendingItem !== null) {
+    if (pendingItem.type === 'page') {
+      pushDoublePair(groups, pendingItem.pageIndex, null);
+    } else {
+      var pairMeta = { insertedSlots: [readingDirection === 'rtl' ? 1 : 0], beforePage: null };
+      pushDoublePair(groups, null, null, pairMeta);
+    }
+  }
+
   return groups;
 }
 
@@ -931,16 +1069,72 @@ function removeDoubleBlankSlots() {
   doubleBlankSlots = [];
 }
 
-function createDoubleBlankSlot(groupIndex, slot) {
+function createDoubleBlankSlot(groupIndex, slot, isInserted, beforePage) {
   var blankSlot = document.createElement('div');
-  blankSlot.className = 'reader-double-blank';
-  blankSlot.setAttribute('aria-hidden', 'true');
+  blankSlot.className = 'reader-double-blank' + (isInserted ? ' is-inserted' : '');
   blankSlot.dataset.doubleGroup = String(groupIndex);
   blankSlot.dataset.doubleSlot = slot;
   blankSlot.style.setProperty('--reader-double-column', slot === 'left' ? '1' : '2');
   blankSlot.style.setProperty('--reader-double-row', String(groupIndex + 1));
   blankSlot.style.gridColumn = slot === 'left' ? '1' : '2';
   blankSlot.style.gridRow = String(groupIndex + 1);
+
+  if (isInserted) {
+    blankSlot.setAttribute('role', 'region');
+    blankSlot.setAttribute('aria-label', '已插入空白页');
+
+    var iconEl = document.createElement('div');
+    iconEl.className = 'reader-double-blank-icon';
+    iconEl.innerHTML = icon('insertPage') || icon('file');
+
+    var labelEl = document.createElement('div');
+    labelEl.className = 'reader-double-blank-label';
+    labelEl.textContent = '已插入空白页';
+
+    var subEl = document.createElement('div');
+    subEl.className = 'reader-double-blank-sub';
+    subEl.textContent = typeof beforePage === 'number' ? ('第 ' + (beforePage + 1) + ' 页前') : '对齐调整';
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'reader-double-blank-remove';
+    removeBtn.textContent = '✕ 移除插页';
+    removeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var foundIdx = -1;
+      for (var i = 0; i < pageSequence.length; i++) {
+        if (pageSequence[i].type === 'blank') {
+          if (typeof beforePage === 'number') {
+            for (var j = i + 1; j < pageSequence.length; j++) {
+              if (pageSequence[j].type === 'page') {
+                if (pageSequence[j].pageIndex === beforePage) foundIdx = i;
+                break;
+              }
+            }
+            if (foundIdx !== -1) break;
+          } else {
+            foundIdx = i;
+            break;
+          }
+        }
+      }
+      if (foundIdx !== -1) {
+        pageSequence.splice(foundIdx, 1);
+        saveSequenceState();
+        applySequenceToDOM();
+        rebuildReaderGrid();
+        if (window.toast) toast('已移除插页', 'info');
+      }
+    });
+
+    blankSlot.appendChild(iconEl);
+    blankSlot.appendChild(labelEl);
+    blankSlot.appendChild(subEl);
+    blankSlot.appendChild(removeBtn);
+  } else {
+    blankSlot.setAttribute('aria-hidden', 'true');
+  }
+
   stream.appendChild(blankSlot);
   doubleBlankSlots.push(blankSlot);
 }
@@ -1009,8 +1203,14 @@ function renderDoubleGroups() {
       page.classList.add(slot === 'left' ? 'is-double-left' : 'is-double-right');
     });
 
-    if (group.kind === 'single' || group.kind === 'cover') {
-      createDoubleBlankSlot(groupIndex, group.slots[0] === null ? 'left' : 'right');
+    if (group.kind !== 'wide') {
+      [0, 1].forEach(function(slotIdx) {
+        if (group.slots[slotIdx] === null) {
+          var side = slotIdx === 0 ? 'left' : 'right';
+          var isInserted = group.insertedSlots && group.insertedSlots.indexOf(slotIdx) !== -1;
+          createDoubleBlankSlot(groupIndex, side, isInserted, group.beforePage);
+        }
+      });
     }
   });
 }
@@ -1035,6 +1235,7 @@ function setActiveDoubleGroup(groupIndex, preferredPageIdx, persist) {
   preloadDoubleGroups(activeDoubleGroupIndex);
   updateProgress(activePageIndex);
   updateGridCurrentPage();
+  updateInsertPageButtonState();
   if (persist !== false) saveCurrentProgress(activePageIndex);
 }
 
@@ -1195,6 +1396,7 @@ function setReaderMode(mode, options) {
     if (window.JmvPrefs) JmvPrefs.set('readerMode', readerMode);
     else try { localStorage.setItem('jmv-reader-mode', readerMode); } catch (e) {}
   }
+  updateInsertPageButtonState();
   updateDocumentScrollProgress(false);
 }
 
@@ -1246,7 +1448,12 @@ function applyReadingDirection(direction, persist) {
   readingDirection = direction === 'rtl' ? 'rtl' : 'ltr';
   document.body.dataset.readingDirection = readingDirection;
   stream.dataset.readingDirection = readingDirection;
+  var dirLtrBtn = document.getElementById('dirLtr');
+  var dirRtlBtn = document.getElementById('dirRtl');
+  if (dirLtrBtn) dirLtrBtn.classList.toggle('active', readingDirection === 'ltr');
+  if (dirRtlBtn) dirRtlBtn.classList.toggle('active', readingDirection === 'rtl');
   if (readerMode === 'double') rebuildDoubleGroups(activePageIndex, { scroll: false });
+  if (readerGridOverlay && readerGridOverlay.classList.contains('show')) rebuildReaderGrid();
   if (persist) {
     if (window.JmvPrefs) JmvPrefs.set('readingDirection', readingDirection);
     else try { localStorage.setItem('jmv-reading-direction', readingDirection); } catch (e) {}
@@ -1256,6 +1463,29 @@ function applyReadingDirection(direction, persist) {
 var readerGridOverlay = document.getElementById('readerGridOverlay');
 var readerGrid = document.getElementById('readerGrid');
 var readerGridClose = document.getElementById('readerGridClose');
+var readerGridDoublePreview = document.getElementById('readerGridDoublePreview');
+var readerGridReverse = document.getElementById('readerGridReverse');
+var readerGridReset = document.getElementById('readerGridReset');
+var readerGridPersist = document.getElementById('readerGridPersist');
+var isGridDoublePreview = (function() {
+  try { return localStorage.getItem('jmv-grid-double-preview') === '1'; } catch(e) { return false; }
+})();
+var draggedSeqIndex = null;
+
+function clearAllDropIndicators() {
+  if (!readerGrid) return;
+  readerGrid.querySelectorAll('.drop-before, .drop-after, .is-dragging').forEach(function(el) {
+    el.classList.remove('drop-before', 'drop-after', 'is-dragging');
+  });
+}
+
+function updateGridStats() {
+  var statsEl = document.getElementById('readerGridStats');
+  if (!statsEl) return;
+  var pageCount = pageSequence.filter(function(x) { return x.type === 'page'; }).length;
+  var blankCount = pageSequence.filter(function(x) { return x.type === 'blank'; }).length;
+  statsEl.textContent = '共 ' + pageCount + ' 页' + (blankCount > 0 ? ' · 已插入 ' + blankCount + ' 个空白页' : '');
+}
 
 function updateGridCurrentPage() {
   if (!readerGrid) return;
@@ -1267,34 +1497,267 @@ function updateGridCurrentPage() {
   });
 }
 
+function createGridPageCard(pageIdx, seqIdx) {
+  var pageEl = rawPages[pageIdx];
+  if (!pageEl) return null;
+  var sourceImage = pageEl.querySelector('.page-img');
+  if (!sourceImage) return null;
+
+  var card = document.createElement('div');
+  card.className = 'reader-grid-item' + (pageIdx === activePageIndex ? ' is-current' : '');
+  card.draggable = true;
+  card.dataset.seqIndex = String(seqIdx);
+  card.dataset.readerPage = String(pageIdx);
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('aria-label', '第 ' + (pageIdx + 1) + ' 页，点击跳转，按住拖动调序');
+
+  var thumbWrap = document.createElement('div');
+  thumbWrap.className = 'reader-grid-thumb-wrap';
+
+  var thumbImg = document.createElement('img');
+  thumbImg.loading = 'lazy';
+  thumbImg.decoding = 'async';
+  thumbImg.alt = '';
+  thumbImg.src = sourceImage.getAttribute('data-src') || sourceImage.getAttribute('data-original') || sourceImage.src;
+
+  var pageBadge = document.createElement('span');
+  pageBadge.className = 'reader-grid-badge';
+  pageBadge.textContent = '#' + (pageIdx + 1);
+
+  thumbWrap.appendChild(thumbImg);
+  thumbWrap.appendChild(pageBadge);
+
+  if (pageIdx === activePageIndex) {
+    var curBadge = document.createElement('span');
+    curBadge.className = 'reader-grid-current-badge';
+    curBadge.textContent = '当前';
+    thumbWrap.appendChild(curBadge);
+  }
+
+  var insertBtn = document.createElement('button');
+  insertBtn.type = 'button';
+  insertBtn.className = 'reader-grid-insert-btn';
+  insertBtn.title = '在此页前插入空白页';
+  insertBtn.innerHTML = (icon('plus') || '') + '<span>在此插页</span>';
+  insertBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var blankItem = { type: 'blank', id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) };
+    pageSequence.splice(seqIdx, 0, blankItem);
+    saveSequenceState();
+    applySequenceToDOM();
+    rebuildReaderGrid();
+    if (window.toast) toast('已在第 ' + (pageIdx + 1) + ' 页前插入空白页', 'success');
+  });
+  thumbWrap.appendChild(insertBtn);
+
+  thumbWrap.addEventListener('click', function() {
+    gotoPage(pageIdx);
+    closeReaderGrid();
+  });
+
+  var metaEl = document.createElement('div');
+  metaEl.className = 'reader-grid-item-meta';
+  metaEl.innerHTML = '<span>第 ' + (pageIdx + 1) + ' 页</span><span style="opacity:0.6;font-size:10px;">⋮⋮ 拖动</span>';
+
+  card.appendChild(thumbWrap);
+  card.appendChild(metaEl);
+
+  bindCardDragEvents(card, seqIdx);
+  return card;
+}
+
+function createGridBlankCard(blankItem, seqIdx) {
+  var blankCard = document.createElement('div');
+  blankCard.className = 'reader-grid-blank';
+  blankCard.draggable = true;
+  blankCard.dataset.seqIndex = String(seqIdx);
+  blankCard.setAttribute('role', 'listitem');
+  blankCard.setAttribute('aria-label', '空白插页，按住可拖动调序');
+
+  var badgeTag = document.createElement('span');
+  badgeTag.className = 'reader-grid-blank-badge-tag';
+  badgeTag.textContent = '插页';
+
+  var delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'reader-grid-blank-del';
+  delBtn.title = '移除此空白页';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    pageSequence.splice(seqIdx, 1);
+    saveSequenceState();
+    applySequenceToDOM();
+    rebuildReaderGrid();
+    if (window.toast) toast('已移除空白页', 'info');
+  });
+
+  var iconEl = document.createElement('div');
+  iconEl.className = 'reader-grid-blank-icon';
+  iconEl.innerHTML = icon('insertPage') || icon('file');
+
+  var titleEl = document.createElement('div');
+  titleEl.className = 'reader-grid-blank-title';
+  titleEl.textContent = '空白插页';
+
+  var descEl = document.createElement('div');
+  descEl.className = 'reader-grid-blank-desc';
+  descEl.textContent = '双页对齐调整';
+
+  var dragTip = document.createElement('div');
+  dragTip.className = 'reader-grid-blank-drag-tip';
+  dragTip.textContent = '⋮⋮ 按住拖拽调序';
+
+  blankCard.appendChild(badgeTag);
+  blankCard.appendChild(delBtn);
+  blankCard.appendChild(iconEl);
+  blankCard.appendChild(titleEl);
+  blankCard.appendChild(descEl);
+  blankCard.appendChild(dragTip);
+
+  bindCardDragEvents(blankCard, seqIdx);
+  return blankCard;
+}
+
+function createGridPlaceholderCard(text) {
+  var ph = document.createElement('div');
+  ph.className = 'reader-grid-placeholder-card';
+  ph.innerHTML = '<div>' + (text || '留白占位') + '</div><span>双页留白</span>';
+  return ph;
+}
+
 function rebuildReaderGrid() {
   if (!readerGrid) return;
   readerGrid.textContent = '';
-  pages.forEach(function(page, idx) {
-    var sourceImage = page.querySelector('.page-img');
-    if (!sourceImage) return;
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'reader-grid-item';
-    button.dataset.readerPage = String(idx);
-    button.setAttribute('aria-label', '跳转到第 ' + (idx + 1) + ' 页');
+  updateGridStats();
 
-    var thumbnail = document.createElement('img');
-    thumbnail.loading = 'lazy';
-    thumbnail.decoding = 'async';
-    thumbnail.alt = '';
-    thumbnail.src = sourceImage.getAttribute('data-src') || sourceImage.getAttribute('data-original') || sourceImage.src;
-    var label = document.createElement('span');
-    label.textContent = String(idx + 1);
-    button.appendChild(thumbnail);
-    button.appendChild(label);
-    button.addEventListener('click', function() {
-      gotoPage(idx);
-      closeReaderGrid();
+  if (readerGridPersist) {
+    readerGridPersist.checked = !!isSequencePersisted;
+  }
+
+  if (readerGridDoublePreview) {
+    readerGridDoublePreview.classList.toggle('active', !!isGridDoublePreview);
+  }
+  readerGrid.classList.toggle('is-double-preview', !!isGridDoublePreview);
+
+  var currentPurePages = pageSequence.filter(function(x) { return x.type === 'page'; }).map(function(x) { return x.pageIndex; });
+  var isPureReversed = currentPurePages.length > 1 && currentPurePages[0] === rawPages.length - 1 && currentPurePages[currentPurePages.length - 1] === 0;
+  if (readerGridReverse) {
+    readerGridReverse.classList.toggle('active', isPureReversed);
+  }
+
+  if (!isGridDoublePreview) {
+    pageSequence.forEach(function(item, seqIdx) {
+      if (item.type === 'blank') {
+        var blankCard = createGridBlankCard(item, seqIdx);
+        if (blankCard) readerGrid.appendChild(blankCard);
+      } else {
+        var pageCard = createGridPageCard(item.pageIndex, seqIdx);
+        if (pageCard) readerGrid.appendChild(pageCard);
+      }
     });
-    readerGrid.appendChild(button);
-  });
+  } else {
+    var previewGroups = buildDoubleGroups();
+    var usedBlankSeqIndices = [];
+
+    previewGroups.forEach(function(group, gIdx) {
+      var spreadRow = document.createElement('div');
+      spreadRow.className = 'reader-grid-spread-row' + (group.kind === 'wide' ? ' is-wide-spread' : '');
+
+      var badgeEl = document.createElement('span');
+      badgeEl.className = 'reader-grid-spread-badge';
+      var spreadLabel = (gIdx === 0 && group.kind === 'cover') ? '封面 Cover' : ('折页 ' + (gIdx + 1));
+      badgeEl.innerHTML = spreadLabel + ' <b>[' + (readingDirection === 'rtl' ? '右←左' : '左→右') + ']</b>';
+      spreadRow.appendChild(badgeEl);
+
+      if (group.kind === 'wide') {
+        var pageIdx = group.pages[0];
+        var seqIdx = pageSequence.findIndex(function(x) { return x.type === 'page' && x.pageIndex === pageIdx; });
+        var card = createGridPageCard(pageIdx, seqIdx >= 0 ? seqIdx : 0);
+        if (card) spreadRow.appendChild(card);
+      } else {
+        group.slots.forEach(function(slot, sIdx) {
+          if (slot !== null) {
+            var seqIdx = pageSequence.findIndex(function(x) { return x.type === 'page' && x.pageIndex === slot; });
+            var card = createGridPageCard(slot, seqIdx >= 0 ? seqIdx : 0);
+            if (card) spreadRow.appendChild(card);
+          } else {
+            var isInserted = group.insertedSlots && group.insertedSlots.indexOf(sIdx) !== -1;
+            if (isInserted) {
+              var blankSeqIdx = -1;
+              for (var b = 0; b < pageSequence.length; b++) {
+                if (pageSequence[b].type === 'blank' && usedBlankSeqIndices.indexOf(b) === -1) {
+                  blankSeqIdx = b;
+                  usedBlankSeqIndices.push(b);
+                  break;
+                }
+              }
+              if (blankSeqIdx !== -1) {
+                var blankCard = createGridBlankCard(pageSequence[blankSeqIdx], blankSeqIdx);
+                if (blankCard) spreadRow.appendChild(blankCard);
+              } else {
+                spreadRow.appendChild(createGridPlaceholderCard('已插入空白页'));
+              }
+            } else {
+              spreadRow.appendChild(createGridPlaceholderCard(gIdx === 0 ? '封面留白' : '对开留白'));
+            }
+          }
+        });
+      }
+      readerGrid.appendChild(spreadRow);
+    });
+  }
   updateGridCurrentPage();
+}
+
+function bindCardDragEvents(card, seqIdx) {
+  card.addEventListener('dragstart', function(e) {
+    draggedSeqIndex = seqIdx;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(seqIdx));
+    requestAnimationFrame(function() { card.classList.add('is-dragging'); });
+  });
+
+  card.addEventListener('dragend', function() {
+    draggedSeqIndex = null;
+    clearAllDropIndicators();
+  });
+
+  card.addEventListener('dragover', function(e) {
+    if (draggedSeqIndex === null || draggedSeqIndex === seqIdx) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var rect = card.getBoundingClientRect();
+    var isAfter = (e.clientX - rect.left) > (rect.width / 2);
+    card.classList.toggle('drop-after', isAfter);
+    card.classList.toggle('drop-before', !isAfter);
+  });
+
+  card.addEventListener('dragleave', function() {
+    card.classList.remove('drop-before', 'drop-after');
+  });
+
+  card.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedSeqIndex === null || draggedSeqIndex === seqIdx) {
+      clearAllDropIndicators();
+      return;
+    }
+    var rect = card.getBoundingClientRect();
+    var isAfter = (e.clientX - rect.left) > (rect.width / 2);
+    var targetIdx = isAfter ? seqIdx + 1 : seqIdx;
+
+    var movedItem = pageSequence.splice(draggedSeqIndex, 1)[0];
+    if (draggedSeqIndex < targetIdx) targetIdx--;
+    pageSequence.splice(targetIdx, 0, movedItem);
+
+    clearAllDropIndicators();
+    saveSequenceState();
+    applySequenceToDOM();
+    rebuildReaderGrid();
+    if (window.toast) toast('已调整页面顺序', 'info');
+  });
 }
 
 function openReaderGrid() {
@@ -1324,6 +1787,53 @@ if (readerGridClose) readerGridClose.addEventListener('click', closeReaderGrid);
 if (readerGridOverlay) readerGridOverlay.addEventListener('click', function(e) {
   if (e.target === readerGridOverlay) closeReaderGrid();
 });
+
+if (readerGridDoublePreview) {
+  readerGridDoublePreview.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    isGridDoublePreview = !isGridDoublePreview;
+    try { localStorage.setItem('jmv-grid-double-preview', isGridDoublePreview ? '1' : '0'); } catch(e) {}
+    rebuildReaderGrid();
+    if (window.toast) toast(isGridDoublePreview ? '已开启缩略图双页对开预览' : '已切换为标准网格缩略图');
+  });
+}
+
+if (readerGridReverse) {
+  readerGridReverse.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    pageSequence.reverse();
+    saveSequenceState();
+    applySequenceToDOM();
+    rebuildReaderGrid();
+    if (window.toast) toast('已调转页面顺序', 'info');
+  });
+}
+if (readerGridReset) {
+  readerGridReset.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    pageSequence = cloneSequence(originalSequence);
+    saveSequenceState();
+    applySequenceToDOM();
+    rebuildReaderGrid();
+    if (window.toast) toast('已恢复原始相册顺序并清空插页', 'success');
+  });
+}
+
+if (readerGridPersist) {
+  readerGridPersist.addEventListener('change', function() {
+    isSequencePersisted = !!this.checked;
+    saveSequenceState();
+    if (isSequencePersisted) {
+      if (window.toast) toast('已开启顺序与插页记忆', 'success');
+    } else {
+      if (window.toast) toast('已关闭记忆（刷新后重置）', 'info');
+    }
+  });
+}
+
 window.addEventListener('jmv:preference-change', function(e) {
   if (!e.detail) return;
   if (e.detail.name === 'readingDirection') applyReadingDirection(e.detail.value, false);
@@ -1349,6 +1859,17 @@ document.getElementById('modeScroll').addEventListener('click', function() { set
 document.getElementById('modeSingle').addEventListener('click', function() { setReaderMode('single'); });
 var modeDoubleButton = document.getElementById('modeDouble');
 if (modeDoubleButton) modeDoubleButton.addEventListener('click', function() { setReaderMode('double'); });
+
+var dirLtrBtn = document.getElementById('dirLtr');
+var dirRtlBtn = document.getElementById('dirRtl');
+if (dirLtrBtn) dirLtrBtn.addEventListener('click', function() {
+  applyReadingDirection('ltr', true);
+  if (window.toast) toast('双页排版：从左向右');
+});
+if (dirRtlBtn) dirRtlBtn.addEventListener('click', function() {
+  applyReadingDirection('rtl', true);
+  if (window.toast) toast('双页排版：从右向左 (日漫)');
+});
 
 var pageClickTimer = null;
 stream.addEventListener('click', function(e) {
@@ -1407,6 +1928,49 @@ document.addEventListener('keydown', function(e) {
     case 'g': case 'G':
       e.preventDefault(); openJump(); break;
     case 't': case 'T':
+    case 'i': case 'I':
+      e.preventDefault();
+      if (readerGridOverlay && readerGridOverlay.classList.contains('show')) closeReaderGrid();
+      else openReaderGrid();
+      break;
+    case 'd': case 'D':
+      if (readerMode === 'double') {
+        e.preventDefault();
+        var nextDir = readingDirection === 'ltr' ? 'rtl' : 'ltr';
+        applyReadingDirection(nextDir, true);
+        if (window.toast) toast(nextDir === 'rtl' ? '双页排版：从右向左 (日漫)' : '双页排版：从左向右');
+      }
+      break;
+      e.preventDefault();
+      gotoPage(cur + 1);
+      break;
+    case 'ArrowUp':
+      if (readerMode === 'double') break;
+      break;
+    case 'ArrowDown':
+      if (readerMode === 'double') break;
+      break;
+    case 'PageUp':
+      if (readerMode === 'double') break;
+      e.preventDefault(); if (!scrollActiveSinglePage(-1)) gotoPage(cur - 1); break;
+    case 'PageDown':
+      if (readerMode === 'double') break;
+      e.preventDefault(); if (!scrollActiveSinglePage(1)) gotoPage(cur + 1); break;
+    case ' ':
+      if (readerMode === 'double') break;
+      e.preventDefault(); if (!scrollActiveSinglePage(1)) gotoPage(cur + 1); break;
+    case 'Home':
+      if (readerMode === 'double') break;
+      e.preventDefault(); gotoPage(0); break;
+    case 'End':
+      if (readerMode === 'double') break;
+      e.preventDefault(); gotoPage(pages.length - 1); break;
+    case 'f': case 'F':
+      e.preventDefault(); document.getElementById('tFull').click(); break;
+    case 'g': case 'G':
+      e.preventDefault(); openJump(); break;
+    case 't': case 'T':
+    case 'i': case 'I':
       e.preventDefault();
       if (readerGridOverlay && readerGridOverlay.classList.contains('show')) closeReaderGrid();
       else openReaderGrid();

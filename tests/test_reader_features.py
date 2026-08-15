@@ -131,6 +131,101 @@ def test_double_width_scale_static_contract():
     assert reader_js.rfind(final_mode_init) < reader_js.rfind('updateDocumentScrollProgress(false);')
 
 
+def test_thumbnail_card_canvas_static_contract():
+    root = Path(__file__).resolve().parents[1]
+    app_js = (root / 'src/jm_view_server/static/js/app.js').read_text(encoding='utf-8')
+    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
+    reader_css = (root / 'src/jm_view_server/static/css/reader.css').read_text(encoding='utf-8')
+    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
+    agents_md = (root / 'AGENTS.md').read_text(encoding='utf-8')
+
+    assert 'id="readerGridDirControl"' in reader_html
+    assert 'id="dirLtr"' in reader_html
+    assert 'id="dirRtl"' in reader_html
+    assert 'id="readerGridDoublePreview"' in reader_html
+    assert 'id="readerGridReverse"' in reader_html
+    assert 'id="readerGridReset"' in reader_html
+    assert 'id="readerGridPersist"' in reader_html
+    assert 'id="tInsertPage"' not in reader_html
+    assert 'reader-grid-toolbar' in reader_css
+    assert 'reader-grid-dir-control' in reader_css
+    assert 'reader-grid-insert-btn' in reader_css
+    assert 'reader-grid-blank' in reader_css
+    assert 'reader-grid-blank-del' in reader_css
+    assert 'reader-grid-spread-row' in reader_css
+    assert 'pageSequence' in reader_js
+    assert 'isSequencePersisted' in reader_js
+    assert 'isGridDoublePreview' in reader_js
+    assert 'bindCardDragEvents' in reader_js
+    assert 'readerGridDoublePreview' in reader_js
+    assert 'readerGridReverse' in reader_js
+    assert 'readerGridReset' in reader_js
+    assert 'readerGridPersist' in reader_js
+    assert '缩略图可视化卡片画板' in agents_md
+
+
+def test_thumbnail_card_canvas_algorithm_node_eval():
+    import json
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
+
+    js_test_script = """
+    const pages = [{}, {}, {}, {}, {}];
+    let readingDirection = 'ltr';
+    let pageSequence = [{type:'page', pageIndex: 0}, {type:'page', pageIndex: 1}, {type:'page', pageIndex: 2}, {type:'page', pageIndex: 3}, {type:'page', pageIndex: 4}];
+    function isWidePage(idx) { return false; }
+    """ + reader_js[reader_js.find('function pushDoublePair('):reader_js.find('function findDoubleGroupIndex(')] + """
+
+    // 1. Default sequence double groups
+    const defGroups = buildDoubleGroups();
+    const defSlots = defGroups.map(g => g.slots);
+
+    // 2. Drag & reorder: move page 3 before page 1
+    const moved = pageSequence.splice(3, 1)[0];
+    pageSequence.splice(1, 0, moved);
+    const reorderedSequence = pageSequence.map(x => x.pageIndex);
+    const reorderedGroups = buildDoubleGroups();
+    const reorderedSlots = reorderedGroups.map(g => g.slots);
+
+    // 3. Insert multiple blanks at beginning: [b1, b2, b3, 0, 3, 1, 2, 4]
+    pageSequence.unshift({ type: 'blank', id: 'b1' }, { type: 'blank', id: 'b2' }, { type: 'blank', id: 'b3' });
+    const multiBlankHeadGroups = buildDoubleGroups();
+    const multiBlankHeadSlots = multiBlankHeadGroups.map(g => g.slots);
+    const multiBlankHeadInserted = multiBlankHeadGroups.map(g => g.insertedSlots);
+
+    // 4. Reverse sequence
+    pageSequence = [{type:'page', pageIndex: 4}, {type:'page', pageIndex: 3}, {type:'page', pageIndex: 2}, {type:'page', pageIndex: 1}, {type:'page', pageIndex: 0}];
+    const reversedGroups = buildDoubleGroups();
+    const reversedSlots = reversedGroups.map(g => g.slots);
+
+    console.log(JSON.stringify({ defSlots, reorderedSequence, reorderedSlots, multiBlankHeadSlots, multiBlankHeadInserted, reversedSlots }));
+    """
+
+    proc = subprocess.run(['node', '-e', js_test_script], capture_output=True, text=True, check=True)
+    data = json.loads(proc.stdout)
+
+    assert data['defSlots'] == [[None, 0], [1, 2], [3, 4]]
+    assert data['reorderedSequence'] == [0, 3, 1, 2, 4]
+    assert data['reorderedSlots'] == [[None, 0], [3, 1], [2, 4]]
+    # multi blanks: row 1 is [b1, b2], row 2 is [b3, 0], row 3 is [3, 1], row 4 is [2, 4]
+    assert data['multiBlankHeadSlots'] == [[None, None], [None, 0], [3, 1], [2, 4]]
+    assert data['multiBlankHeadInserted'] == [[0, 1], [0], [], []]
+    assert data['reversedSlots'] == [[None, 4], [3, 2], [1, 0]]
+
+
+def test_static_javascript_syntax_validity():
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    js_dir = root / 'src/jm_view_server/static/js'
+    js_files = list(js_dir.glob('*.js'))
+    assert len(js_files) > 0
+
+    for js_file in js_files:
+        res = subprocess.run(['node', '--check', str(js_file)], capture_output=True, text=True)
+        assert res.returncode == 0, f"JavaScript syntax error in {js_file.name}:\n{res.stderr}"
+
+
 def test_toolbar_pinned_static_contract():
     root = Path(__file__).resolve().parents[1]
     reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
