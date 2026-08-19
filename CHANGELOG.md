@@ -2,6 +2,12 @@
 
 本文件记录 `jm-view-server` 的重要版本变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [v0.3.3] - 2026-08-19
+
+### Fixed
+
+- 修复 Windows 环境下通过 `/open/` 打开或定位含空格及特殊字符的目录时回退到“我的文档”的问题，修正 `explorer.exe /select,` 命令行参数的双引号解析格式。
+
 ## [v0.3.2] - 2026-08-15
 
 ### Added

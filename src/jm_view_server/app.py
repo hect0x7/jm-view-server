@@ -819,7 +819,7 @@ class JmServer:
         # 重复拼接。这里补回前导 '/'（Windows 盘符路径如 C:\ 不受影响）。
         if not sys.platform.startswith('win') and not directory.startswith('/'):
             directory = '/' + directory
-        path = os.path.abspath(directory)
+        path = os.path.normpath(os.path.abspath(directory))
         # I-7：路径不存在（如已被删/移动）时给出明确错误，前端可提示而非静默失败
         if not os.path.exists(path):
             return jsonify({'error': '目标不存在，可能已被移动或删除'}), 404
@@ -835,9 +835,9 @@ class JmServer:
                     subprocess.Popen(['open', path])          # 直接进入该目录
             elif sys.platform.startswith('win'):
                 if reveal or not is_dir:
-                    subprocess.Popen(['explorer', f'/select,{path}'])  # 选中
+                    subprocess.Popen(f'explorer /select,"{path}"')  # 选中
                 else:
-                    subprocess.Popen(['explorer', path])            # 直接进入
+                    subprocess.Popen(f'explorer "{path}"')            # 直接进入
             else:
                 # Linux/其它：直接用默认文件管理器打开目录（无“选中”语义时打开所在目录）
                 target = path if is_dir else os.path.dirname(path)

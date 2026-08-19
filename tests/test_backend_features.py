@@ -305,3 +305,29 @@ def test_batch_delete_partial(live_server):
     assert good in body['succeeded']
     assert any(f['path'] == missing for f in body['failed'])
     assert not os.path.exists(good)
+
+
+def test_open_directory_with_spaces_and_special_chars(live_server, tmp_path):
+    """测试包含空格、特殊括号、日文等复杂目录名时的打开目录命令构造"""
+    complex_dir = tmp_path / "きょくちょ" / "[きょくちょ局 (きょくちょ)] メイド教育1.1"
+    complex_dir.mkdir(parents=True)
+
+    with mock.patch('subprocess.Popen') as mock_popen, mock.patch('sys.platform', 'win32'):
+        # 1. 默认 reveal=1 (在资源管理器中选中)
+        resp = requests.get(live_server.url + f'/open/{complex_dir.as_posix()}')
+        assert resp.status_code == 200
+        assert resp.json()['status'] == 'ok'
+        mock_popen.assert_called_once()
+        called_arg = mock_popen.call_args[0][0]
+        expected_norm = os.path.normpath(str(complex_dir))
+        assert called_arg == f'explorer /select,"{expected_norm}"'
+
+    with mock.patch('subprocess.Popen') as mock_popen, mock.patch('sys.platform', 'win32'):
+        # 2. reveal=0 (直接进入目录)
+        resp = requests.get(live_server.url + f'/open/{complex_dir.as_posix()}?reveal=0')
+        assert resp.status_code == 200
+        assert resp.json()['status'] == 'ok'
+        mock_popen.assert_called_once()
+        called_arg = mock_popen.call_args[0][0]
+        expected_norm = os.path.normpath(str(complex_dir))
+        assert called_arg == f'explorer "{expected_norm}"'
