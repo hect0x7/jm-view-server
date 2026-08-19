@@ -1016,7 +1016,7 @@
                             <!-- 预览列 -->
                             <div class="preview-col">
                                 {% if file.first_img_url and file.first_img_url != '' %}
-                                <img src="{{ file.first_img_url.data_original }}"
+                                <img src="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}"
                                      class="preview-img"
                                      loading="lazy"
                                      alt="preview">
@@ -1040,7 +1040,7 @@
                         <div class="card-cover">
                             <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
                             {% if file.first_img_url and file.first_img_url != '' %}
-                            <img src="{{ file.first_img_url.data_original }}" alt="" loading="lazy">
+                            <img src="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}" alt="" loading="lazy">
                             {% if file.is_link %}
                             <div class="card-type-badge" id="cardLinkBadge{{ loop.index }}" title="快捷方式"></div>
                             {% elif 'dir' in file.type %}

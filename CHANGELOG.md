@@ -2,6 +2,17 @@
 
 本文件记录 `jm-view-server` 的重要版本变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [v0.3.4] - 2026-08-19
+
+### Added
+
+- 新增文件列表单文件夹维度的排序记忆功能（基于 localStorage 独立记忆每个目录的排序偏好，默认时间倒序保持不变）。
+- 新增纯内存 LRU 缩略图缓存服务（`/api/thumb`），零磁盘写入并支持 304 协商缓存，大幅缩减列表预览图体积（平均缩减 99%），消除浏览器滑动卡顿。
+
+### Fixed
+
+- 修复看本模式（`jm_view`）图片排序算法，改用主干文件名自然排序（Natural Sort Key），彻底解决修补插页（如 `20-1.jpg`）、汉化组前缀及未补零短数字的顺序倒错问题。
+
 ## [v0.3.3] - 2026-08-19
 
 ### Fixed

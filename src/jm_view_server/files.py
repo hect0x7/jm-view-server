@@ -21,32 +21,27 @@ class FileManager:
             return ['/']
 
     def get_jm_view_images(self, path):
-        sortable_images = []
-        unsortable_images = []
+        images = []
 
         for f in self.files_of_dir_safe(path):
             if not self.is_image_file(f):
                 continue
-            f = quote(f)
+            quoted_f = quote(f)
             name = common.of_file_name(f)
-            try:
-                index = int(name[:name.index('.')])
-                sortable_images.append({
-                    'filename': name,
-                    'data_original': f'/view_file?path={f}',
-                    'index': index,
-                })
-            except ValueError:
-                unsortable_images.append({
-                    'filename': name,
-                    'data_original': f'/view_file?path={f}',
-                    'index': None,
-                })
+            images.append({
+                'filename': name,
+                'data_original': f'/view_file?path={quoted_f}',
+                'data_thumb': f'/api/thumb?path={quoted_f}',
+            })
 
-        sortable_images.sort(key=lambda item: item['index'])
-        unsortable_images.sort(key=lambda item: item['filename'])
+        def natural_key(item):
+            stem, ext = os.path.splitext(item['filename'])
+            stem_parts = [int(text) if text.isdigit() else text.lower()
+                          for text in re.split(r'(\d+)', stem)]
+            return (stem_parts, ext.lower())
 
-        return sortable_images + unsortable_images
+        images.sort(key=natural_key)
+        return images
 
     @staticmethod
     def is_image_file(filename):
@@ -145,6 +140,7 @@ class FileManager:
             first_img_url = {
                 'filename': name,
                 'data_original': f'/view_file?path={quoted_path}',
+                'data_thumb': f'/api/thumb?path={quoted_path}',
                 'index': None
             }
 

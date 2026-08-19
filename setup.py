@@ -31,6 +31,7 @@ setup(
         'flask',
         'psutil',
         'cryptography',
+        'Pillow',
     ],
     keywords=['python', 'jmcomic', 'jm-view-server', '18comic', '禁漫天堂', 'NSFW'],
     classifiers=[

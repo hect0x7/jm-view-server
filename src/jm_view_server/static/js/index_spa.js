@@ -380,10 +380,10 @@ $(document).ready(function () {
             if (file.first_img_url && !file.is_link) {
                 // Determine source for thumbnail
                 let thumbSrc;
-                if (typeof file.first_img_url === 'object' && file.first_img_url.data_original) {
-                    thumbSrc = file.first_img_url.data_original;
+                if (typeof file.first_img_url === 'object') {
+                    thumbSrc = file.first_img_url.data_thumb || file.first_img_url.data_original;
                 } else if (typeof file.first_img_url === 'string') {
-                    thumbSrc = `/view_file?path=${encodeURIComponent(file.first_img_url)}`;
+                    thumbSrc = `/api/thumb?path=${encodeURIComponent(file.first_img_url)}`;
                 }
 
                 if (thumbSrc) {

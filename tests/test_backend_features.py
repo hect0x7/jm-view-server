@@ -331,3 +331,65 @@ def test_open_directory_with_spaces_and_special_chars(live_server, tmp_path):
         called_arg = mock_popen.call_args[0][0]
         expected_norm = os.path.normpath(str(complex_dir))
         assert called_arg == f'explorer "{expected_norm}"'
+
+
+def test_get_jm_view_images_natural_sorting(live_server, tmp_path):
+    """验证看本模式图片自然排序：未补零、前缀、中间插页(20-1.jpg)均正确排序"""
+    from jm_view_server.files import FileManager
+    fm = FileManager(str(tmp_path), '')
+
+    album_dir = tmp_path / "test_album"
+    album_dir.mkdir()
+
+    # 创建一组具有各种边界特性的图片文件
+    files_to_create = [
+        '10.png', '1.png', '2.png', '20.png', '100.png',
+        '19.jpg', '20-1.jpg', '20-2.jpg', '21.jpg',
+        'MJK-01.png', 'MJK-02.png', 'MJK-10.png'
+    ]
+    for fname in files_to_create:
+        (album_dir / fname).write_bytes(b'dummy')
+
+    images = fm.get_jm_view_images(str(album_dir))
+    filenames = [img['filename'] for img in images]
+
+    # 1. 验证 1, 2, 10, 20, 100 不会变成 1, 10, 2
+    assert filenames.index('1.png') < filenames.index('2.png') < filenames.index('10.png') < filenames.index('20.png') < filenames.index('100.png')
+
+    # 2. 验证 20-1, 20-2 插页紧随 20 并位于 21 之前
+    assert filenames.index('19.jpg') < filenames.index('20-1.jpg') < filenames.index('20-2.jpg') < filenames.index('21.jpg')
+
+    # 3. 验证带前缀的汉化组编号按数字自然排序
+    assert filenames.index('MJK-01.png') < filenames.index('MJK-02.png') < filenames.index('MJK-10.png')
+
+
+def test_thumbnail_endpoint_and_cache(live_server):
+    """测试 /api/thumb 纯内存缩略图生成、ETag 协商缓存与 404 拦截"""
+    img_path = os.path.join(live_server.root, 'cover.jpg')
+    assert os.path.exists(img_path)
+
+    # 1. 首次请求生成缩略图
+    resp = requests.get(live_server.url + '/api/thumb', params={'path': img_path})
+    assert resp.status_code == 200
+    assert resp.headers.get('Content-Type') in ('image/webp', 'image/jpeg')
+    assert 'Cache-Control' in resp.headers
+    etag = resp.headers.get('ETag')
+    assert etag is not None
+    assert len(resp.content) > 0
+
+    # 2. 带 ETag 协商缓存，验证 304 Not Modified
+    resp_cached = requests.get(
+        live_server.url + '/api/thumb',
+        params={'path': img_path},
+        headers={'If-None-Match': etag}
+    )
+    assert resp_cached.status_code == 304
+
+    # 3. 请求不存在的文件返回 404
+    resp_404 = requests.get(
+        live_server.url + '/api/thumb',
+        params={'path': os.path.join(live_server.root, 'non-existent.jpg')}
+    )
+    assert resp_404.status_code == 404
+
+

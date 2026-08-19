@@ -561,6 +561,46 @@ class JmServer:
                                    os.path.basename(path),
                                    )
 
+    def api_thumbnail(self):
+        """
+        API: 获取图片文件的纯内存缩略图（宽<=300px，WebP/JPEG 格式，零磁盘持久化）
+        支持 HTTP ETag / If-None-Match / Cache-Control 协商缓存
+        """
+        if not self.verify():
+            return abort(403)
+
+        raw_path = request.args.get('path', None)
+        if not raw_path:
+            return jsonify({'error': 'Path required'}), 400
+
+        from urllib.parse import unquote
+        path = unquote(raw_path)
+        path = os.path.abspath(path)
+
+        if not os.path.isfile(path):
+            return abort(404)
+
+        from .thumbnail import thumbnail_cache
+        width = request.args.get('w', 300, type=int)
+        height = request.args.get('h', 400, type=int)
+
+        thumb_res = thumbnail_cache.get_thumbnail(path, max_width=width, max_height=height)
+        if thumb_res:
+            data, mime_type, mtime, etag = thumb_res
+
+            # 协商缓存检查
+            if_none_match = request.headers.get('If-None-Match')
+            if if_none_match and if_none_match == etag:
+                return Response(status=304)
+
+            response = Response(data, mimetype=mime_type)
+            response.headers['Cache-Control'] = 'public, max-age=86400'
+            response.headers['ETag'] = etag
+            return response
+        else:
+            # 降级：未安装 Pillow 或缩放失败时回退到原图发送
+            return send_from_directory(os.path.dirname(path), os.path.basename(path))
+
     def api_jm_images(self):
         """
         获取指定文件夹的图片列表（供无缝连播使用）
@@ -1064,6 +1104,7 @@ class JmServer:
         self.app.add_url_rule("/api/list_files", 'api_list_files', self.api_list_files, methods=['GET'])
         self.app.add_url_rule("/api/album_images", 'api_album_images', self.api_album_images, methods=['GET'])
         self.app.add_url_rule("/api/jm_images", 'api_jm_images', self.api_jm_images, methods=['GET'])
+        self.app.add_url_rule("/api/thumb", 'api_thumbnail', self.api_thumbnail, methods=['GET'])
         self.app.add_url_rule("/api/open_file", 'api_open_file', self.api_open_file, methods=['GET'])
         self.app.add_url_rule("/api/delete", 'api_delete_path', self.api_delete_path, methods=['GET', 'POST'])
         self.app.add_url_rule("/api/download_zip", 'api_download_zip', self.api_download_zip, methods=['GET'])
