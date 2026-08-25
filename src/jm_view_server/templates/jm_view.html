@@ -17,7 +17,11 @@
     if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}
   </script>
   <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
-  <link rel="stylesheet" href="/static/css/reader.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/reader-base.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/reader-modes.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/reader-toolbar.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/reader-contact-sheet.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/reader-extras.css?t={{ randomArg }}">
 </head>
 <body>
 
@@ -47,7 +51,14 @@
 
 <!-- 右侧阅读工具抽屉：桌面端悬停展开，移动端点击把手展开。 -->
 <div class="r-tools" aria-label="阅读工具栏">
-  <button class="reader-tools-handle" id="toolsHandle" type="button" aria-label="展开阅读工具栏" aria-expanded="false" aria-pressed="false"><i></i><i></i><i></i></button>
+  <button class="reader-tools-handle" id="toolsHandle" type="button" aria-label="展开阅读工具栏" aria-expanded="false" aria-pressed="false">
+    <span class="reader-tools-pin" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 3h12"></path><path d="M8 3v5a4 4 0 0 1-2 3v3h12v-3a4 4 0 0 1-2-3V3"></path><path d="M12 14v7"></path>
+      </svg>
+    </span>
+    <span class="reader-tools-close" aria-hidden="true">×</span>
+  </button>
   <!-- 跳页浮窗 -->
   <div class="jump-pop" id="jumpPop">
     <select id="jumpSelect">
@@ -90,7 +101,7 @@
     </div>
     
     <button id="tAutoNext" title="自动连播下本" data-tip="自动连播"></button>
-    <button id="tFull" title="全屏阅读" data-tip="全屏阅读"></button>
+    <button id="tFull" title="全屏阅读" data-tip="全屏阅读" aria-pressed="false"></button>
     <button id="tHelp" title="快捷键帮助" data-tip="快捷键帮助" aria-label="快捷键帮助">?</button>
   </div>
   <div class="reader-tools-main">
@@ -105,6 +116,8 @@
     </button>
     <span class="reader-tool-divider" aria-hidden="true"></span>
     <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
+    {% set open_folder_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
+    <button id="tOpenFolder" type="button" title="{{ open_folder_label }}" data-tip="{{ open_folder_label }}" aria-label="{{ open_folder_label }}"></button>
     <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
     <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
     <button id="tMore" title="更多功能" data-tip="阅读设置"></button>
@@ -184,9 +197,14 @@
 <script src="/static/js/common.js?t={{ randomArg }}"></script>
 <script id="readerConfig" type="application/json">{{ {
   'albumId': data.title,
+  'albumPath': data.full_path,
   'nextDirPath': data.next_dir_path,
   'openFromDir': data.openFromDir
 } | tojson }}</script>
-<script src="/static/js/reader.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-core.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-preferences.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-modes.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-contact-sheet.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-controls.js?t={{ randomArg }}"></script>
 </body>
 </html>

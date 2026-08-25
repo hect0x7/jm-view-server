@@ -1,0 +1,248 @@
+/* 阅读区兼容深浅主题，移除 hardcode 的深色 */
+:root { --reader-header-height: calc(56px + env(safe-area-inset-top, 0px)); }
+html, body { min-height: 100vh; background: var(--bg); color: var(--text); }
+body.reader-header-visible { padding-top: var(--reader-header-height); }
+body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-header-height); }
+
+.reader-scroll-progress {
+  position: fixed; z-index: 75; top: 50%; right: 22px;
+  min-width: 48px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--border));
+  border-radius: var(--r-pill); color: var(--text); background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  box-shadow: 0 8px 24px rgba(0,0,0,.22); backdrop-filter: blur(12px);
+  font: 700 12px/1 var(--font-mono); text-align: center; pointer-events: none;
+  opacity: 0; transform: translateY(-50%) translateX(8px); transition: opacity .16s ease, transform .16s ease;
+}
+.reader-scroll-progress.is-visible { opacity: 1; transform: translateY(-50%) translateX(0); }
+.reader-eye-care .reader-scroll-progress {
+  color: #3f2f1f; background: rgba(255,244,210,.94); border-color: rgba(118,82,35,.48);
+}
+
+@media (min-width: 861px) {
+  html {
+    scrollbar-width: auto;
+    scrollbar-color: color-mix(in srgb, var(--brand) 78%, var(--text)) color-mix(in srgb, var(--bg-sunken) 90%, var(--border));
+  }
+  html::-webkit-scrollbar { width: 16px; }
+  html::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--bg-sunken) 90%, var(--border));
+    box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border-strong) 72%, transparent);
+  }
+  html::-webkit-scrollbar-thumb {
+    min-height: 52px; border: 3px solid color-mix(in srgb, var(--bg-sunken) 90%, var(--border));
+    border-radius: 10px; background: color-mix(in srgb, var(--brand) 78%, var(--text));
+  }
+  html::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--brand) 92%, var(--text)); }
+  html::-webkit-scrollbar-thumb:active { background: color-mix(in srgb, var(--brand) 68%, white); }
+}
+
+/* 顶部悬浮条 */
+.reader-top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+  display: flex; align-items: center; gap: var(--sp-3);
+  /* PWA 全屏让出顶部安全区（I-5） */
+  height: var(--reader-header-height);
+  padding: env(safe-area-inset-top, 0px) var(--sp-4) 0;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  transition: transform .28s var(--ease);
+}
+.reader-top.hidden { display: none; }
+.r-btn {
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: var(--r-md); color: var(--text-secondary);
+  transition: all .14s; text-decoration: none;
+  flex-shrink: 0;
+}
+@media (hover: hover) {
+  .r-btn:hover { background: var(--surface-hover); color: var(--text); }
+}
+.r-btn svg { width: 20px; height: 20px; }
+.reader-title { min-width: 0; flex: 1; direction: rtl; text-align: left; }
+.reader-title b {
+  font-size: 14px; font-weight: 500; display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text); font-family: var(--font-mono); direction: ltr;
+}
+.r-progress { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+
+/* 图片流 */
+/* 无缝阅读：图片间零间距、无圆角阴影（对齐旧版看本的连续观感） */
+.stream { max-width: 800px; margin: 0 auto; padding: 0 0 120px; display: flex; flex-direction: column; gap: 0; user-select: none; -webkit-user-select: none; }
+.page-img { width: 100%; background: var(--bg-sunken); min-height: 200px; display: block; vertical-align: bottom; will-change: transform; transform: translateZ(0); }
+
+/* 右侧悬浮工具栏 */
+.r-tools {
+  position: fixed; right: 20px; bottom: 96px; z-index: 30;
+  display: flex; flex-direction: column; gap: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(14px);
+  border: 1px solid var(--border); border-radius: var(--r-pill);
+  padding: 8px;
+}
+.r-tools a, .r-tools button {
+  width: 42px; height: 42px; display: grid; place-items: center;
+  border-radius: 50%; color: var(--text-secondary);
+  transition: all .16s var(--ease);
+  text-decoration: none; cursor: pointer;
+  border: none; background: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .r-tools a:hover, .r-tools button:hover { background: var(--brand); color: #fff; }
+}
+.r-tools a svg, .r-tools button svg { width: 18px; height: 18px; }
+
+/* 悬浮工具栏的自制文字提示（原生 title 被 SVG 遮挡不明显，改用 data-tip） */
+.r-tools [data-tip] { position: relative; }
+.r-tools [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  background: var(--text); color: var(--bg);
+  font-size: 12px; line-height: 1; white-space: nowrap;
+  padding: 6px 9px; border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  opacity: 0; pointer-events: none; transition: opacity .14s var(--ease);
+  z-index: 40;
+}
+@media (hover: hover) and (pointer: fine) {
+  .r-tools [data-tip]:hover::after { opacity: 1; }
+}
+
+/* 底部阅读进度区 */
+.r-bottom {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom,0));
+  display: flex; align-items: center; gap: var(--sp-4);
+  transition: transform .28s var(--ease);
+}
+/* 关闭进度条：整条下移隐藏。开关按钮已统一并入右侧工具栏，此处只保留隐藏动画 */
+.r-bottom.hidden { transform: translateY(100%); }
+/* 工具栏“进度条开关”：进度条开启时按钮呈激活态（弱高亮），关闭时回到普通态。
+   用半透明 brand 底色区分 hover 的实心 brand，避免与 hover 态混淆。 */
+.r-tools #tProg.active,
+.r-tools #tHead.active,
+.r-tools #tEye.active,
+.r-tools #tSize.active,
+.r-tools #tAutoNext.active,
+.r-tools #tFull.active,
+.r-tools #tGrid.active,
+.r-tools #tMore.active {
+  background: var(--brand);
+  color: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .r-tools #tProg.active:hover,
+  .r-tools #tHead.active:hover,
+  .r-tools #tEye.active:hover,
+  .r-tools #tSize.active:hover,
+  .r-tools #tAutoNext.active:hover,
+  .r-tools #tFull.active:hover,
+  .r-tools #tGrid.active:hover,
+  .r-tools #tMore.active:hover { background: var(--brand); }
+  #tSizeReset:hover { background: var(--surface-hover); color: var(--brand); }
+}
+
+/* 跳页浮层：不弹全屏 modal，而是贴附在工具栏左侧原地展开一个小浮窗
+   （沿用工具栏同款暗色玻璃拟态，参考旧版“直接就是个下拉”的直白交互）。
+   挂在 .r-tools 内、相对工具栏定位。 */
+.r-tools { position: fixed; } /* 已 fixed，此处仅声明为浮层定位锚点 */
+.more-pop {
+  position: absolute; right: calc(100% + 12px); bottom: 0;
+  transform: translateX(-12px) scale(.96); transform-origin: bottom right;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-lg); padding: 8px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .14s var(--ease), transform .14s var(--ease);
+  z-index: 40;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.more-pop.show { opacity: 1; pointer-events: auto; transform: translateX(0) scale(1); }
+.jump-pop {
+  position: absolute; right: calc(100% + 12px); top: 50%;
+  transform: translateY(-50%) scale(.96);
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg); padding: 8px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .14s var(--ease), transform .14s var(--ease);
+  z-index: 40;
+}
+.jump-pop.show { opacity: 1; pointer-events: auto; transform: translateY(-50%) scale(1); }
+.reader-size-pop {
+  display: flex; align-items: center; gap: 8px; min-width: 220px; padding: 8px 10px;
+}
+.reader-size-pop.is-double-scale { min-width: 0; }
+.reader-size-value {
+  min-width: 38px; color: var(--text-secondary); font: 12px/1 var(--font-mono); white-space: nowrap;
+}
+.reader-size-value[hidden] { display: none !important; }
+.reader-size-range-control { display: flex; align-items: center; flex: 1; min-width: 96px; }
+.reader-size-range-control input {
+  width: 100%; height: 20px; margin: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none; background: transparent;
+}
+.reader-size-range-control input::-webkit-slider-runnable-track {
+  height: 7px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 28%, var(--border));
+}
+.reader-size-range-control input::-webkit-slider-thumb {
+  width: 17px; height: 17px; margin-top: -5px;
+  border: 2px solid var(--bg-elevated); border-radius: 50%;
+  background: var(--brand); box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 34%, transparent);
+  -webkit-appearance: none;
+}
+.reader-size-range-control input::-moz-range-track {
+  height: 7px; border: 0; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 28%, var(--border));
+}
+.reader-size-range-control input::-moz-range-thumb {
+  width: 17px; height: 17px; border: 2px solid var(--bg-elevated); border-radius: 50%;
+  background: var(--brand); box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 34%, transparent);
+}
+.reader-double-scale-control {
+  display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; align-items: center; gap: 9px;
+  color: var(--text-secondary); font-size: 11px; white-space: nowrap;
+}
+.reader-double-scale-control[hidden] { display: none !important; }
+.reader-double-scale-control input {
+  width: 100%; height: 20px; margin: 0; cursor: pointer; accent-color: var(--brand);
+}
+.reader-double-scale-control output { min-width: 34px; font: 11px/1 var(--font-mono); text-align: right; color: var(--brand); }
+.reader-size-range-control[hidden] { display: none !important; }
+.jump-pop select {
+  display: block; box-sizing: border-box;
+  min-width: 130px; height: 38px;
+  background: var(--bg-sunken); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 0 34px 0 12px; font-size: 14px; font-family: var(--font-mono);
+  letter-spacing: .04em; cursor: pointer;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9db0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 15px;
+  transition: border-color .14s var(--ease);
+}
+.jump-pop select:focus { outline: none; border-color: var(--brand); }
+.jump-pop select option { background: var(--bg-elevated); color: var(--text); }
+
+.r-track {
+  flex: 1; height: 10px;
+  background: color-mix(in srgb, var(--border) 82%, var(--bg-sunken));
+  border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--border));
+  border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+}
+.r-fill {
+  height: 100%; width: 0%; background: var(--brand); border-radius: var(--r-pill);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 28%, transparent);
+  transition: width .2s;
+}
+.r-count { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.r-jump {
+  background: var(--bg-sunken); color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md); height: 34px; padding: 0 12px;
+  font-size: 13px; font-family: var(--font-mono);
+  cursor: pointer;
+}
+.r-jump option { background: var(--bg-elevated); color: var(--text); }

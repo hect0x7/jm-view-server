@@ -1,25 +1,53 @@
 function fileSelected() {
   var displayBtn = document.querySelector('#displayInfo');
-  
-  // 选择显示信息或不显示信息
-  if (displayBtn.innerHTML == '显示信息') {
-    var file = document.getElementById('file').files[0];
-    if (file) {
-      var fileSize = 0;
-      if (file.size > 1024 * 1024)
-        fileSize = (Math.round(file.size * 100 / (1024 * 1024)) / 100).toString() + 'MB';
-      else
-        fileSize = (Math.round(file.size * 100 / 1024) / 100).toString() + 'KB';
-      document.getElementById('fileSize').innerHTML = '大小: ' + fileSize;
-      document.getElementById('fileType').innerHTML = '类型: ' + file.type;
-      displayBtn.innerHTML = '隐藏信息';
-    }
+  var files = Array.prototype.slice.call(document.getElementById('file').files);
+  var info = document.getElementById('info');
+
+  if (!files.length) {
+    toast('请先选择需要上传的文件', 'error');
+    return;
   }
-  else {
-    document.getElementById('fileSize').innerHTML = '';
-    document.getElementById('fileType').innerHTML = '';
-    displayBtn.innerHTML = '显示信息';
+
+  var isExpanded = displayBtn.getAttribute('aria-expanded') === 'true';
+  displayBtn.setAttribute('aria-expanded', String(!isExpanded));
+  displayBtn.lastChild.textContent = isExpanded ? ' 显示信息' : ' 隐藏信息';
+  info.replaceChildren();
+  if (isExpanded) return;
+
+  var list = document.createElement('ul');
+  list.className = 'file-detail-list';
+  files.forEach(function(file) {
+    var item = document.createElement('li');
+    item.textContent = file.name + ' · ' + formatFileSize(file.size) +
+      (file.type ? ' · ' + file.type : '');
+    list.appendChild(item);
+  });
+  info.appendChild(list);
+}
+
+function formatFileSize(size) {
+  if (size >= 1024 * 1024) return (Math.round(size * 100 / (1024 * 1024)) / 100) + ' MB';
+  return (Math.round(size * 100 / 1024) / 100) + ' KB';
+}
+
+function updateSelectedFiles() {
+  var files = Array.prototype.slice.call(document.getElementById('file').files);
+  var fileNameTip = document.getElementById('fileName');
+  var totalSize = files.reduce(function(total, file) { return total + file.size; }, 0);
+
+  document.getElementById('info').replaceChildren();
+  document.getElementById('displayInfo').setAttribute('aria-expanded', 'false');
+  document.getElementById('displayInfo').lastChild.textContent = ' 显示信息';
+  if (!files.length) {
+    fileNameTip.textContent = '尚未选择文件';
+    document.getElementById('fileSize').textContent = '';
+    document.getElementById('fileType').textContent = '';
+    return;
   }
+
+  fileNameTip.textContent = files.length === 1 ? '已选: ' + files[0].name : '已选择 ' + files.length + ' 个文件';
+  document.getElementById('fileSize').textContent = '总大小: ' + formatFileSize(totalSize);
+  document.getElementById('fileType').textContent = files.length === 1 && files[0].type ? '类型: ' + files[0].type : '';
 }
 function uploadFile() {
   var fileInput = document.getElementById('file');
@@ -33,7 +61,9 @@ function uploadFile() {
 
   // 发送文件的异步请求
   var fd = new FormData();
-  fd.append("file", fileInput.files[0]);
+  Array.prototype.forEach.call(fileInput.files, function(file) {
+    fd.append("file", file);
+  });
   var uploadTarget = document.getElementById('uploadTarget');
   if (uploadTarget) fd.append('path', uploadTarget.textContent.trim());
   result.style.display = 'none';
@@ -77,10 +107,11 @@ function uploadComplete(evt) {
   result.style.display = 'block';
 
   if (evt.target.status >= 200 && evt.target.status < 300 && response.status === 'ok') {
-    result.textContent = '已上传到：' + response.target_path;
+    var targetPaths = response.target_paths || [response.target_path];
+    result.textContent = '已上传 ' + targetPaths.length + ' 个文件：\n' + targetPaths.join('\n');
     document.getElementById('progress-value').textContent = '100% · 上传成功';
     document.getElementById('mask').style.left = '100%';
-    toast('上传成功，文件已保存到目标路径', 'success');
+    toast('成功上传 ' + targetPaths.length + ' 个文件', 'success');
     return;
   }
 
@@ -100,15 +131,5 @@ function uploadCanceled(evt) {
 }
 
 window.addEventListener('load', function () {
-  // 选择文件后弹出提示
-  (function () {
-    var fileInput = document.querySelector('#file');
-    var fileNameTip = document.getElementById('fileName');
-
-    fileInput.addEventListener('change', function () {
-      if (fileInput.files.length) {
-        fileNameTip.textContent = '已选: ' + fileInput.files[0].name;
-      }
-    })
-  }());
+  document.querySelector('#file').addEventListener('change', updateSelectedFiles);
 })

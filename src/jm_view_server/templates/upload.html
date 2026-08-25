@@ -138,6 +138,13 @@
 
   /* 文件信息展开区 */
   #info { margin-top: var(--sp-2); }
+  .file-detail-list {
+    max-height: 180px; margin: 0; padding: var(--sp-3) var(--sp-4) var(--sp-3) 34px;
+    overflow: auto; border: 1px solid var(--border); border-radius: var(--r-md);
+    background: var(--bg-elevated); color: var(--text-secondary);
+    font: 12px/1.7 var(--font-mono);
+  }
+  #result { white-space: pre-line; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
@@ -159,7 +166,7 @@
       <div class="content-narrow">
         <div class="page-head rise">
           <h1>上传文件</h1>
-          <p>把图片或压缩包拖到下方区域，或点击选择文件</p>
+          <p>把一个或多个图片、压缩包拖到下方区域，或点击选择文件</p>
         </div>
 
         <div class="upload-target rise" style="animation-delay:.02s">
@@ -173,11 +180,11 @@
         <!-- 拖拽区（视觉层），点击触发隐藏的 #file input -->
         <div class="dropzone rise" id="dropzone" style="animation-delay:.04s">
           <span class="dz-orb" id="dzOrb"></span>
-          <div class="dz-title">拖拽文件到此处</div>
-          <div class="dz-sub">或 <a href="#" onclick="return false">点击浏览</a></div>
-          <div class="dz-hint">支持 jpg / png / webp / zip，单文件 ≤ 200MB</div>
+          <div class="dz-title">拖拽一个或多个文件到此处</div>
+          <div class="dz-sub">或 <a href="#" onclick="return false">点击多选文件</a></div>
+          <div class="dz-hint">支持一次选择多个文件</div>
           <!-- 真正的 file input，upload.js 依赖 id="file" -->
-          <input type="file" name="file1" id="file" style="display:none">
+          <input type="file" name="file" id="file" multiple style="display:none">
         </div>
 
         <!-- 已选文件信息行 -->
@@ -211,7 +218,7 @@
 
         <!-- 操作按钮 -->
         <div class="action-row rise" style="animation-delay:.1s">
-          <button class="btn btn-outline" id="displayInfo" onclick="fileSelected()">
+          <button class="btn btn-outline" id="displayInfo" aria-expanded="false" onclick="fileSelected()">
             <span id="infoIco"></span> 显示信息
           </button>
           <button class="btn btn-primary" id="submit" onclick="uploadFile()">
@@ -229,6 +236,7 @@
 </div>
 
 <script src="/static/js/app.js?t={{randomArg}}"></script>
+<script src="/static/js/app-shell.js?t={{randomArg}}"></script>
 <script src="/static/js/upload.js?t={{randomArg}}"></script>
 <script>
   renderShell('upload');
@@ -257,7 +265,7 @@
   dz.addEventListener('drop', function(e) {
     e.preventDefault();
     dz.classList.remove('dragover');
-    // 将拖入文件赋给 #file input（upload.js 从 #file.files[0] 读取）
+    // 将拖入的全部文件赋给 #file input。
     if (e.dataTransfer.files.length) {
       var dt = e.dataTransfer;
       try {

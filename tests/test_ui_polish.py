@@ -5,6 +5,7 @@ UI 改进 3 项验收（todo.md）：
   #3 上传页返回键字重加强
 """
 import re
+from pathlib import Path
 
 
 def _open_index(live_server, browser):
@@ -148,3 +149,21 @@ def test_upload_back_button_weight(live_server, browser):
         'a.btn-ghost', 'e => getComputedStyle(e).fontWeight')
     # 600 或浏览器归一化后的数值
     assert str(weight) in ('600', 'bold'), f'返回键字重应加强为 600，实际 {weight!r}'
+
+
+def test_upload_multiple_files_from_browser(live_server, browser, tmp_path):
+    first = tmp_path / 'browser-first.txt'
+    second = tmp_path / 'browser-second.txt'
+    first.write_bytes(b'first from browser')
+    second.write_bytes(b'second from browser')
+
+    pg = browser.new_page()
+    pg.goto(live_server.url + '/upload_file')
+    pg.set_input_files('#file', [str(first), str(second)])
+    assert pg.locator('#fileName').text_content() == '已选择 2 个文件'
+
+    pg.click('#submit')
+    pg.wait_for_function("document.querySelector('#progress-value').textContent.includes('上传成功')")
+    assert '已上传 2 个文件' in pg.locator('#result').text_content()
+    assert Path(live_server.root, first.name).read_bytes() == b'first from browser'
+    assert Path(live_server.root, second.name).read_bytes() == b'second from browser'

@@ -1,0 +1,214 @@
+/* 阅读控制台视觉重构：窄轨主操作 + 带文字的设置面板 */
+.r-tools {
+  right: 0; display: block; padding: 0; border: 0; border-radius: 0;
+  background: transparent; backdrop-filter: none;
+  transform: translateX(calc(100% - 14px));
+  transition: transform .2s var(--ease), opacity .16s var(--ease);
+  will-change: transform;
+}
+.r-tools.is-open,
+.r-tools.is-pinned,
+.r-tools:focus-within { transform: translateX(-12px); }
+.r-tools > .reader-tools-handle {
+  position: absolute; left: 0; top: 50%; z-index: 2;
+  width: 14px; height: 52px; transform: translateY(-50%);
+  display: grid; place-items: center;
+  padding: 0; cursor: pointer; color: var(--brand);
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  transition: width .16s var(--ease), height .16s var(--ease), transform .16s var(--ease), opacity .14s var(--ease), background .14s var(--ease);
+}
+.reader-tools-pin,
+.reader-tools-close {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  opacity: 0; transform: scale(.72);
+  transition: opacity .12s var(--ease), transform .12s var(--ease);
+}
+.reader-tools-pin svg { width: 18px; height: 18px; }
+.reader-tools-close { font-size: 24px; font-weight: 400; line-height: 1; }
+.reader-tools-handle::after {
+  content: ''; position: absolute; right: 0; top: 50%;
+  width: 8px; height: 34px; transform: translateY(-50%);
+  border: 1px solid color-mix(in srgb, var(--brand) 86%, white 8%);
+  border-right: 0; border-radius: 7px 0 0 7px;
+  background: color-mix(in srgb, var(--brand) 72%, var(--bg-elevated));
+  box-shadow: -4px 0 16px color-mix(in srgb, var(--brand) 34%, transparent);
+  transition: opacity .12s var(--ease), background .12s var(--ease);
+}
+.r-tools.is-open .reader-tools-handle,
+.r-tools.is-pinned .reader-tools-handle,
+.r-tools:focus-within .reader-tools-handle {
+  width: 32px; height: 32px;
+  transform: translate(-100%, -50%); opacity: .72;
+  border-radius: 10px 0 0 10px;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 16%, var(--bg-elevated));
+  box-shadow: -3px 0 12px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+.r-tools.is-open .reader-tools-close,
+.r-tools.is-pinned .reader-tools-close,
+.r-tools:focus-within .reader-tools-close { opacity: .88; transform: scale(1); }
+.r-tools.is-open .reader-tools-handle::after,
+.r-tools.is-pinned .reader-tools-handle::after,
+.r-tools:focus-within .reader-tools-handle::after { opacity: 0; }
+.reader-tools-handle:focus-visible {
+  outline: 3px solid var(--brand-ring);
+  outline-offset: 3px;
+}
+.reader-tools-main {
+  width: 52px; padding: 6px;
+  display: flex; flex-direction: column; gap: 3px;
+  background: color-mix(in srgb, var(--bg-elevated) 91%, transparent);
+  backdrop-filter: blur(18px) saturate(1.18);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.05);
+  transition: opacity .14s var(--ease), box-shadow .14s var(--ease);
+}
+.reader-tools-main a,
+.reader-tools-main button {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: transparent; color: var(--text-secondary);
+  transition: background .14s var(--ease), color .14s var(--ease), transform .14s var(--ease);
+}
+.reader-tools-main #tMore {
+  margin-top: 2px;
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
+  color: var(--brand);
+}
+.reader-tool-divider { height: 1px; margin: 4px 7px; background: var(--border); opacity: .75; }
+.r-tools:not(.is-open):not(.is-pinned):not(:focus-within) .reader-tools-main {
+  opacity: 0; pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .r-tools:hover .reader-tools-handle::after { background: color-mix(in srgb, var(--brand) 88%, white 6%); }
+  .r-tools.is-open .reader-tools-handle:hover { opacity: 1; color: var(--brand); }
+  .r-tools.is-open .reader-tools-pin,
+  .r-tools.is-pinned .reader-tools-pin,
+  .r-tools:focus-within .reader-tools-pin { opacity: .9; transform: scale(1); }
+  .r-tools.is-open .reader-tools-close,
+  .r-tools.is-pinned .reader-tools-close,
+  .r-tools:focus-within .reader-tools-close { opacity: 0; transform: scale(.72); }
+  .r-tools.is-pinned .reader-tools-handle,
+  .r-tools.is-pinned .reader-tools-handle:hover {
+    opacity: 1; color: #fff; background: var(--brand);
+    box-shadow: -4px 0 18px color-mix(in srgb, var(--brand) 42%, transparent);
+  }
+  .r-tools.is-pinned .reader-tools-pin { opacity: 1; }
+  .r-tools.is-pinned .reader-tools-main {
+    border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
+    box-shadow: 0 18px 44px rgba(0,0,0,.24), 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent), 0 0 24px color-mix(in srgb, var(--brand) 16%, transparent);
+  }
+  .reader-tools-main a:hover,
+  .reader-tools-main button:hover {
+    background: var(--surface-hover); color: var(--text); transform: translateY(-1px);
+  }
+  .reader-tools-main #tMore:hover { background: color-mix(in srgb, var(--brand) 21%, transparent); color: var(--brand); }
+  .reader-tools-main #tMore.active:hover { background: var(--brand); color: #fff; }
+}
+.reader-tools-main #tMore.active { background: var(--brand); color: #fff; }
+
+.more-pop {
+  width: 278px; padding: 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  transform: translateX(10px) scale(.97); transform-origin: bottom right;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-elevated) 95%, transparent);
+  backdrop-filter: blur(20px) saturate(1.15);
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow: 0 22px 64px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.more-pop.show { transform: translateX(0) scale(1); }
+.more-pop-head {
+  grid-column: 1 / -1; padding: 2px 4px 8px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.more-pop-head b { font-family: var(--font-brand); font-size: 14px; letter-spacing: .01em; }
+.more-pop-head span {
+  color: var(--text-muted); font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+}
+.more-pop .reader-mode-control button.active {
+  background: var(--bg-elevated); color: var(--brand); box-shadow: var(--shadow-sm);
+}
+.more-pop > button,
+.more-pop > .reader-size-control > #tSize {
+  position: relative !important; inset: auto !important; margin: 0 !important;
+  width: 100% !important; height: 48px !important; padding: 0 11px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 9px;
+  border: 1px solid transparent; border-radius: 13px;
+  background: var(--bg-sunken); color: var(--text-secondary);
+}
+.r-tools .more-pop > button[data-tip]::after,
+.r-tools .more-pop > .reader-size-control > #tSize[data-tip]::after {
+  content: attr(data-tip); position: static; inset: auto; transform: none;
+  padding: 0; border: 0; border-radius: 0; background: transparent;
+  color: inherit; opacity: 1; visibility: visible; pointer-events: none;
+  font-size: 12px; line-height: 1; font-weight: 600;
+}
+.more-pop > button svg,
+.more-pop > .reader-size-control > #tSize svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.more-pop > .reader-size-control {
+  width: auto !important; height: auto !important; min-width: 0;
+}
+.more-pop #tHelp {
+  grid-column: 1 / -1; justify-content: center;
+  font-family: var(--font-mono); font-size: 16px;
+}
+.more-pop #tProg.active,
+.more-pop #tHead.active,
+.more-pop #tEye.active,
+.more-pop #tSize.active,
+.more-pop #tInsertPage.active,
+.more-pop #tAutoNext.active {
+  background: color-mix(in srgb, var(--brand) 14%, var(--bg-elevated));
+  color: var(--brand); box-shadow: inset 3px 0 0 var(--brand);
+}
+@media (hover: hover) and (pointer: fine) {
+  .more-pop > button:hover,
+  .more-pop > .reader-size-control > #tSize:hover {
+    background: var(--surface-hover); color: var(--text); border-color: var(--border);
+  }
+  .more-pop #tProg.active:hover,
+  .more-pop #tHead.active:hover,
+  .more-pop #tEye.active:hover,
+  .more-pop #tSize.active:hover,
+  .more-pop #tInsertPage.active:hover,
+  .more-pop #tAutoNext.active:hover {
+    background: color-mix(in srgb, var(--brand) 20%, var(--bg-elevated)); color: var(--brand);
+  }
+}
+.more-pop .reader-mode-control {
+  grid-column: 1 / -1; width: 100%; height: auto;
+  margin-bottom: 2px; padding: 4px; gap: 4px; border-radius: 14px;
+}
+.more-pop .reader-mode-control button {
+  width: auto !important; height: 34px !important;
+  border-radius: 10px !important; padding: 0 6px; border: 0;
+  background: transparent; color: var(--text-secondary); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .14s var(--ease);
+}
+.more-pop .reader-mode-control button.active {
+  background: color-mix(in srgb, var(--brand) 22%, transparent) !important;
+  color: var(--brand) !important;
+}
+.reader-help-overlay {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  padding: 20px; background: rgba(8, 10, 18, .58); backdrop-filter: blur(8px);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .18s var(--ease), visibility .18s var(--ease);
+}
+.reader-help-overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.reader-help-card {
+  width: min(560px, 100%); max-height: min(720px, 85vh); overflow: auto;
+  padding: 22px; border: 1px solid var(--border); border-radius: var(--r-xl);
+  background: var(--bg-elevated); box-shadow: var(--shadow-lg);
+}
+.reader-help-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.reader-help-head h2 { font-family: var(--font-brand); font-size: 20px; }
+.reader-help-close { width: 34px; height: 34px; border-radius: var(--r-md); color: var(--text-secondary); font-size: 20px; }
+.reader-help-close:hover { background: var(--surface-hover); color: var(--text); }
+.reader-shortcut-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.reader-shortcut-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
+.reader-shortcut-row > span { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.reader-shortcut-row i { color: var(--text-muted); font-size: 10px; font-style: normal; }
+.reader-shortcut-row b { font-size: 12px; text-align: right; }

@@ -1,0 +1,163 @@
+/* scramble-page 容器 */
+.center.scramble-page { width: 100%; }
+
+/* 项3：图片适配模式（给 .stream 加 class 控制 .page-img 尺寸） */
+/* 适宽（默认）：撑满容器宽度，高度自适应 */
+.stream.fit-width .page-img { width: 100%; height: auto; max-width: none; max-height: none; }
+/* 适高：单图高度=视口高，宽度 auto，图片居中 */
+.stream.fit-height { max-width: none; }
+.stream.fit-height .page-img { width: auto; height: 100vh; max-width: none; margin: 0 auto; }
+/* 原始：不放大，宽度 auto 且不超过容器 */
+.stream.fit-raw { max-width: none; }
+.stream.fit-raw .page-img { width: auto; height: auto; max-width: 100%; margin: 0 auto; }
+
+/* 单页阅读：文档本身不滚动，当前页在独立阅读舞台内展示。 */
+body.reader-single { overflow: hidden; }
+.stream.reader-single-mode {
+  width: 100%; max-width: none !important; height: 100vh; padding: 0;
+  display: block; overflow: hidden;
+}
+body.reader-header-visible .stream.reader-single-mode {
+  height: calc(100vh - var(--reader-header-height));
+  height: calc(100dvh - var(--reader-header-height));
+}
+.stream.reader-single-mode .scramble-page {
+  display: none; width: 100%; height: 100%; overflow: auto;
+  align-items: center; justify-content: center; box-sizing: border-box;
+  padding: 12px max(12px, env(safe-area-inset-right, 0px)) 92px max(12px, env(safe-area-inset-left, 0px));
+  scrollbar-gutter: stable both-edges;
+}
+.stream.reader-single-mode .scramble-page.is-active { display: flex; }
+.stream.reader-single-mode .page-img {
+  width: auto; height: auto; min-height: 0; max-width: 100%;
+  max-height: calc(100vh - 104px); margin: auto; object-fit: contain;
+  cursor: ew-resize;
+}
+.stream.reader-single-mode.reader-single-custom .scramble-page.is-active { display: block; text-align: center; }
+.stream.reader-single-mode.reader-single-custom .page-img {
+  width: min(var(--reader-custom-width, 800px), 100%); max-width: 100%; max-height: none;
+  margin: 0 auto; cursor: ew-resize;
+}
+
+/* 双页阅读：连续纵向下拉，每个逻辑组占一行。JS 提供 row / column 坐标。 */
+body.reader-double {
+  overflow-x: hidden; overflow-y: auto; background: #07080c;
+}
+.stream.reader-double-mode {
+  --reader-double-column-gap: 0px;
+  --reader-double-row-gap: 0px;
+  --reader-double-inline: 0px;
+  --reader-double-width-scale: 98;
+  --reader-double-width-breathing-inline: 1vw;
+  --reader-double-width-breathing-block: 1vh;
+  width: min(1760px, 100%); max-width: none !important; min-height: 100vh;
+  margin: 0 auto; padding: 0 var(--reader-double-inline) 120px;
+  box-sizing: border-box; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto; align-items: start;
+  column-gap: var(--reader-double-column-gap); row-gap: var(--reader-double-row-gap);
+  overflow: visible; direction: ltr;
+  background: #07080c;
+}
+.stream.reader-double-mode > .scramble-page {
+  position: relative; display: flex; width: 100%; min-width: 0;
+  grid-row: var(--reader-double-row, auto);
+  grid-column: var(--reader-double-column, auto);
+  align-items: flex-start; justify-content: center; overflow: visible;
+  background: transparent;
+}
+.stream.reader-double-mode > .scramble-page.is-double-wide,
+.stream.reader-double-mode > .scramble-page[data-double-wide="true"] {
+  grid-column: 1 / -1; justify-self: center;
+}
+.stream.reader-double-mode .page-img {
+  width: 100%; height: auto; min-height: 0; max-width: 100%; max-height: none;
+  margin: 0 auto; object-fit: contain;
+  box-shadow: none;
+}
+.stream.reader-double-mode {
+  grid-auto-rows: auto !important;
+  padding: var(--reader-double-width-breathing-block) var(--reader-double-width-breathing-inline) calc(120px + var(--reader-double-width-breathing-block));
+}
+.stream.reader-double-mode > .scramble-page { height: auto; align-items: flex-start; }
+.stream.reader-double-mode .page-img { width: 100%; max-height: none; }
+.stream.reader-double-mode > .scramble-page.is-double-current { box-shadow: none; }
+.stream.reader-double-mode > .scramble-page.is-double-current::after {
+  content: ''; position: absolute; z-index: 2; top: 7px; right: 7px;
+  width: 4px; height: 4px; border-radius: 50%; pointer-events: none;
+  background: color-mix(in srgb, var(--brand) 66%, transparent);
+  box-shadow: 0 0 0 3px rgba(0,0,0,.24);
+}
+.stream.reader-double-mode > .reader-double-blank,
+.stream.reader-double-mode > .reader-double-slot.is-blank {
+  min-width: 0; min-height: 100%; align-self: stretch;
+  grid-row: var(--reader-double-row, auto);
+  grid-column: var(--reader-double-column, auto);
+  border: 0;
+  background: #07080c;
+  box-shadow: none;
+}
+.stream.reader-double-mode > .reader-double-blank.is-inserted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: clamp(320px, 45vh, 680px);
+  padding: 32px 16px;
+  border: 1.5px dashed color-mix(in srgb, var(--brand) 40%, rgba(255,255,255,.14));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--brand) 3%, #08090e);
+  color: var(--text-secondary);
+  text-align: center;
+  user-select: none;
+  box-sizing: border-box;
+  transition: all .16s var(--ease);
+}
+.stream.reader-double-mode > .reader-double-blank.is-inserted:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 7%, #08090e);
+}
+.reader-double-blank-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--brand);
+  opacity: .85;
+}
+.reader-double-blank-label {
+  font: 600 13px/1.4 var(--font-sans);
+  color: var(--text-primary, #e2e4ee);
+}
+.reader-double-blank-sub {
+  font: 11px/1.3 var(--font-mono);
+  color: var(--text-muted);
+}
+.reader-double-blank-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font: 500 12px/1 var(--font-sans);
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+.reader-double-blank-remove:hover {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+  transform: scale(1.03);
+}
+.reader-mode-control {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; width: 184px;
+  padding: 3px; border-radius: var(--r-md); background: var(--bg-sunken);
+}
+.reader-mode-control button {
+  width: auto !important; height: 32px !important; border-radius: calc(var(--r-md) - 3px) !important;
+  padding: 0 8px; font-size: 11px; white-space: nowrap;
+}
+.reader-mode-control button.active { background: var(--brand); color: #fff; }

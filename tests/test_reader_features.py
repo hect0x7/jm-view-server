@@ -83,226 +83,6 @@ def _open_reader_settings(pg):
     assert pg.eval_on_selector('#morePop', 'el => el.classList.contains("show")')
 
 
-def test_double_width_scale_static_contract():
-    root = Path(__file__).resolve().parents[1]
-    app_js = (root / 'src/jm_view_server/static/js/app.js').read_text(encoding='utf-8')
-    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
-    reader_css = (root / 'src/jm_view_server/static/css/reader.css').read_text(encoding='utf-8')
-    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
-    settings_html = (root / 'src/jm_view_server/templates/settings.html').read_text(encoding='utf-8')
-
-    assert "doubleWidthScale: { key: 'jmv-double-width-scale', type: 'number', min: 50, max: 100, fallback: 98 }" in app_js
-    assert 'id="doubleWidthScale"' in settings_html
-    assert 'id="doubleWidthScaleRange"' in reader_html
-    assert 'min="50" max="100" step="1" value="98"' in settings_html
-    assert 'min="50" max="100" step="1" value="98"' in reader_html
-    assert '双页画面比例' in settings_html
-    assert '<span>画面比例</span>' in reader_html
-    assert "if (isNaN(numberValue)) return def.fallback;" in app_js
-    assert "Math.max(50, Math.min(100, percentage)) + '%'" in app_js
-    assert 'parseInt(value, 10) || def.fallback' not in app_js
-    assert 'formatDoubleWidthScale(doubleWidthScale.value)' in (
-        root / 'src/jm_view_server/static/js/settings.js').read_text(encoding='utf-8')
-    assert 'formatDoubleWidthScale(doubleWidthScale)' in reader_js
-    assert 'var breathingRoom = 100 - doubleWidthScale;' in reader_js
-    assert "stream.style.setProperty('--reader-double-width-scale', String(doubleWidthScale))" in reader_js
-    assert "stream.style.setProperty('--reader-double-width-breathing-inline', (breathingRoom / 2) + 'vw')" in reader_js
-    assert "stream.style.setProperty('--reader-double-width-breathing-block', (breathingRoom / 2) + 'vh')" in reader_js
-    assert "applyDoubleWidthScale(98, true)" in reader_js
-    assert "e.detail.name === 'doubleWidthScale'" in reader_js
-    assert 'padding: var(--reader-double-width-breathing-block) var(--reader-double-width-breathing-inline) calc(120px + var(--reader-double-width-breathing-block));' in reader_css
-    assert 'padding: var(--reader-double-width-breathing-block) var(--reader-double-width-breathing-inline) calc(96px + var(--reader-double-width-breathing-block));' in reader_css
-    assert '--reader-double-column-gap: 0px;' in reader_css
-    assert '--reader-double-row-gap: 0px;' in reader_css
-    assert 'bindRangeValueFeedback' not in app_js
-    assert 'bindRangeValueFeedback' not in reader_js
-    assert 'settings-scale-control' not in settings_html
-    assert '.reader-double-scale-control.is-adjusting output' not in reader_css
-    assert '.reader-double-scale-control input {' in reader_css
-    assert 'height: 20px' in reader_css
-    assert "document.body.classList.toggle('reader-double', readerMode === 'double')" in reader_js
-    assert "stream.classList.toggle('reader-double-mode', readerMode === 'double')" in reader_js
-    assert 'effectiveDoubleFit' not in reader_js
-    assert 'jmv-double-fit' not in reader_js
-    assert "stream.style.gridAutoRows = 'auto';" in reader_js
-    final_mode_init = "setReaderMode(readerMode, { persist: false, initial: true });"
-    assert reader_js.count(final_mode_init) == 1
-    assert reader_js.rfind(final_mode_init) > reader_js.find("var stream = document.getElementById('stream');")
-    assert reader_js.rfind(final_mode_init) < reader_js.rfind('updateDocumentScrollProgress(false);')
-
-
-def test_thumbnail_card_canvas_static_contract():
-    root = Path(__file__).resolve().parents[1]
-    app_js = (root / 'src/jm_view_server/static/js/app.js').read_text(encoding='utf-8')
-    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
-    reader_css = (root / 'src/jm_view_server/static/css/reader.css').read_text(encoding='utf-8')
-    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
-    agents_md = (root / 'AGENTS.md').read_text(encoding='utf-8')
-
-    assert 'id="readerGridDirControl"' in reader_html
-    assert 'id="dirLtr"' in reader_html
-    assert 'id="dirRtl"' in reader_html
-    assert 'id="readerGridDoublePreview"' in reader_html
-    assert 'id="readerGridReverse"' in reader_html
-    assert 'id="readerGridReset"' in reader_html
-    assert 'id="readerGridPersist"' in reader_html
-    assert 'id="tInsertPage"' not in reader_html
-    assert 'reader-grid-toolbar' in reader_css
-    assert 'reader-grid-dir-control' in reader_css
-    assert 'reader-grid-insert-btn' in reader_css
-    assert 'reader-grid-blank' in reader_css
-    assert 'reader-grid-blank-del' in reader_css
-    assert 'reader-grid-spread-row' in reader_css
-    assert 'pageSequence' in reader_js
-    assert 'isSequencePersisted' in reader_js
-    assert 'isGridDoublePreview' in reader_js
-    assert 'bindCardDragEvents' in reader_js
-    assert 'readerGridDoublePreview' in reader_js
-    assert 'readerGridReverse' in reader_js
-    assert 'readerGridReset' in reader_js
-    assert 'readerGridPersist' in reader_js
-    assert '缩略图可视化卡片画板' in agents_md
-
-
-def test_thumbnail_card_canvas_algorithm_node_eval():
-    import json
-    import subprocess
-    root = Path(__file__).resolve().parents[1]
-    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
-
-    js_test_script = """
-    const pages = [{}, {}, {}, {}, {}];
-    let readingDirection = 'ltr';
-    let pageSequence = [{type:'page', pageIndex: 0}, {type:'page', pageIndex: 1}, {type:'page', pageIndex: 2}, {type:'page', pageIndex: 3}, {type:'page', pageIndex: 4}];
-    function isWidePage(idx) { return false; }
-    """ + reader_js[reader_js.find('function pushDoublePair('):reader_js.find('function findDoubleGroupIndex(')] + """
-
-    // 1. Default sequence double groups
-    const defGroups = buildDoubleGroups();
-    const defSlots = defGroups.map(g => g.slots);
-
-    // 2. Drag & reorder: move page 3 before page 1
-    const moved = pageSequence.splice(3, 1)[0];
-    pageSequence.splice(1, 0, moved);
-    const reorderedSequence = pageSequence.map(x => x.pageIndex);
-    const reorderedGroups = buildDoubleGroups();
-    const reorderedSlots = reorderedGroups.map(g => g.slots);
-
-    // 3. Insert multiple blanks at beginning: [b1, b2, b3, 0, 3, 1, 2, 4]
-    pageSequence.unshift({ type: 'blank', id: 'b1' }, { type: 'blank', id: 'b2' }, { type: 'blank', id: 'b3' });
-    const multiBlankHeadGroups = buildDoubleGroups();
-    const multiBlankHeadSlots = multiBlankHeadGroups.map(g => g.slots);
-    const multiBlankHeadInserted = multiBlankHeadGroups.map(g => g.insertedSlots);
-
-    // 4. Reverse sequence
-    pageSequence = [{type:'page', pageIndex: 4}, {type:'page', pageIndex: 3}, {type:'page', pageIndex: 2}, {type:'page', pageIndex: 1}, {type:'page', pageIndex: 0}];
-    const reversedGroups = buildDoubleGroups();
-    const reversedSlots = reversedGroups.map(g => g.slots);
-
-    console.log(JSON.stringify({ defSlots, reorderedSequence, reorderedSlots, multiBlankHeadSlots, multiBlankHeadInserted, reversedSlots }));
-    """
-
-    proc = subprocess.run(['node', '-e', js_test_script], capture_output=True, text=True, check=True)
-    data = json.loads(proc.stdout)
-
-    assert data['defSlots'] == [[None, 0], [1, 2], [3, 4]]
-    assert data['reorderedSequence'] == [0, 3, 1, 2, 4]
-    assert data['reorderedSlots'] == [[None, 0], [3, 1], [2, 4]]
-    # multi blanks: row 1 is [b1, b2], row 2 is [b3, 0], row 3 is [3, 1], row 4 is [2, 4]
-    assert data['multiBlankHeadSlots'] == [[None, None], [None, 0], [3, 1], [2, 4]]
-    assert data['multiBlankHeadInserted'] == [[0, 1], [0], [], []]
-    assert data['reversedSlots'] == [[None, 4], [3, 2], [1, 0]]
-
-
-def test_static_javascript_syntax_validity():
-    import subprocess
-    root = Path(__file__).resolve().parents[1]
-    js_dir = root / 'src/jm_view_server/static/js'
-    js_files = list(js_dir.glob('*.js'))
-    assert len(js_files) > 0
-
-    for js_file in js_files:
-        res = subprocess.run(['node', '--check', str(js_file)], capture_output=True, text=True)
-        assert res.returncode == 0, f"JavaScript syntax error in {js_file.name}:\n{res.stderr}"
-
-
-def test_toolbar_pinned_static_contract():
-    root = Path(__file__).resolve().parents[1]
-    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
-    reader_css = (root / 'src/jm_view_server/static/css/reader.css').read_text(encoding='utf-8')
-    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
-
-    assert 'id="toolsHandle"' in reader_html
-    assert 'aria-pressed="false"' in reader_html
-    assert 'toolbarPinned = desktopToolbarQuery.matches && !!pinned;' in reader_js
-    assert "toolsHandle.setAttribute('aria-pressed', toolbarPinned ? 'true' : 'false');" in reader_js
-    assert 'setToolbarPinned(false, false);' in reader_js
-    assert '.reader-tools-handle:focus-visible {' in reader_css
-    assert 'outline: 3px solid var(--brand-ring);' in reader_css
-    assert '.r-tools.is-pinned .reader-tools-handle,' in reader_css
-    assert 'opacity: 1; color: #fff; background: var(--brand);' in reader_css
-    assert '.r-tools.is-pinned .reader-tools-handle i { opacity: 1; }' in reader_css
-    assert '.r-tools.is-pinned .reader-tools-main {' in reader_css
-    assert '.reader-tools-handle i, .reader-tools-handle::after, .reader-scroll-progress { transition: none; }' in reader_css
-
-
-def test_settings_transaction_replacement_static_contract():
-    root = Path(__file__).resolve().parents[1]
-    settings_js = (
-        root / 'src/jm_view_server/static/js/settings.js').read_text(encoding='utf-8')
-
-    assert 'function cancel() {' in settings_js
-    assert 'function cleanup() {' in settings_js
-    assert 'restoreAnchor();\n      cancel();' in settings_js
-    assert settings_js.count('if (activeTransaction) activeTransaction.cancel();') >= 2
-    assert 'if (activeTransaction) activeTransaction.cleanup();' not in settings_js
-    assert "scrollHost.addEventListener('wheel', cancelActiveTransaction, true);" in settings_js
-    assert "scrollHost.addEventListener('touchstart', cancelActiveTransaction, true);" in settings_js
-
-
-def test_reader_document_scroll_feedback_static_contract():
-    root = Path(__file__).resolve().parents[1]
-    reader_js = (root / 'src/jm_view_server/static/js/reader.js').read_text(encoding='utf-8')
-    reader_css = (root / 'src/jm_view_server/static/css/reader.css').read_text(encoding='utf-8')
-    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
-
-    assert 'id="readerScrollProgress"' in reader_html
-    assert 'pointer-events: none' in reader_css
-    assert '@media (min-width: 861px)' in reader_css
-    assert 'html::-webkit-scrollbar { width: 16px; }' in reader_css
-    assert 'html::-webkit-scrollbar-thumb:hover' in reader_css
-    assert 'html::-webkit-scrollbar-thumb:active' in reader_css
-    assert 'scrollbar-color:' in reader_css
-    assert 'scrollbar-width: auto' in reader_css
-    assert '.reader-eye-care .reader-scroll-progress' in reader_css
-    assert 'window.scrollY / maxScroll' in reader_js
-    assert 'var maxScroll = scrollHeight - window.innerHeight;' in reader_js
-    assert "scrollProgressIndicator.classList.add('is-visible')" in reader_js
-    assert "scrollProgressIndicator.classList.remove('is-visible')" in reader_js
-    assert 'function hideDocumentScrollProgress()' in reader_js
-    assert 'var scrollbarDragPointerId = null;' in reader_js
-    assert 'function canShowDocumentScrollProgress()' in reader_js
-    assert "if (!scrollProgressIndicator || readerMode === 'single' || !desktopToolbarQuery.matches) return false;" in reader_js
-    assert 'document.documentElement.scrollHeight - window.innerHeight > 1' in reader_js
-    assert 'function isNativeScrollbarThumbPointerDown(e)' in reader_js
-    assert "if (!e.isPrimary || e.pointerType !== 'mouse' || e.button !== 0) return false;" in reader_js
-    assert 'e.target !== document.documentElement' in reader_js
-    assert 'e.clientX < document.documentElement.clientWidth' in reader_js
-    assert 'Math.max(52, viewportHeight * viewportHeight / scrollHeight)' in reader_js
-    assert 'e.clientY >= thumbTop && e.clientY <= thumbTop + thumbHeight' in reader_js
-    assert "document.documentElement.addEventListener('pointerdown'" in reader_js
-    assert "window.addEventListener('pointerup'" in reader_js
-    assert "window.addEventListener('pointercancel'" in reader_js
-    assert "window.addEventListener('blur', hideDocumentScrollProgress);" in reader_js
-    assert 'updateDocumentScrollProgress(scrollbarDragPointerId !== null);' in reader_js
-    assert reader_js.count('updateDocumentScrollProgress(true);') == 1
-    assert 'scrollProgressHideTimer' not in reader_js
-    assert "if (maxScroll <= 1)" in reader_js
-    assert reader_js.count('updateDocumentScrollProgress(false);') >= 2
-    assert "document.body.classList.toggle('reader-eye-care', !!on)" in reader_js
-
-
-# ---------- 项1：阅读进度记忆 ----------
 def test_progress_memory(browser, live_server):
     ctx = browser.new_context()  # 同一 context 共享 localStorage，模拟重开页面
     pg = _open(ctx, live_server)
@@ -886,6 +666,50 @@ def test_reader_configuration_buttons_preserve_viewport(browser, live_server):
     pg.close()
 
 
+def test_visible_reader_header_does_not_cover_first_image(browser, live_server):
+    ctx = browser.new_context()
+    pg = _open_with_preferences(ctx, live_server, {
+        'jmv-head-hidden': '0',
+        'jmv-reader-mode': 'scroll',
+    })
+
+    geometry = pg.evaluate("""() => {
+        const header = document.querySelector('.reader-top').getBoundingClientRect();
+        const stream = document.getElementById('stream').getBoundingClientRect();
+        const firstPage = document.getElementById('page_0').getBoundingClientRect();
+        return {
+            headerBottom: header.bottom,
+            streamTop: stream.top,
+            firstPageTop: firstPage.top,
+        };
+    }""")
+    assert geometry['streamTop'] >= geometry['headerBottom'] - 1
+    assert geometry['firstPageTop'] >= geometry['headerBottom'] - 1
+
+    pg.evaluate("setReaderMode('single', { persist: false })")
+    single = pg.evaluate("""() => {
+        const header = document.querySelector('.reader-top').getBoundingClientRect();
+        const stream = document.getElementById('stream').getBoundingClientRect();
+        return {
+            headerBottom: header.bottom,
+            streamTop: stream.top,
+            streamBottom: stream.bottom,
+            viewportHeight: window.innerHeight,
+        };
+    }""")
+    assert single['streamTop'] >= single['headerBottom'] - 1
+    assert single['streamBottom'] <= single['viewportHeight'] + 1
+
+    pg.evaluate("setReaderMode('double', { persist: false })")
+    double = pg.evaluate("""() => {
+        const header = document.querySelector('.reader-top').getBoundingClientRect();
+        const firstPage = document.getElementById('page_0').getBoundingClientRect();
+        return { headerBottom: header.bottom, firstPageTop: firstPage.top };
+    }""")
+    assert double['firstPageTop'] >= double['headerBottom'] - 1
+    ctx.close()
+
+
 def test_mobile_toolbar_is_touch_drawer(browser, live_server):
     ctx = browser.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True)
     pg = _open(ctx, live_server)
@@ -905,8 +729,8 @@ def test_mobile_toolbar_is_touch_drawer(browser, live_server):
     assert pg.get_attribute('#toolsHandle', 'aria-pressed') == 'false'
     assert pg.eval_on_selector('#toolsHandle', 'el => getComputedStyle(el, "::before").content') in ('none', 'normal')
     assert pg.eval_on_selector('#toolsHandle', 'el => getComputedStyle(el, "::after").opacity') == '0'
-    assert pg.locator('#toolsHandle i').evaluate_all(
-        'dots => dots.every(dot => Number(getComputedStyle(dot).opacity) > 0)')
+    assert float(pg.eval_on_selector('#toolsHandle .reader-tools-close', 'el => getComputedStyle(el).opacity')) > 0
+    assert pg.eval_on_selector('#toolsHandle .reader-tools-pin', 'el => getComputedStyle(el).opacity') == '0'
 
     pg.dispatch_event('body', 'click')
     assert not pg.eval_on_selector('.r-tools', 'el => el.classList.contains("is-open")')

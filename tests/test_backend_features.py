@@ -5,10 +5,12 @@
 """
 import io
 import html
+import json
 import ntpath
 import os
 import re
 import zipfile
+from pathlib import Path
 from unittest import mock
 
 import requests
@@ -21,6 +23,37 @@ def test_settings_page_route(live_server):
     assert 'id="readerModeSegment"' in response.text
 
 
+def test_message_page_loads_split_assets(live_server):
+    response = requests.get(live_server.url + '/message')
+    assert response.status_code == 200
+    assert '/static/css/message-page.css' in response.text
+    assert '/static/js/message-page.js' in response.text
+    assert '/static/js/app-shell.js' in response.text
+    assert response.text.index('/static/js/app.js') < response.text.index('/static/js/app-shell.js')
+    assert response.text.index('/static/js/app-shell.js') < response.text.index('/static/js/message-page.js')
+    assert 'id="messageConfig"' in response.text
+    assert '<style>' not in response.text
+
+    assert requests.get(live_server.url + '/static/css/message-page.css').status_code == 200
+    assert requests.get(live_server.url + '/static/js/message-page.js').status_code == 200
+
+
+def test_index_page_loads_split_assets(live_server):
+    response = requests.get(live_server.url + '/')
+    assert response.status_code == 200
+    assert '/static/css/index-page.css' in response.text
+    assert '/static/js/index-page.js' in response.text
+    assert '/static/js/app-shell.js' in response.text
+    assert response.text.index('/static/js/app.js') < response.text.index('/static/js/app-shell.js')
+    assert response.text.index('/static/js/app-shell.js') < response.text.index('/static/js/index-page.js')
+    assert 'id="browserConfig"' in response.text
+    assert 'data-browser-icon=' in response.text
+    assert '<style>' not in response.text
+
+    assert requests.get(live_server.url + '/static/css/index-page.css').status_code == 200
+    assert requests.get(live_server.url + '/static/js/index-page.js').status_code == 200
+
+
 def test_reader_page_loads_split_assets(live_server):
     album = os.path.join(live_server.root, '漫画A', 'images')
     response = requests.get(
@@ -28,9 +61,29 @@ def test_reader_page_loads_split_assets(live_server):
         params={'path': album, 'openFromDir': os.path.dirname(album)},
     )
     assert response.status_code == 200
-    assert '/static/css/reader.css' in response.text
-    assert '/static/js/reader.js' in response.text
+    reader_css_files = ('reader-base.css', 'reader-modes.css', 'reader-toolbar.css', 'reader-contact-sheet.css', 'reader-extras.css')
+    reader_js_files = ('reader-core.js', 'reader-preferences.js', 'reader-modes.js', 'reader-contact-sheet.js', 'reader-controls.js')
+    for filename in reader_css_files:
+        assert f'/static/css/{filename}' in response.text
+    for filename in reader_js_files:
+        assert f'/static/js/{filename}' in response.text
     assert 'id="readerConfig"' in response.text
+    assert response.text.index('/static/js/app.js') < response.text.index('/static/js/reader-core.js')
+    css_positions = [response.text.index(f'/static/css/{filename}') for filename in reader_css_files]
+    js_positions = [response.text.index(f'/static/js/{filename}') for filename in reader_js_files]
+    assert css_positions == sorted(css_positions)
+    assert js_positions == sorted(js_positions)
+    assert re.search(
+        r'id="tOpenFolder"[^>]+aria-label="(?:在访达中打开|在资源管理器中打开|打开当前文件夹)"',
+        response.text,
+    )
+    config_match = re.search(
+        r'<script id="readerConfig" type="application/json">(.*?)</script>',
+        response.text,
+        re.DOTALL,
+    )
+    assert config_match is not None
+    assert json.loads(config_match.group(1))['albumPath'] == os.path.abspath(album)
 
 
 def test_upload_page_shows_target_directory(live_server):
@@ -52,6 +105,33 @@ def test_upload_response_contains_saved_target(live_server):
     assert body['target_dir'] == os.path.abspath(live_server.root)
     assert body['target_path'] == target_path
     assert os.path.isfile(target_path)
+
+
+def test_upload_accepts_multiple_files_in_one_request(live_server):
+    response = requests.post(
+        live_server.url + '/upload_file',
+        files=[
+            ('file', ('first.txt', b'first file')),
+            ('file', ('second.txt', b'second file')),
+        ],
+    )
+    assert response.status_code == 200
+    body = response.json()
+    expected_paths = [
+        os.path.join(os.path.abspath(live_server.root), 'first.txt'),
+        os.path.join(os.path.abspath(live_server.root), 'second.txt'),
+    ]
+    assert body['status'] == 'ok'
+    assert body['uploaded_count'] == 2
+    assert body['filenames'] == ['first.txt', 'second.txt']
+    assert body['target_paths'] == expected_paths
+    assert [Path(path).read_bytes() for path in expected_paths] == [b'first file', b'second file']
+
+
+def test_upload_page_enables_multiple_selection(live_server):
+    response = requests.get(live_server.url + '/upload_file')
+    assert response.status_code == 200
+    assert re.search(r'<input[^>]+id="file"[^>]+multiple', response.text)
 
 
 def _upload_target_from_html(response):
@@ -391,5 +471,3 @@ def test_thumbnail_endpoint_and_cache(live_server):
         params={'path': os.path.join(live_server.root, 'non-existent.jpg')}
     )
     assert resp_404.status_code == 404
-
-

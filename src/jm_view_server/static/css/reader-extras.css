@@ -1,0 +1,127 @@
+/* 项9：护眼滤镜——给 .stream 加暖色调滤镜（仅作用于阅读区图片） */
+.stream.eye-care { filter: sepia(.35) brightness(.92) saturate(.95); }
+
+/* 图片长按旋转菜单 */
+.page-img {
+  transition: transform .18s var(--ease);
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+.rotate-radial {
+  position: fixed; left: 50%; top: 50%; z-index: 80;
+  width: 176px; height: 176px; border-radius: 50%; overflow: hidden;
+  transform: translate(-50%, -50%) scale(.82); opacity: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 38%, var(--border));
+  box-shadow: 0 24px 64px rgba(0,0,0,.48), 0 0 0 6px color-mix(in srgb, var(--brand) 10%, transparent);
+  backdrop-filter: blur(18px);
+  transition: opacity .16s var(--ease), transform .16s var(--ease);
+}
+.rotate-radial.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+.rotate-sector {
+  position: absolute; inset: 0; border: 0; padding: 0; cursor: pointer;
+  background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--text-secondary);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.rotate-sector-top { clip-path: polygon(50% 50%, 0 0, 100% 0); }
+.rotate-sector-right { clip-path: polygon(50% 50%, 100% 0, 100% 100%); }
+.rotate-sector-bottom { clip-path: polygon(50% 50%, 100% 100%, 0 100%); }
+.rotate-sector-left { clip-path: polygon(50% 50%, 0 100%, 0 0); }
+.rotate-sector span {
+  position: absolute; font: 700 12px/1 var(--font-mono); letter-spacing: .02em;
+}
+.rotate-sector-top span { top: 24px; left: 50%; transform: translateX(-50%); }
+.rotate-sector-right span { right: 18px; top: 50%; transform: translateY(-50%); }
+.rotate-sector-bottom span { bottom: 24px; left: 50%; transform: translateX(-50%); }
+.rotate-sector-left span { left: 16px; top: 50%; transform: translateY(-50%); }
+.rotate-sector:hover,
+.rotate-sector[aria-checked="true"] { background: color-mix(in srgb, var(--brand) 78%, var(--surface)); color: #fff; }
+.rotate-sector:focus-visible { outline: 3px solid #fff; outline-offset: -10px; }
+.rotate-radial-center {
+  position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, -50%);
+  width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--bg-elevated); border: 1px solid color-mix(in srgb, var(--brand) 44%, var(--border));
+  box-shadow: 0 8px 24px rgba(0,0,0,.34); color: var(--text);
+  font: 700 11px/1 var(--font-mono); letter-spacing: .08em; pointer-events: none;
+}
+
+/* 项1：阅读进度记忆的小提示条（贴合暗色玻璃风，非阻塞） */
+.resume-bar {
+  position: fixed; left: 50%;
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%) translateY(-12px);
+  z-index: 60; will-change: transform, opacity;
+  display: flex; align-items: center; gap: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-lg); padding: 8px 8px 8px 16px;
+  font-size: 14px; color: var(--text); white-space: nowrap; max-width: 90vw;
+  opacity: 0; pointer-events: none; transition: opacity .18s var(--ease), transform .18s var(--ease);
+}
+.resume-bar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.resume-bar button {
+  border: none; cursor: pointer; height: 32px; padding: 0 16px;
+  border-radius: var(--r-pill); font-size: 13px; font-weight: 500;
+  flex-shrink: 0;
+}
+.resume-bar .resume-go { background: var(--brand); color: #fff; margin-left: 4px; }
+.resume-bar .resume-close { background: transparent; color: var(--text-secondary); padding: 0 8px; font-size: 18px; }
+
+@media (max-width: 640px) {
+  .r-tools { right: 0; bottom: 88px; transform: translateX(calc(100% - 28px)); }
+  .r-tools.is-open,
+  .r-tools.is-pinned,
+  .r-tools:focus-within { transform: translateX(-10px); }
+  .r-tools > .reader-tools-handle {
+    width: 28px; height: 56px;
+  }
+  .r-tools.is-open > .reader-tools-handle,
+  .r-tools:focus-within > .reader-tools-handle { width: 36px; height: 36px; }
+  .reader-tools-handle::after { width: 10px; height: 38px; border-radius: 8px 0 0 8px; }
+  .more-pop { width: min(278px, calc(100vw - 88px)); right: calc(100% + 10px); }
+  .reader-title b { max-width: 46vw; }
+  .reader-shortcut-list { grid-template-columns: 1fr; }
+  .rotate-radial { width: 164px; height: 164px; }
+  .stream.reader-single-mode .scramble-page { padding-bottom: 84px; }
+  .stream.reader-double-mode {
+    --reader-double-column-gap: 0px;
+    --reader-double-row-gap: 0px;
+    --reader-double-inline: 0px;
+    padding-top: 0; padding-bottom: 96px;
+  }
+  .stream.reader-double-mode {
+    padding: var(--reader-double-width-breathing-block) var(--reader-double-width-breathing-inline) calc(96px + var(--reader-double-width-breathing-block));
+  }
+  .stream.reader-double-mode .page-img { box-shadow: none; }
+  .reader-grid-overlay { padding: 0; place-items: stretch; }
+  .reader-grid-sheet { width: 100%; height: 100%; border: 0; border-radius: 0; }
+  .reader-grid-head { padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 15px; }
+  .reader-grid-head p { font-size: 12px; }
+  .reader-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 11px; padding: 18px 14px calc(28px + env(safe-area-inset-bottom, 0px)); }
+  .reader-grid-item::before,
+  .reader-grid > button::before { inset: -4px; }
+  .reader-grid-number,
+  .reader-grid-item > span,
+  .reader-grid > button > span { padding-top: 7px; font-size: 10px; }
+}
+
+/* 可用宽度低于 720px 时降级为连续单列，逻辑空白不占屏。 */
+@media (max-width: 719px) {
+  .stream.reader-double-mode {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto !important;
+    row-gap: 0;
+  }
+  .stream.reader-double-mode > .scramble-page,
+  .stream.reader-double-mode > .scramble-page.is-double-wide,
+  .stream.reader-double-mode > .scramble-page[data-double-wide="true"] {
+    grid-row: auto !important; grid-column: 1 !important; height: auto;
+  }
+  .stream.reader-double-mode > .reader-double-blank,
+  .stream.reader-double-mode > .reader-double-slot.is-blank { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-help-overlay, .reader-grid-overlay, .reader-grid-sheet, .page-img, .r-tools, .reader-tools-main, .reader-tools-handle, .reader-tools-pin, .reader-tools-close, .reader-tools-handle::after, .reader-scroll-progress { transition: none; }
+}
