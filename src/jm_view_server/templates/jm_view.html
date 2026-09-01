@@ -8,12 +8,23 @@
   <!-- PWA -->
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#0b0c11">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="看本">
+  <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <script>
     (function(){var s=localStorage.getItem('jmv-theme'),p=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.setAttribute('data-theme', s||(p?'dark':'light'));})();
+    (function(){
+      var root=document.documentElement;
+      try {
+        root.classList.toggle('reader-header-prehidden', localStorage.getItem('jmv-head-hidden') !== '0');
+        root.classList.toggle('reader-progress-prehidden', localStorage.getItem('jmv-prog-hidden') === '1');
+      } catch(e) {
+        root.classList.add('reader-header-prehidden');
+      }
+    })();
     if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}
   </script>
   <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
@@ -57,7 +68,6 @@
         <path d="M6 3h12"></path><path d="M8 3v5a4 4 0 0 1-2 3v3h12v-3a4 4 0 0 1-2-3V3"></path><path d="M12 14v7"></path>
       </svg>
     </span>
-    <span class="reader-tools-close" aria-hidden="true">×</span>
   </button>
   <!-- 跳页浮窗 -->
   <div class="jump-pop" id="jumpPop">
@@ -132,7 +142,7 @@
       <div class="reader-grid-heading">
         <span class="reader-grid-kicker">Contact sheet</span>
         <h2 id="readerGridTitle">缩略图总览</h2>
-        <p id="readerGridDescription">可拖拽卡片调整页面顺序，悬停可插入空白页对齐双页。</p>
+        <p id="readerGridDescription">拖动卡片把手调整页面顺序，悬停或触屏操作可插入空白页对齐双页。</p>
       </div>
       <div class="reader-grid-toolbar">
         <span class="reader-grid-stats" id="readerGridStats">共 {{ data.images|length }} 页</span>

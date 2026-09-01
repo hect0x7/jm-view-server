@@ -9,6 +9,7 @@ var isGridDoublePreview = (function() {
   try { return localStorage.getItem('jmv-grid-double-preview') === '1'; } catch(e) { return false; }
 })();
 var draggedSeqIndex = null;
+var pointerDragState = null;
 
 function clearAllDropIndicators() {
   if (!readerGrid) return;
@@ -95,12 +96,16 @@ function createGridPageCard(pageIdx, seqIdx) {
 
   var metaEl = document.createElement('div');
   metaEl.className = 'reader-grid-item-meta';
-  metaEl.innerHTML = '<span>第 ' + (pageIdx + 1) + ' 页</span><span style="opacity:0.6;font-size:10px;">⋮⋮ 拖动</span>';
+  var pageLabel = document.createElement('span');
+  pageLabel.textContent = '第 ' + (pageIdx + 1) + ' 页';
+  var dragHandle = createGridDragHandle();
+  metaEl.appendChild(pageLabel);
+  metaEl.appendChild(dragHandle);
 
   card.appendChild(thumbWrap);
   card.appendChild(metaEl);
 
-  bindCardDragEvents(card, seqIdx);
+  bindCardDragEvents(card, seqIdx, dragHandle);
   return card;
 }
 
@@ -143,8 +148,10 @@ function createGridBlankCard(blankItem, seqIdx) {
   descEl.textContent = '双页对齐调整';
 
   var dragTip = document.createElement('div');
-  dragTip.className = 'reader-grid-blank-drag-tip';
+  dragTip.className = 'reader-grid-blank-drag-tip reader-grid-drag-handle';
   dragTip.textContent = '⋮⋮ 按住拖拽调序';
+  dragTip.setAttribute('role', 'button');
+  dragTip.setAttribute('aria-label', '拖动空白插页调序');
 
   blankCard.appendChild(badgeTag);
   blankCard.appendChild(delBtn);
@@ -153,7 +160,7 @@ function createGridBlankCard(blankItem, seqIdx) {
   blankCard.appendChild(descEl);
   blankCard.appendChild(dragTip);
 
-  bindCardDragEvents(blankCard, seqIdx);
+  bindCardDragEvents(blankCard, seqIdx, dragTip);
   return blankCard;
 }
 
@@ -248,7 +255,79 @@ function rebuildReaderGrid() {
   updateGridCurrentPage();
 }
 
-function bindCardDragEvents(card, seqIdx) {
+function createGridDragHandle() {
+  var handle = document.createElement('span');
+  handle.className = 'reader-grid-drag-handle';
+  handle.textContent = '⋮⋮ 拖动';
+  handle.setAttribute('role', 'button');
+  handle.setAttribute('aria-label', '拖动页面调序');
+  return handle;
+}
+
+function moveGridSequenceItem(sourceIdx, targetSeqIdx, isAfter) {
+  if (sourceIdx === null || sourceIdx < 0 || sourceIdx >= pageSequence.length) return false;
+  if (targetSeqIdx < 0 || targetSeqIdx >= pageSequence.length) return false;
+
+  var targetIdx = isAfter ? targetSeqIdx + 1 : targetSeqIdx;
+  var movedItem = pageSequence.splice(sourceIdx, 1)[0];
+  if (sourceIdx < targetIdx) targetIdx--;
+  if (targetIdx === sourceIdx) {
+    pageSequence.splice(sourceIdx, 0, movedItem);
+    return false;
+  }
+  pageSequence.splice(targetIdx, 0, movedItem);
+  return true;
+}
+
+function commitGridSequenceMove(sourceIdx, targetSeqIdx, isAfter) {
+  draggedSeqIndex = null;
+  clearAllDropIndicators();
+  if (!moveGridSequenceItem(sourceIdx, targetSeqIdx, isAfter)) return;
+  saveSequenceState();
+  applySequenceToDOM();
+  rebuildReaderGrid();
+  if (window.toast) toast('已调整页面顺序', 'info');
+}
+
+function updatePointerDropTarget(clientX, clientY) {
+  if (!pointerDragState) return;
+  clearAllDropIndicators();
+  var target = document.elementFromPoint(clientX, clientY);
+  var targetCard = target && target.closest ? target.closest('.reader-grid-item, .reader-grid-blank') : null;
+  if (!targetCard || !readerGrid.contains(targetCard)) {
+    pointerDragState.targetSeqIndex = null;
+    return;
+  }
+
+  var targetSeqIndex = parseInt(targetCard.dataset.seqIndex, 10);
+  if (!Number.isFinite(targetSeqIndex) || targetSeqIndex === pointerDragState.sourceSeqIndex) {
+    pointerDragState.targetSeqIndex = null;
+    pointerDragState.card.classList.add('is-dragging');
+    return;
+  }
+  var rect = targetCard.getBoundingClientRect();
+  var isAfter = (clientX - rect.left) > (rect.width / 2);
+  pointerDragState.targetSeqIndex = targetSeqIndex;
+  pointerDragState.isAfter = isAfter;
+  pointerDragState.card.classList.add('is-dragging');
+  targetCard.classList.toggle('drop-after', isAfter);
+  targetCard.classList.toggle('drop-before', !isAfter);
+}
+
+function finishPointerGridDrag(pointerId, commit) {
+  if (!pointerDragState || pointerDragState.pointerId !== pointerId) return;
+  var state = pointerDragState;
+  pointerDragState = null;
+  clearAllDropIndicators();
+  if (state.handle.hasPointerCapture && state.handle.hasPointerCapture(pointerId)) {
+    state.handle.releasePointerCapture(pointerId);
+  }
+  if (commit && state.targetSeqIndex !== null) {
+    commitGridSequenceMove(state.sourceSeqIndex, state.targetSeqIndex, state.isAfter);
+  }
+}
+
+function bindCardDragEvents(card, seqIdx, pointerHandle) {
   card.addEventListener('dragstart', function(e) {
     draggedSeqIndex = seqIdx;
     e.dataTransfer.effectAllowed = 'move';
@@ -284,17 +363,41 @@ function bindCardDragEvents(card, seqIdx) {
     }
     var rect = card.getBoundingClientRect();
     var isAfter = (e.clientX - rect.left) > (rect.width / 2);
-    var targetIdx = isAfter ? seqIdx + 1 : seqIdx;
+    commitGridSequenceMove(draggedSeqIndex, seqIdx, isAfter);
+  });
 
-    var movedItem = pageSequence.splice(draggedSeqIndex, 1)[0];
-    if (draggedSeqIndex < targetIdx) targetIdx--;
-    pageSequence.splice(targetIdx, 0, movedItem);
-
-    clearAllDropIndicators();
-    saveSequenceState();
-    applySequenceToDOM();
-    rebuildReaderGrid();
-    if (window.toast) toast('已调整页面顺序', 'info');
+  if (!pointerHandle) return;
+  pointerHandle.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  pointerHandle.addEventListener('pointerdown', function(e) {
+    if (e.pointerType === 'mouse' || (e.button !== undefined && e.button !== 0)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pointerDragState = {
+      pointerId: e.pointerId,
+      sourceSeqIndex: seqIdx,
+      targetSeqIndex: null,
+      isAfter: false,
+      card: card,
+      handle: pointerHandle
+    };
+    pointerHandle.setPointerCapture(e.pointerId);
+    card.classList.add('is-dragging');
+  });
+  pointerHandle.addEventListener('pointermove', function(e) {
+    if (!pointerDragState || pointerDragState.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    updatePointerDropTarget(e.clientX, e.clientY);
+  });
+  pointerHandle.addEventListener('pointerup', function(e) {
+    if (!pointerDragState || pointerDragState.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    finishPointerGridDrag(e.pointerId, true);
+  });
+  pointerHandle.addEventListener('pointercancel', function(e) {
+    finishPointerGridDrag(e.pointerId, false);
   });
 }
 

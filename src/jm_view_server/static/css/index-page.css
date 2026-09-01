@@ -773,10 +773,34 @@
 @media (max-width: 860px) {
     .file-list-header { display: none; }
     .list-view .file-item {
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: minmax(0, 1fr) auto;
         height: auto;
         padding: var(--sp-3) var(--sp-4);
         gap: var(--sp-2);
+    }
+    .list-view .file-item.has-preview {
+        grid-template-columns: 56px minmax(0, 1fr) auto;
+    }
+    .list-view .file-item.has-preview .preview-col {
+        display: flex;
+        grid-column: 1;
+        grid-row: 1;
+        justify-content: center;
+    }
+    .list-view .file-item.has-preview .file-name-col {
+        grid-column: 2;
+        grid-row: 1;
+    }
+    .list-view .file-item.has-preview .file-action-col {
+        grid-column: 3;
+        grid-row: 1;
+    }
+    .list-view .file-item.has-preview .file-icon { display: none; }
+    .list-view .preview-img {
+        width: 48px;
+        height: 64px;
+        cursor: default;
+        transform: none;
     }
     .size-col, .date-col { display: none; }
     .preview-col { display: none; }

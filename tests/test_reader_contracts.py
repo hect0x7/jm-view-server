@@ -26,6 +26,26 @@ def _reader_sources(root):
     return reader_js, reader_css
 
 
+def test_hidden_reader_chrome_is_applied_before_first_paint():
+    root = Path(__file__).resolve().parents[1]
+    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
+    reader_js, reader_css = _reader_sources(root)
+
+    prepaint_script = reader_html.index("root.classList.toggle('reader-header-prehidden'")
+    first_reader_stylesheet = reader_html.index('/static/css/reader-base.css')
+    assert prepaint_script < first_reader_stylesheet
+    assert "localStorage.getItem('jmv-head-hidden') !== '0'" in reader_html
+    assert "localStorage.getItem('jmv-prog-hidden') === '1'" in reader_html
+    assert 'html.reader-header-prehidden .reader-top' in reader_css
+    assert 'html.reader-progress-prehidden .r-bottom' in reader_css
+    assert "readerTop.classList.add('hidden')" in reader_js
+    assert "rBottom.classList.add('hidden')" in reader_js
+    assert reader_js.index("rBottom.classList.add('hidden')") < reader_js.index(
+        "classList.remove('reader-progress-prehidden')")
+    assert reader_js.index("readerTop.classList.add('hidden')") < reader_js.index(
+        "classList.remove('reader-header-prehidden')")
+
+
 def test_double_width_scale_static_contract():
     root = Path(__file__).resolve().parents[1]
     app_js = (root / 'src/jm_view_server/static/js/app.js').read_text(encoding='utf-8')
@@ -98,6 +118,18 @@ def test_thumbnail_card_canvas_static_contract():
     assert 'isSequencePersisted' in reader_js
     assert 'isGridDoublePreview' in reader_js
     assert 'bindCardDragEvents' in reader_js
+    assert 'function moveGridSequenceItem(' in reader_js
+    assert 'function commitGridSequenceMove(' in reader_js
+    assert "pointerHandle.addEventListener('pointerdown'" in reader_js
+    assert "pointerHandle.addEventListener('pointermove'" in reader_js
+    assert "pointerHandle.addEventListener('pointerup'" in reader_js
+    assert "pointerHandle.addEventListener('pointercancel'" in reader_js
+    assert "pointerHandle.setPointerCapture(e.pointerId)" in reader_js
+    assert 'finishPointerGridDrag(e.pointerId, false);' in reader_js
+    assert '@media (max-width: 860px), (hover: none), (pointer: coarse)' in reader_css
+    assert '.reader-grid-blank-del { width: 44px; height: 44px;' in reader_css
+    assert '.reader-grid-drag-handle { min-width: 44px; min-height: 44px;' in reader_css
+    assert '.reader-grid-spread-row .reader-grid-blank-drag-tip { display: inline-flex; }' in reader_css
     assert 'readerGridDoublePreview' in reader_js
     assert 'readerGridReverse' in reader_js
     assert 'readerGridReset' in reader_js
@@ -155,6 +187,37 @@ def test_thumbnail_card_canvas_algorithm_node_eval():
     assert data['reversedSlots'] == [[None, 4], [3, 2], [1, 0]]
 
 
+def test_contact_sheet_shared_move_algorithm_node_eval():
+    import json
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    reader_js, _ = _reader_sources(root)
+    move_function = reader_js[
+        reader_js.index('function moveGridSequenceItem('):
+        reader_js.index('function commitGridSequenceMove(')
+    ]
+    js_test_script = """
+    var pageSequence = [0, 1, 2, 3, 4].map(function(pageIndex) {
+      return { type: 'page', pageIndex: pageIndex };
+    });
+    """ + move_function + """
+    var changed = moveGridSequenceItem(0, 2, true);
+    var afterMove = pageSequence.map(function(item) { return item.pageIndex; });
+    var noOp = moveGridSequenceItem(2, 2, false);
+    var afterNoOp = pageSequence.map(function(item) { return item.pageIndex; });
+    console.log(JSON.stringify({ changed, afterMove, noOp, afterNoOp }));
+    """
+
+    proc = subprocess.run(['node', '-e', js_test_script], capture_output=True, text=True, check=True)
+    data = json.loads(proc.stdout)
+    assert data == {
+        'changed': True,
+        'afterMove': [1, 2, 0, 3, 4],
+        'noOp': False,
+        'afterNoOp': [1, 2, 0, 3, 4],
+    }
+
+
 def test_static_javascript_syntax_validity():
     import subprocess
     root = Path(__file__).resolve().parents[1]
@@ -174,7 +237,7 @@ def test_toolbar_pinned_static_contract():
 
     assert 'id="toolsHandle"' in reader_html
     assert 'aria-pressed="false"' in reader_html
-    assert 'toolbarPinned = desktopToolbarQuery.matches && !!pinned;' in reader_js
+    assert 'toolbarPinned = !!pinned;' in reader_js
     assert "toolsHandle.setAttribute('aria-pressed', toolbarPinned ? 'true' : 'false');" in reader_js
     assert 'setToolbarPinned(false, false);' in reader_js
     assert '.reader-tools-handle:focus-visible {' in reader_css
@@ -182,11 +245,39 @@ def test_toolbar_pinned_static_contract():
     assert '.r-tools.is-pinned .reader-tools-handle,' in reader_css
     assert 'opacity: 1; color: #fff; background: var(--brand);' in reader_css
     assert 'class="reader-tools-pin"' in reader_html
-    assert 'class="reader-tools-close"' in reader_html
+    assert 'class="reader-tools-close"' not in reader_html
+    assert '>×</span>' not in reader_html
     assert '<i></i>' not in reader_html
     assert '.r-tools.is-pinned .reader-tools-pin { opacity: 1; }' in reader_css
     assert '.r-tools.is-pinned .reader-tools-main {' in reader_css
-    assert '.reader-tools-pin, .reader-tools-close, .reader-tools-handle::after, .reader-scroll-progress { transition: none; }' in reader_css
+    assert 'position: relative; z-index: 3;' in reader_css
+    assert '.reader-tools-main [data-tip]:hover { z-index: 50; }' in reader_css
+    assert '.reader-tools-pin, .reader-tools-handle::after, .reader-scroll-progress { transition: none; }' in reader_css
+    assert "toolsHandle.setAttribute('aria-label', toolbarPinned ? '取消固定阅读工具栏' : '固定阅读工具栏');" in reader_js
+    assert 'closeToolbar(false);' in reader_js
+    assert 'function activateToolbarHandle() {' in reader_js
+    assert reader_js.count('activateToolbarHandle();') == 2
+    assert "else if (rTools.classList.contains('is-open')) closeToolbar(true);" not in reader_js
+    assert '@media (max-width: 860px) {' in reader_css
+    assert 'setToolbarPinned(false, false);\n        closeToolbar(true);' in reader_js
+
+
+def test_mobile_reader_uses_dynamic_viewport_and_touch_sized_sheet_controls():
+    root = Path(__file__).resolve().parents[1]
+    reader_js, reader_css = _reader_sources(root)
+    reader_html = (root / 'src/jm_view_server/templates/jm_view.html').read_text(encoding='utf-8')
+
+    assert 'height: 100dvh;' in reader_css
+    assert 'max-height: calc(100dvh - 104px);' in reader_css
+    assert 'min-height: 100dvh;' in reader_css
+    assert 'height: min(820px, calc(100dvh - 40px));' in reader_css
+    assert '.reader-grid-dir-btn,\n  .reader-grid-toolbar-btn,\n  .reader-grid-close { min-height: 44px; }' in reader_css
+    assert '.reader-grid-close { width: 44px; min-width: 44px; }' in reader_css
+    assert '.reader-grid-persist-toggle { min-height: 44px;' in reader_css
+    assert '.r-tools:focus-within > .reader-tools-handle { width: 44px; height: 44px; }' in reader_css
+    assert '悬停或触屏操作可插入空白页' in reader_html
+    assert reader_js.count("case 'ArrowUp':") == 1
+    assert reader_js.count("case 't': case 'T':") == 1
 
 
 def test_reader_open_folder_and_fullscreen_feedback_static_contract():

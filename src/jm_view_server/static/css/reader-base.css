@@ -46,6 +46,7 @@ body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-head
   border-bottom: 1px solid var(--border);
   transition: transform .28s var(--ease);
 }
+html.reader-header-prehidden .reader-top,
 .reader-top.hidden { display: none; }
 .r-btn {
   width: 38px; height: 38px; display: grid; place-items: center;
@@ -103,6 +104,7 @@ body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-head
   z-index: 40;
 }
 @media (hover: hover) and (pointer: fine) {
+  .reader-tools-main [data-tip]:hover { z-index: 50; }
   .r-tools [data-tip]:hover::after { opacity: 1; }
 }
 
@@ -115,7 +117,8 @@ body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-head
   display: flex; align-items: center; gap: var(--sp-4);
   transition: transform .28s var(--ease);
 }
-/* 关闭进度条：整条下移隐藏。开关按钮已统一并入右侧工具栏，此处只保留隐藏动画 */
+/* 首屏预隐藏类在 reader-core 接管前生效，避免已关闭的组件先闪现。 */
+html.reader-progress-prehidden .r-bottom,
 .r-bottom.hidden { transform: translateY(100%); }
 /* 工具栏“进度条开关”：进度条开启时按钮呈激活态（弱高亮），关闭时回到普通态。
    用半透明 brand 底色区分 hover 的实心 brand，避免与 hover 态混淆。 */

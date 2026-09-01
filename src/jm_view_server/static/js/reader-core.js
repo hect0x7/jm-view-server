@@ -184,6 +184,7 @@ if (hidden) {
 } else {
   tProg.classList.toggle('active', !hidden);
 }
+document.documentElement.classList.remove('reader-progress-prehidden');
 
 tProg.addEventListener('click', function() {
   this.blur();
@@ -246,7 +247,7 @@ document.addEventListener('click', function(e) {
   if (sizePop && sizePop.classList.contains('show') && !sizePop.contains(e.target) && e.target !== tSize) closeSize();
   if (morePop.classList.contains('show') && !morePop.contains(e.target) && e.target !== tMore) closeMore();
   if (rTools && !desktopToolbarQuery.matches && rTools.classList.contains('is-open') && !rTools.contains(e.target)) {
-    closeToolbar(true);
+    closeToolbar(false);
   }
 });
 var rTools = document.querySelector('.r-tools');
@@ -265,7 +266,7 @@ function openToolbar() {
   clearTimeout(toolbarCloseTimer);
   rTools.classList.add('is-open');
   toolsHandle.setAttribute('aria-expanded', 'true');
-  toolsHandle.setAttribute('aria-label', desktopToolbarQuery.matches ? '固定阅读工具栏' : '收起阅读工具栏');
+  toolsHandle.setAttribute('aria-label', toolbarPinned ? '取消固定阅读工具栏' : '固定阅读工具栏');
 }
 
 function closeToolbar(force) {
@@ -288,19 +289,19 @@ function scheduleToolbarClose() {
 }
 
 function setToolbarPinned(pinned, notify) {
-  toolbarPinned = desktopToolbarQuery.matches && !!pinned;
+  toolbarPinned = !!pinned;
   rTools.classList.toggle('is-pinned', toolbarPinned);
   toolsHandle.setAttribute('aria-pressed', toolbarPinned ? 'true' : 'false');
   if (toolbarPinned) {
     openToolbar();
-    toolsHandle.setAttribute('aria-label', '恢复工具栏自动收起');
+    toolsHandle.setAttribute('aria-label', '取消固定阅读工具栏');
   } else {
     if (document.activeElement === toolsHandle) toolsHandle.blur();
     toolsHandle.setAttribute('aria-label', rTools.classList.contains('is-open') ? '固定阅读工具栏' : '展开阅读工具栏');
     scheduleToolbarClose();
   }
   if (notify && window.toast) {
-    toast(toolbarPinned ? '工具栏已固定展开' : '工具栏已恢复悬停收起', 'success');
+    toast(toolbarPinned ? '工具栏已固定展开' : '工具栏已取消固定', 'success');
   }
 }
 
@@ -317,18 +318,17 @@ rTools.addEventListener('focusout', scheduleToolbarClose);
 rTools.addEventListener('pointerdown', function() {
   if (desktopToolbarQuery.matches) openToolbar();
 });
+function activateToolbarHandle() {
+  if (!rTools.classList.contains('is-open')) {
+    openToolbar();
+  } else {
+    setToolbarPinned(!toolbarPinned, true);
+  }
+}
+
 toolsHandle.addEventListener('click', function(e) {
   e.stopPropagation();
-  if (desktopToolbarQuery.matches) {
-    setToolbarPinned(!toolbarPinned, true);
-  } else if (rTools.classList.contains('is-open')) {
-    closeJump();
-    closeSize();
-    closeMore();
-    closeToolbar(true);
-  } else {
-    openToolbar();
-  }
+  activateToolbarHandle();
 });
 desktopToolbarQuery.addEventListener && desktopToolbarQuery.addEventListener('change', function() {
   setToolbarPinned(false, false);
@@ -365,6 +365,7 @@ if (headHidden) {
 } else {
   tHead.classList.toggle('active', !headHidden);
 }
+document.documentElement.classList.remove('reader-header-prehidden');
 tHead.addEventListener('click', function(e) {
   this.blur();
   // 阻止冒泡避免触发关闭 morePop

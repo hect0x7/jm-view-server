@@ -1,5 +1,4 @@
 import os
-from html import unescape
 from urllib.parse import quote
 
 import common
@@ -19,11 +18,10 @@ class PageRoutesMixin:
             return redirect('/login')
 
         # path是要阅读的文件夹
-        raw_path = request.args.get('path', None)
-        path = unescape(raw_path) if raw_path is not None else None
+        path = request.args.get('path', None)
         # 从哪个文件夹打开的
-        raw_open_from = request.args.get('openFromDir', None)
-        openFromDir = unescape(raw_open_from) if raw_open_from is not None else self.file_manager.get_current_path()
+        openFromDir = request.args.get(
+            'openFromDir', self.file_manager.get_current_path())
 
         if path is None:
             return redirect('/')
@@ -116,11 +114,10 @@ class PageRoutesMixin:
         if not self.verify():
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
-        raw_path = request.args.get('path', None)
-        if not raw_path:
+        path = request.args.get('path', None)
+        if not path:
             return jsonify({'status': 'error', 'message': 'Path is required'}), 400
 
-        path = unescape(raw_path)
         path = os.path.abspath(path)
 
         if not os.path.exists(path):
@@ -228,11 +225,8 @@ class PageRoutesMixin:
         """
         if self.verify():
             # 优先从 url 参数获取文件夹路径，若没有则回落到 get_current_path()
-            raw_dir = request.args.get('dir', None)
-            if raw_dir:
-                directory = unescape(raw_dir)
-            else:
-                directory = self.file_manager.get_current_path()
+            directory = (request.args.get('dir') or
+                         self.file_manager.get_current_path())
 
             directory = os.path.abspath(directory)
             # 确保目录存在且文件在该目录下

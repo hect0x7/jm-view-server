@@ -6,7 +6,7 @@
 .stream.fit-width .page-img { width: 100%; height: auto; max-width: none; max-height: none; }
 /* 适高：单图高度=视口高，宽度 auto，图片居中 */
 .stream.fit-height { max-width: none; }
-.stream.fit-height .page-img { width: auto; height: 100vh; max-width: none; margin: 0 auto; }
+.stream.fit-height .page-img { width: auto; height: 100vh; height: 100dvh; max-width: none; margin: 0 auto; }
 /* 原始：不放大，宽度 auto 且不超过容器 */
 .stream.fit-raw { max-width: none; }
 .stream.fit-raw .page-img { width: auto; height: auto; max-width: 100%; margin: 0 auto; }
@@ -15,6 +15,7 @@
 body.reader-single { overflow: hidden; }
 .stream.reader-single-mode {
   width: 100%; max-width: none !important; height: 100vh; padding: 0;
+  height: 100dvh;
   display: block; overflow: hidden;
 }
 body.reader-header-visible .stream.reader-single-mode {
@@ -30,7 +31,7 @@ body.reader-header-visible .stream.reader-single-mode {
 .stream.reader-single-mode .scramble-page.is-active { display: flex; }
 .stream.reader-single-mode .page-img {
   width: auto; height: auto; min-height: 0; max-width: 100%;
-  max-height: calc(100vh - 104px); margin: auto; object-fit: contain;
+  max-height: calc(100vh - 104px); max-height: calc(100dvh - 104px); margin: auto; object-fit: contain;
   cursor: ew-resize;
 }
 .stream.reader-single-mode.reader-single-custom .scramble-page.is-active { display: block; text-align: center; }
@@ -50,7 +51,7 @@ body.reader-double {
   --reader-double-width-scale: 98;
   --reader-double-width-breathing-inline: 1vw;
   --reader-double-width-breathing-block: 1vh;
-  width: min(1760px, 100%); max-width: none !important; min-height: 100vh;
+  width: min(1760px, 100%); max-width: none !important; min-height: 100vh; min-height: 100dvh;
   margin: 0 auto; padding: 0 var(--reader-double-inline) 120px;
   box-sizing: border-box; display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

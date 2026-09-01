@@ -13,18 +13,23 @@
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.webmanifest">
     <meta name="theme-color" content="#5b5bd6">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="看本">
+    <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}</script>
     <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
     <link rel="stylesheet" href="/static/css/column-view.css?t={{ randomArg }}">
-    <script src="/static/js/app.js?t={{ randomArg }}"></script>
-    <script src="/static/js/app-shell.js?t={{ randomArg }}"></script>
-    <script src="/static/js/index.js?t={{ randomArg }}"></script>
-    <script src="/static/js/column-view.js?t={{ randomArg }}"></script>
-    <script src="/static/js/common.js?t={{ randomArg }}"></script>
     <link rel="stylesheet" href="/static/css/index-page.css?t={{ randomArg }}">
+    <!-- 首页脚本并行下载、按声明顺序在 DOM 解析完成后执行；避免移动网络下
+         多个阻塞脚本串行放大延迟，并确保页面初始化优先于视口外缩略图。 -->
+    <script defer src="/static/js/app.js?t={{ randomArg }}"></script>
+    <script defer src="/static/js/app-shell.js?t={{ randomArg }}"></script>
+    <script defer src="/static/js/index.js?t={{ randomArg }}"></script>
+    <script defer src="/static/js/column-view.js?t={{ randomArg }}"></script>
+    <script defer src="/static/js/common.js?t={{ randomArg }}"></script>
+    <script defer src="/static/js/index-page.js?t={{ randomArg }}"></script>
 </head>
 
 <body>
@@ -39,7 +44,7 @@
             <!-- 面包屑（承载 #currentPathText，支持点击手输路径） -->
             <div class="crumbs-container" style="flex: 1; min-width: 0; display: flex; align-items: center;">
                 <nav class="crumbs" id="crumbsView" onclick="enablePathEdit()" style="cursor: pointer;" title="点击可手动输入路径跳转">
-                    <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}'); event.stopPropagation();" id="crumbs-home"></a>
+                    <a href="javascript:" onclick="changeDir('{{ data.defaultPath }}'); event.stopPropagation();" id="crumbs-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></a>
                     {# 总是保留装饰分隔符，并去除首尾斜杠以避免 RTL 截断时尾部斜杠跑到最前面出现 / /D:/... 的情况 #}
                     <span class="sep">/</span>
                     <span class="cur">
@@ -52,9 +57,9 @@
             <div class="spacer"></div>
             <!-- 可复制地址 pill -->
             <div class="addr-pill" onclick="copyAddr('http://{{ data.lan_ip }}:{{ data.port }}')" title="点击复制服务器地址">
-                <span class="dot" id="netIco"></span>
+                <span class="dot" id="netIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-2a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v2"/></svg></span>
                 <span id="addrText">{{ data.lan_ip }}:{{ data.port }}</span>
-                <span id="copyIco" style="opacity:.5"></span>
+                <span id="copyIco" style="opacity:.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>
             </div>
         </div>
 
@@ -62,19 +67,19 @@
         <div class="path-section">
             <div class="nav-btns">
                 <button class="btn btn-outline btn-sm" onclick="goBack()" id="btn-back">
-                    <span id="backIco"></span> 上级目录
+                    <span id="backIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></span> 上级目录
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="changeDir('{{ data.defaultPath }}')">
-                    <span id="homeIco"></span> 回到原点
+                    <span id="homeIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> 回到原点
                 </button>
                 {% set open_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
                 <button class="btn btn-outline btn-sm" onclick="openDir(encodeURIComponent(getCurPath()), false)" title="{{ open_label }}">
-                    <span id="openCurIco"></span> {{ open_label }}
+                    <span id="openCurIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> {{ open_label }}
                 </button>
                 <!-- 最近浏览（功能 #8）：点击弹出最近访问过的目录 -->
                 <div class="recent-wrap">
                     <button class="btn btn-outline btn-sm" id="recentBtn" onclick="toggleRecent(event)" title="最近浏览过的目录">
-                        <span id="recentIco"></span> 最近
+                        <span id="recentIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> 最近
                     </button>
                     <div class="recent-panel" id="recentPanel">
                         <div class="recent-title">最近浏览</div>
@@ -94,18 +99,18 @@
             <div class="spacer"></div>
             <!-- 新建文件夹（功能 #7） -->
             <button class="btn btn-outline btn-sm" onclick="createFolder()" title="在当前目录新建文件夹">
-                <span id="mkdirIco"></span> 新建文件夹
+                <span id="mkdirIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> 新建文件夹
             </button>
             <!-- 多选模式（功能 #10） -->
             <button class="btn btn-outline btn-sm" id="selectModeBtn" onclick="toggleSelectMode()" title="多选批量操作">
-                <span id="selectIco"></span> 多选
+                <span id="selectIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span> 多选
             </button>
             <!-- 书签 + 上传 -->
             <button class="btn btn-outline btn-sm" onclick="toggleBookmarks()">
-                <span id="starIco"></span> 收藏夹
+                <span id="starIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.3l5.9-.9z"/></svg></span> 收藏夹
             </button>
             <a href="/upload_file?path={{ data.currentPath|urlencode }}" class="btn btn-primary btn-sm" id="uploadLink" data-jmv-upload-link>
-                <span id="uploadIco"></span> 上传
+                <span id="uploadIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span> 上传
             </a>
         </div>
 
@@ -120,13 +125,13 @@
                     </div>
                     <!-- 搜索/过滤框（功能 #4）：实时按文件名过滤当前目录 -->
                     <div class="filter-box">
-                        <span class="filter-ico" id="filterIco"></span>
+                        <span class="filter-ico" id="filterIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
                         <input type="text" id="fileFilter" placeholder="过滤当前目录…" autocomplete="off" />
                     </div>
                     <div class="segmented" id="seg">
-                        <button class="on" data-v="list" id="segList" title="列表视图" aria-label="列表视图" aria-pressed="true"></button>
-                        <button data-v="grid" id="segGrid" title="网格视图" aria-label="网格视图" aria-pressed="false"></button>
-                        <button data-v="column" id="segColumn" title="分栏视图" aria-label="分栏视图" aria-pressed="false"></button>
+                        <button class="on" data-v="list" id="segList" title="列表视图" aria-label="列表视图" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                        <button data-v="grid" id="segGrid" title="网格视图" aria-label="网格视图" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></button>
+                        <button data-v="column" id="segColumn" title="分栏视图" aria-label="分栏视图" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></button>
                     </div>
                     <button class="column-operations-toggle" id="columnOperationsToggle" type="button"
                             role="switch" aria-checked="true" aria-label="显示分栏操作入口"
@@ -152,7 +157,7 @@
                     <!-- 文件列表体 -->
                     <div class="file-list-body">
                         {% for file in data.files %}
-                        <div class="file-item"
+                        <div class="file-item{% if file.first_img_url and file.first_img_url != '' %} has-preview{% endif %}"
                              data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
                              type="{{ file.jm_view }}"
                              onclick="handleFileItemClick(event, this)">
@@ -164,7 +169,15 @@
                                        data-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">
                                  <div class="file-icon" id="fileIcon{{ loop.index }}"
                                       data-browser-icon="{{ 'link' if file.is_link else ('folder' if 'dir' in file.type else 'auto') }}"
-                                      data-file-name="{{ file.name }}"></div>
+                                      data-file-name="{{ file.name }}">
+                                    {% if file.is_link %}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2A5 5 0 0 0 12 4l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></svg>
+                                    {% elif 'dir' in file.type %}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                    {% else %}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                                    {% endif %}
+                                 </div>
                                 <div class="file-entry-text">
                                     <a href="{{ file.href }}" class="file-link"
                                        dirname="{{ file.name }}"
@@ -189,13 +202,13 @@
                                 {% if file.jm_view and ('dir' in file.type or file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'))) %}
                                 <a href="javascript:" class="action-btn"
                                    onclick="openJmView('{{ file.quoted_path }}', '{{ file.type }}')">
-                                    <span class="eye-ico"></span> 看本
+                                    <span class="eye-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.1 12.35a1 1 0 0 1 0-.7C3.5 8.1 6.9 5.5 12 5.5s8.5 2.6 9.9 6.15a1 1 0 0 1 0 .7C20.5 15.9 17.1 18.5 12 18.5s-8.5-2.6-9.9-6.15Z"/><circle cx="12" cy="12" r="3"/></svg></span> 看本
                                 </a>
                                 {% endif %}
                                 <!-- 更多操作：打包下载/重命名/移动 折叠于此 -->
                                 <div class="more-menu">
                                     <button class="more-btn" title="更多操作"
-                                            onclick="toggleMoreMenu(event, this)"><span class="more-ico"></span></button>
+                                            onclick="toggleMoreMenu(event, this)"><span class="more-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span></button>
                                     <div class="more-dropdown">
                                         {% if file.jm_view and 'dir' in file.type %}
                                         <a href="javascript:" class="more-item"
@@ -216,10 +229,11 @@
                             <!-- 预览列 -->
                             <div class="preview-col">
                                 {% if file.first_img_url and file.first_img_url != '' %}
-                                <img src="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}"
+                                <img {% if loop.index <= 4 %}src{% else %}data-thumb-src{% endif %}="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}"
                                      class="preview-img"
                                      loading="lazy"
-                                     alt="preview">
+                                     alt=""
+                                     decoding="async">
                                 {% endif %}
                             </div>
                         </div>
@@ -240,7 +254,7 @@
                         <div class="card-cover">
                             <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
                             {% if file.first_img_url and file.first_img_url != '' %}
-                            <img src="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}" alt="" loading="lazy">
+                            <img data-thumb-src="{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}" alt="" loading="lazy" decoding="async">
                             {% if file.is_link %}
                             <div class="card-type-badge" id="cardLinkBadge{{ loop.index }}" title="快捷方式" data-browser-icon="link"></div>
                             {% elif 'dir' in file.type %}
@@ -403,7 +417,6 @@
 <script id="browserConfig" type="application/json">{{ {
     'defaultPath': data.defaultPath
 } | tojson }}</script>
-<script src="/static/js/index-page.js?t={{ randomArg }}"></script>
 </body>
 
 </html>

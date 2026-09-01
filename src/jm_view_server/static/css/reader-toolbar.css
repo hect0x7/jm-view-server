@@ -17,14 +17,12 @@
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
   transition: width .16s var(--ease), height .16s var(--ease), transform .16s var(--ease), opacity .14s var(--ease), background .14s var(--ease);
 }
-.reader-tools-pin,
-.reader-tools-close {
+.reader-tools-pin {
   position: absolute; inset: 0; display: grid; place-items: center;
   opacity: 0; transform: scale(.72);
   transition: opacity .12s var(--ease), transform .12s var(--ease);
 }
 .reader-tools-pin svg { width: 18px; height: 18px; }
-.reader-tools-close { font-size: 24px; font-weight: 400; line-height: 1; }
 .reader-tools-handle::after {
   content: ''; position: absolute; right: 0; top: 50%;
   width: 8px; height: 34px; transform: translateY(-50%);
@@ -44,9 +42,9 @@
   background: color-mix(in srgb, var(--brand) 16%, var(--bg-elevated));
   box-shadow: -3px 0 12px color-mix(in srgb, var(--brand) 18%, transparent);
 }
-.r-tools.is-open .reader-tools-close,
-.r-tools.is-pinned .reader-tools-close,
-.r-tools:focus-within .reader-tools-close { opacity: .88; transform: scale(1); }
+.r-tools.is-open .reader-tools-pin,
+.r-tools.is-pinned .reader-tools-pin,
+.r-tools:focus-within .reader-tools-pin { opacity: .88; transform: scale(1); }
 .r-tools.is-open .reader-tools-handle::after,
 .r-tools.is-pinned .reader-tools-handle::after,
 .r-tools:focus-within .reader-tools-handle::after { opacity: 0; }
@@ -55,6 +53,7 @@
   outline-offset: 3px;
 }
 .reader-tools-main {
+  position: relative; z-index: 3;
   width: 52px; padding: 6px;
   display: flex; flex-direction: column; gap: 3px;
   background: color-mix(in srgb, var(--bg-elevated) 91%, transparent);
@@ -85,9 +84,6 @@
   .r-tools.is-open .reader-tools-pin,
   .r-tools.is-pinned .reader-tools-pin,
   .r-tools:focus-within .reader-tools-pin { opacity: .9; transform: scale(1); }
-  .r-tools.is-open .reader-tools-close,
-  .r-tools.is-pinned .reader-tools-close,
-  .r-tools:focus-within .reader-tools-close { opacity: 0; transform: scale(.72); }
   .r-tools.is-pinned .reader-tools-handle,
   .r-tools.is-pinned .reader-tools-handle:hover {
     opacity: 1; color: #fff; background: var(--brand);

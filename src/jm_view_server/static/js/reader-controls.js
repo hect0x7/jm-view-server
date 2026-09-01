@@ -97,49 +97,13 @@ document.addEventListener('keydown', function(e) {
         if (window.toast) toast(nextDir === 'rtl' ? '双页排版：从右向左 (日漫)' : '双页排版：从左向右');
       }
       break;
-      e.preventDefault();
-      gotoPage(cur + 1);
-      break;
-    case 'ArrowUp':
-      if (readerMode === 'double') break;
-      break;
-    case 'ArrowDown':
-      if (readerMode === 'double') break;
-      break;
-    case 'PageUp':
-      if (readerMode === 'double') break;
-      e.preventDefault(); if (!scrollActiveSinglePage(-1)) gotoPage(cur - 1); break;
-    case 'PageDown':
-      if (readerMode === 'double') break;
-      e.preventDefault(); if (!scrollActiveSinglePage(1)) gotoPage(cur + 1); break;
-    case ' ':
-      if (readerMode === 'double') break;
-      e.preventDefault(); if (!scrollActiveSinglePage(1)) gotoPage(cur + 1); break;
-    case 'Home':
-      if (readerMode === 'double') break;
-      e.preventDefault(); gotoPage(0); break;
-    case 'End':
-      if (readerMode === 'double') break;
-      e.preventDefault(); gotoPage(pages.length - 1); break;
-    case 'f': case 'F':
-      e.preventDefault(); document.getElementById('tFull').click(); break;
-    case 'g': case 'G':
-      e.preventDefault(); openJump(); break;
-    case 't': case 'T':
-    case 'i': case 'I':
-      e.preventDefault();
-      if (readerGridOverlay && readerGridOverlay.classList.contains('show')) closeReaderGrid();
-      else openReaderGrid();
-      break;
     case 'm': case 'M':
       e.preventDefault();
       setReaderMode(readerMode === 'scroll' ? 'single' : (readerMode === 'single' ? 'double' : 'scroll'));
       break;
     case 'h': case 'H':
       e.preventDefault();
-      if (desktopToolbarQuery.matches) setToolbarPinned(!toolbarPinned, true);
-      else if (rTools.classList.contains('is-open')) closeToolbar(true);
-      else openToolbar();
+      activateToolbarHandle();
       break;
     case '?':
       e.preventDefault(); openReaderHelp(); break;
@@ -148,7 +112,10 @@ document.addEventListener('keydown', function(e) {
       closeRotateRadial();
       closeReaderGrid();
       closeReaderHelp(); closeJump(); closeSize(); closeMore();
-      if (!desktopToolbarQuery.matches) closeToolbar(true);
+      if (!desktopToolbarQuery.matches) {
+        setToolbarPinned(false, false);
+        closeToolbar(true);
+      }
       break;
     default: break;
   }

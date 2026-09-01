@@ -60,8 +60,13 @@ document.getElementById('segColumn').innerHTML =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>';
 document.getElementById('mkdirIco').innerHTML  = icon('folder');
 document.getElementById('selectIco').innerHTML = icon('check');
-// 每行“更多操作”按钮的三点图标（class 批量注入）
-document.querySelectorAll('.more-ico').forEach(function(el) { el.innerHTML = icon('more'); });
+// 每行“更多操作”按钮的三点图标（class 批量注入）。模板已有 SVG 时保留它，
+// 避免刷新期间共享图标库尚未就绪或返回空值时把可见兜底清空。
+document.querySelectorAll('.more-ico').forEach(function(el) {
+    if (el.querySelector('svg')) return;
+    var markup = icon('more');
+    if (markup) el.innerHTML = markup;
+});
 document.getElementById('filterIco').innerHTML = icon('search');
 // 最近按钮用内联时钟图标（icon() 库无 clock，风格对齐现有描边 SVG）
 document.getElementById('recentIco').innerHTML =
@@ -71,7 +76,8 @@ document.getElementById('recentIco').innerHTML =
 document.querySelectorAll('[data-browser-icon]').forEach(function(el) {
     var iconName = el.dataset.browserIcon;
     if (iconName === 'auto') iconName = isImageName(el.dataset.fileName || '') ? 'images' : 'file';
-    el.innerHTML = icon(iconName);
+    var markup = icon(iconName);
+    if (!el.querySelector('svg') && markup) el.innerHTML = markup;
     if (el.classList.contains('grid-icon')) {
         var svg = el.querySelector('svg');
         if (svg) {
@@ -84,6 +90,29 @@ document.querySelectorAll('[data-browser-icon]').forEach(function(el) {
 
 // 视图切换（list / grid / column）——选择记忆到 localStorage['jmv-view']，进入时恢复。
 var VIEW_KEY = 'jmv-view';
+var thumbnailObserver = null;
+
+if ('IntersectionObserver' in window) {
+    thumbnailObserver = new IntersectionObserver(function(entries, observer) {
+        entries.forEach(function(entry) {
+            if (!entry.isIntersecting) return;
+            var img = entry.target;
+            if (!img.getAttribute('src')) img.src = img.dataset.thumbSrc;
+            observer.unobserve(img);
+        });
+    }, { rootMargin: '240px 0px' });
+}
+
+function activateViewThumbnails(mode) {
+    document.querySelectorAll('img[data-thumb-src]').forEach(function(img) {
+        var shouldLoad = (mode === 'list' && !!img.closest('.list-view')) ||
+            (mode === 'grid' && !!img.closest('.grid-view'));
+        if (!shouldLoad || img.getAttribute('src')) return;
+        if (thumbnailObserver) thumbnailObserver.observe(img);
+        else img.src = img.dataset.thumbSrc;
+    });
+}
+
 function applyView(mode) {
     var app = document.getElementById('app');
     var isGrid = (mode === 'grid');
@@ -99,6 +128,7 @@ function applyView(mode) {
         x.classList.toggle('on', selected);
         x.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
+    activateViewThumbnails(mode);
 }
 var columnOperationsToggle = document.getElementById('columnOperationsToggle');
 function renderColumnOperations(value) {

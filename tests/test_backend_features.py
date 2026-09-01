@@ -4,6 +4,7 @@
 用 requests 直接打接口。测试数据：漫画A/images/*5张jpg、漫画B/*3png、cover.jpg、readme.txt、空文件夹。
 """
 import io
+import gzip
 import html
 import json
 import ntpath
@@ -11,6 +12,7 @@ import os
 import re
 import zipfile
 from pathlib import Path
+from urllib.parse import quote
 from unittest import mock
 
 import requests
@@ -46,6 +48,9 @@ def test_index_page_loads_split_assets(live_server):
     assert '/static/js/app-shell.js' in response.text
     assert response.text.index('/static/js/app.js') < response.text.index('/static/js/app-shell.js')
     assert response.text.index('/static/js/app-shell.js') < response.text.index('/static/js/index-page.js')
+    for script_name in ('app.js', 'app-shell.js', 'index.js', 'column-view.js', 'common.js', 'index-page.js'):
+        assert f'<script defer src="/static/js/{script_name}?' in response.text
+    assert response.text.index('/static/css/index-page.css') < response.text.index('/static/js/app.js')
     assert 'id="browserConfig"' in response.text
     assert 'data-browser-icon=' in response.text
     assert '<style>' not in response.text
@@ -53,6 +58,51 @@ def test_index_page_loads_split_assets(live_server):
     assert requests.get(live_server.url + '/static/css/index-page.css').status_code == 200
     assert requests.get(live_server.url + '/static/js/index-page.js').status_code == 200
 
+def test_large_html_response_uses_gzip_with_matching_content_length(live_server):
+    response = requests.get(
+        live_server.url + '/', headers={'Accept-Encoding': 'gzip'}, stream=True)
+    response.raw.decode_content = False
+    compressed = response.raw.read()
+    assert response.status_code == 200
+    assert response.headers.get('Content-Encoding') == 'gzip'
+    assert response.headers.get('Vary') == 'Accept-Encoding'
+    assert int(response.headers['Content-Length']) == len(compressed)
+    assert b'<!DOCTYPE html>' in gzip.decompress(compressed)[:256]
+
+
+def test_index_renders_mobile_list_thumbnails_and_defers_grid_covers():
+    root = Path(__file__).resolve().parents[1]
+    index_html = (root / 'src/jm_view_server/templates/index.html').read_text(encoding='utf-8')
+    index_js = (root / 'src/jm_view_server/static/js/index-page.js').read_text(encoding='utf-8')
+    app_js = (root / 'src/jm_view_server/static/js/app.js').read_text(encoding='utf-8')
+
+    thumbnail_url = '{{ file.first_img_url.data_thumb or file.first_img_url.data_original }}'
+    assert index_html.count(thumbnail_url) == 2
+    assert '<img {% if loop.index <= 4 %}src{% else %}data-thumb-src{% endif %}=' in index_html
+    assert f'data-thumb-src="{thumbnail_url}"' in index_html
+    assert 'alt="preview"' not in index_html
+    assert index_html.count('decoding="async"') >= 2
+    assert '<script defer src="/static/js/index-page.js?' in index_html
+    assert index_html.count('/static/js/index-page.js?') == 1
+    assert 'class="file-item{% if file.first_img_url' in index_html
+    assert 'class="preview-img"' in index_html
+    assert 'class="file-icon"' in index_html and 'aria-hidden="true"' in index_html
+    for icon_id in ('crumbs-home', 'netIco', 'copyIco', 'backIco', 'homeIco', 'openCurIco',
+                    'recentIco', 'mkdirIco', 'selectIco', 'starIco', 'uploadIco', 'filterIco',
+                    'segList', 'segGrid', 'segColumn'):
+        assert re.search(r'id="' + re.escape(icon_id) + r'"[^>]*>\s*<svg', index_html)
+    assert 'M2.1 12.35' in index_html and 'M2.1 12.35' in app_js
+    assert '7-10 7-10-7' not in index_html and '7-10 7-10-7' not in app_js
+    assert 'function activateViewThumbnails(mode)' in index_js
+    assert "'IntersectionObserver' in window" in index_js
+    assert "{ rootMargin: '240px 0px' }" in index_js
+    assert "mode === 'list' && !!img.closest('.list-view')" in index_js
+    assert "mode === 'grid' && !!img.closest('.grid-view')" in index_js
+    assert 'desktopListPreviewQuery' not in index_js
+    assert "if (el.querySelector('svg')) return;" in index_js
+    assert "if (!el.querySelector('svg') && markup)" in index_js
+    assert 'if (thumbnailObserver) thumbnailObserver.observe(img);' in index_js
+    assert 'activateViewThumbnails(mode);' in index_js
 
 def test_reader_page_loads_split_assets(live_server):
     album = os.path.join(live_server.root, '漫画A', 'images')
@@ -84,6 +134,41 @@ def test_reader_page_loads_split_assets(live_server):
     )
     assert config_match is not None
     assert json.loads(config_match.group(1))['albumPath'] == os.path.abspath(album)
+
+
+def test_reader_preserves_literal_html_entity_in_path(live_server):
+    album = os.path.join(live_server.root, 'Title &amp; Subtitle')
+    os.makedirs(album)
+    image_path = os.path.join(album, '107.png')
+    Path(image_path).write_bytes(b'fake image data')
+
+    response = requests.get(
+        live_server.url + '/jm_view',
+        params={'path': image_path, 'openFromDir': album},
+    )
+    assert response.status_code == 200
+
+    config_match = re.search(
+        r'<script id="readerConfig" type="application/json">(.*?)</script>',
+        response.text,
+        re.DOTALL,
+    )
+    assert config_match is not None
+    reader_config = json.loads(config_match.group(1))
+    assert reader_config['albumPath'] == os.path.abspath(album)
+    assert reader_config['openFromDir'] == quote(album)
+
+    api_response = requests.get(
+        live_server.url + '/api/jm_images', params={'path': album})
+    assert api_response.status_code == 200
+    assert api_response.json()['full_path'] == os.path.abspath(album)
+
+    note_path = os.path.join(album, 'note.txt')
+    Path(note_path).write_bytes(b'literal entity path')
+    download_response = requests.get(
+        live_server.url + '/download_file/note.txt', params={'dir': album})
+    assert download_response.status_code == 200
+    assert download_response.content == b'literal entity path'
 
 
 def test_upload_page_shows_target_directory(live_server):

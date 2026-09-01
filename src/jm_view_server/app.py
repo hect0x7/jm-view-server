@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import gzip
 from typing import Optional
 
 from flask import Flask, abort, jsonify, request, session
@@ -47,6 +48,26 @@ class JmServer(FileRoutesMixin, PageRoutesMixin, TransferRoutesMixin, ServiceRou
                          static_folder='static',
                          static_url_path='/static',
                          )
+        @self.app.after_request
+        def finalize_response(response):
+            # 文件列表会同时携带列表/网格两套响应式 DOM，目录名较长时 HTML
+            # 可超过 200 KB。移动 Chrome 在频繁刷新这种未压缩响应时会偶发
+            # 收到截断正文并报 ERR_CONTENT_LENGTH_MISMATCH，导致解析永远停在
+            # loading，所有 defer 脚本也就完全不执行。只压缩普通 HTML 响应，
+            # set_data 会按压缩后的真实字节数重算 Content-Length。
+            content_type = response.headers.get('Content-Type', '')
+            accepts_gzip = 'gzip' in request.headers.get('Accept-Encoding', '').lower()
+            if (request.method != 'HEAD' and accepts_gzip and
+                    content_type.startswith('text/html') and
+                    not response.direct_passthrough and
+                    'Content-Encoding' not in response.headers):
+                data = response.get_data()
+                if len(data) >= 1024:
+                    response.set_data(gzip.compress(data, compresslevel=5))
+                    response.headers['Content-Encoding'] = 'gzip'
+                    response.headers['Vary'] = 'Accept-Encoding'
+            return response
+
         # 使用安全随机值作为 secret_key，避免可预测的 session 签名
         self.app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
         # 设置登录密钥

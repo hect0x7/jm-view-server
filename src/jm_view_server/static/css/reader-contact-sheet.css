@@ -12,6 +12,7 @@
 }
 .reader-grid-sheet {
   width: min(1120px, 100%); height: min(820px, calc(100vh - 40px));
+  height: min(820px, calc(100dvh - 40px));
   display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden;
   border: 1px solid rgba(255,255,255,.11); border-radius: clamp(16px, 2vw, 26px);
   background:
@@ -188,15 +189,17 @@
   box-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 50%, rgba(0,0,0,.6));
   transform: translateY(-1px) scale(1.02);
 }
-@media (hover: none) {
-  .reader-grid-insert-btn { opacity: .88; transform: none; pointer-events: auto; }
-}
-
 .reader-grid-item-meta {
   display: flex; align-items: center; justify-content: space-between;
   padding-top: 6px; min-width: 0;
   color: inherit; font: 600 11px/1.2 var(--font-mono);
 }
+.reader-grid-drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 36px; min-height: 24px; opacity: .6;
+  font-size: 10px; cursor: grab; user-select: none; touch-action: none;
+}
+.reader-grid-drag-handle:active { cursor: grabbing; opacity: 1; }
 
 /* 拖拽状态与放置指示线 */
 .reader-grid-item.is-dragging,
@@ -336,3 +339,19 @@
   user-select: none;
 }
 .reader-grid-placeholder-card span { font-size: 9px; opacity: .6; }
+
+@media (max-width: 860px), (hover: none), (pointer: coarse) {
+  .reader-grid-dir-control { height: auto; }
+  .reader-grid-dir-btn,
+  .reader-grid-toolbar-btn,
+  .reader-grid-close { min-height: 44px; }
+  .reader-grid-close { width: 44px; min-width: 44px; }
+  .reader-grid-persist-toggle { min-height: 44px; padding: 0 4px; }
+  .reader-grid-insert-btn {
+    height: 44px; border-radius: 14px;
+    opacity: .92; transform: none; pointer-events: auto;
+  }
+  .reader-grid-blank-del { width: 44px; height: 44px; top: 4px; right: 4px; }
+  .reader-grid-drag-handle { min-width: 44px; min-height: 44px; opacity: .82; }
+  .reader-grid-spread-row .reader-grid-blank-drag-tip { display: inline-flex; }
+}
