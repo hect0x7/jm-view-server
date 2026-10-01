@@ -160,6 +160,9 @@
   border-radius: var(--r-lg);
   font-size: 14px;
   line-height: 1.5;
+  /* 保留消息中的换行，同时允许超长内容在气泡内折行。 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 

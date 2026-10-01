@@ -2,6 +2,12 @@
 
 本文件记录 `jm-view-server` 的重要版本变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [v0.3.7] - 2026-10-01
+
+### Fixed
+
+- 修复局域网消息气泡忽略正文换行的问题，并让窄屏和超长连续文本保持在气泡内正常折行。
+
 ## [v0.3.6] - 2026-08-31
 
 ### Fixed

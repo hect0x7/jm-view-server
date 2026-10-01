@@ -36,7 +36,11 @@ def test_message_page_loads_split_assets(live_server):
     assert 'id="messageConfig"' in response.text
     assert '<style>' not in response.text
 
-    assert requests.get(live_server.url + '/static/css/message-page.css').status_code == 200
+    message_css = requests.get(live_server.url + '/static/css/message-page.css')
+    assert message_css.status_code == 200
+    assert '.message-bubble' in message_css.text
+    assert 'white-space: pre-wrap' in message_css.text
+    assert 'overflow-wrap: anywhere' in message_css.text
     assert requests.get(live_server.url + '/static/js/message-page.js').status_code == 200
 
 
