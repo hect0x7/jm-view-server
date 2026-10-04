@@ -487,7 +487,7 @@ $(document).ready(function () {
                     <i class="fas fa-book-open"></i> 以本子模式打开
                 </div>
                 <div class="context-menu-item" id="ctxDeletePath" style="color: #ef4444;">
-                    <i class="fas fa-trash-alt"></i> 彻底删除
+                    <i class="fas fa-trash-alt"></i> 移入回收站
                 </div>
             </div>
         `);
@@ -512,7 +512,12 @@ $(document).ready(function () {
             const path = $('#ctxMenu').data('target-path');
             const name = $('#ctxMenu').data('target-name');
             if (path) {
-                if (confirm(`确定要彻底删除 "${name}" 吗？（此操作不可恢复）`)) {
+                let confirmRecycle = false;
+                try {
+                    const preference = localStorage.getItem('jmv-confirm-recycle');
+                    confirmRecycle = preference === '1' || preference === 'true';
+                } catch (error) {}
+                if (!confirmRecycle || confirm(`确定要移入回收站 "${name}" 吗？（可在服务器电脑的回收站中恢复）`)) {
                     $.ajax({
                         url: '/api/delete',
                         method: 'POST',
@@ -522,7 +527,7 @@ $(document).ready(function () {
                             loadDirectory(currentPath, false);
                         },
                         error: function (err) {
-                            alert('删除失败: ' + (err.responseJSON?.error || err.statusText));
+                            alert('移入回收站失败: ' + (err.responseJSON?.error || err.statusText));
                         }
                     });
                 } else {

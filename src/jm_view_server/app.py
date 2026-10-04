@@ -8,6 +8,7 @@ from flask import Flask, abort, jsonify, request, session
 
 from .files import FileManager
 from .message import MessageManager
+from .favorites import FavoriteManager
 from .routes import FileRoutesMixin, PageRoutesMixin, ServiceRoutesMixin, TransferRoutesMixin
 
 
@@ -86,6 +87,7 @@ class JmServer(FileRoutesMixin, PageRoutesMixin, TransferRoutesMixin, ServiceRou
 
         # 初始化消息管理器
         self.message_manager = MessageManager()
+        self.favorite_manager = FavoriteManager()
 
     def __hook_jm_logging(self):
         import jmcomic
@@ -186,6 +188,11 @@ class JmServer(FileRoutesMixin, PageRoutesMixin, TransferRoutesMixin, ServiceRou
 
         # 获取服务器基础信息
         self.app.add_url_rule("/api/info", 'api_info', self.api_info, methods=['GET'])
+        self.app.add_url_rule('/favorites', 'favorites_page', self.favorites_page, methods=['GET'])
+        self.app.add_url_rule('/api/favorites', 'api_favorites', self.api_favorites,
+                              methods=['GET', 'PUT', 'DELETE'])
+        self.app.add_url_rule('/api/favorites/copy', 'api_copy_favorites', self.api_copy_favorites,
+                              methods=['POST'])
 
     def run(self, **kwargs):
         kwargs.setdefault('port', self.DEFAULT_PORT)

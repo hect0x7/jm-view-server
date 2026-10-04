@@ -327,7 +327,7 @@
         if (!file.link_broken) {
             addOperation(menu, '在文件管理器中显示', function () { openDir(encodeURIComponent(itemPath(file))); });
         }
-        addOperation(menu, '删除', function (menuEvent) {
+        addOperation(menu, '移入回收站', function (menuEvent) {
             deleteItem({
                 stopPropagation: function () {},
                 preventDefault: function () {},
@@ -409,6 +409,7 @@
     function makeEntry(path, file, isSelected, isTabStop, active) {
         var wrapper = document.createElement('div');
         wrapper.className = 'column-entry' + (isSelected ? ' is-selected' : '');
+        wrapper.dataset.managePath = decodeURIComponent(file.manage_quoted_path);
 
         var main = document.createElement('button');
         main.type = 'button';
@@ -466,6 +467,9 @@
         });
         actions.appendChild(moreButton);
         wrapper.appendChild(actions);
+        if (window.JmvRecyclePending && window.JmvRecyclePending.indexOf(wrapper.dataset.managePath) !== -1) {
+            window.setRecycleItemPending(wrapper, true);
+        }
         return wrapper;
     }
 
@@ -690,6 +694,35 @@
         if (activePath && !samePath(activePath, state.initialPath)) changeDir(activePath);
     }
 
+    function removePaths(paths) {
+        closeOperationMenu(false);
+        Object.keys(state.cache).forEach(function(path) {
+            if (paths.some(function(removed) {
+                var key = normalized(path), prefix = normalized(removed);
+                return key === prefix || key.indexOf(prefix + '/') === 0;
+            })) { delete state.cache[path]; return; }
+            var entry = state.cache[path];
+            if (entry.status === 'loading') { delete state.cache[path]; return; }
+            entry.files = entry.files.filter(function(file) {
+                return paths.indexOf(decodeURIComponent(file.manage_quoted_path)) === -1;
+            });
+            if (!entry.files.some(function(file) { return itemKey(file) === state.selectedKeyByPath[path]; })) {
+                delete state.selectedByPath[path];
+                delete state.selectedKeyByPath[path];
+            }
+        });
+        var removedLevel = state.trail.findIndex(function(path, index) {
+            return index > 0 && paths.some(function(removed) { return samePath(path, removed); });
+        });
+        if (removedLevel > 0) {
+            ++state.requestVersion;
+            state.trail = state.trail.slice(0, removedLevel);
+            setCurrentPath(getActivePath());
+            updateHistory(true);
+        }
+        if (state.active) loadVisible();
+    }
+
     window.JmvColumnView = {
         activate: activate,
         deactivate: deactivate,
@@ -697,6 +730,7 @@
         goBack: goBack,
         setOperationsVisible: setOperationsVisible,
         isActive: function () { return state.active; },
-        retryPath: retryPath
+        retryPath: retryPath,
+        removePaths: removePaths
     };
 })();

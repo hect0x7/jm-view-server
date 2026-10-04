@@ -50,7 +50,7 @@
 .path-section {
     display: flex;
     align-items: center;
-    gap: var(--sp-3);
+    gap: 8px;
     padding: var(--sp-3) var(--sp-4);
     background: var(--bg-sunken);
     border-bottom: 1px solid var(--border);
@@ -58,9 +58,14 @@
 }
 .nav-btns {
     display: flex;
-    gap: var(--sp-2);
-    flex-wrap: wrap;
+    gap: 6px;
+    flex-wrap: nowrap;
 }
+.path-section .btn-icon { display:inline-grid; place-items:center; width:44px; height:44px; min-width:44px; padding:0; gap:0; }
+.path-section .btn-icon > span { display:flex; align-items:center; justify-content:center; width:23px; height:23px; line-height:0; }
+.path-section .btn-icon svg { display:block; width:23px; height:23px; }
+.path-section .btn-icon:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+.browser-toolbar-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; max-width:100%; }
 
 /* 列表头 */
 .file-list-header {
@@ -90,7 +95,7 @@
 .header-col:hover { color: var(--text); }
 .header-col.asc .sort-icon::after  { content: ' ↑'; }
 .header-col.desc .sort-icon::after { content: ' ↓'; }
-/* 列宽拖拽手柄：位于列右边界（功能 C） */
+/* 列边界手柄：拖动时在相邻两列间分配宽度。 */
 .col-resizer {
     position: absolute; top: 0; right: -6px; width: 12px; height: 100%;
     cursor: col-resize; z-index: 5;
@@ -156,6 +161,7 @@
 .file-link:hover { color: var(--brand); }
 .file-entry-text { min-width: 0; }
 .link-target {
+    display: block;
     margin-top: 3px;
     max-width: 520px;
     overflow: hidden;
@@ -447,7 +453,7 @@
     padding: var(--sp-6);
 }
 
-/* 首页搜索/过滤框（功能 #4） */
+/* 首页搜索/过滤框 */
 .filter-box {
     position: relative;
     display: inline-flex;
@@ -485,7 +491,7 @@
     display: none;
 }
 
-/* 最近浏览下拉面板（功能 #8） */
+/* 最近浏览下拉面板 */
 .recent-wrap { position: relative; }
 .recent-panel {
     position: absolute;
@@ -504,6 +510,16 @@
     display: none;
 }
 .recent-panel.open { display: block; }
+@media(max-width:860px) {
+    .nav-btns { position:relative; }
+    .path-section > .spacer { display:none; }
+    .browser-toolbar-actions { flex-basis:100%; order:1; }
+    .path-section > .drivers-row { flex-basis:100%; order:2; }
+    .recent-wrap { position:static; }
+    .recent-panel { left:0; width:calc(100vw - 32px); max-width:calc(100vw - 32px); }
+}
+a.link-target:hover { color: var(--brand); text-decoration: underline; }
+a.link-target:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .recent-panel .recent-title {
     font-size: 11px;
     font-weight: 600;
@@ -543,7 +559,7 @@
 }
 .recent-empty { padding: var(--sp-3); color: var(--text-muted); font-size: 13px; }
 
-/* 移动到其它目录浮层（功能 #7，居中 modal，随主题） */
+/* 移动到其它目录浮层（居中 modal，随主题） */
 .move-overlay {
     position: fixed; inset: 0; z-index: 300;
     display: none; align-items: center; justify-content: center;
@@ -600,6 +616,7 @@
 .delete-confirm-overlay.open { display: flex; }
 .delete-confirm-card {
     width: 420px; max-width: 100%;
+    max-height: calc(100dvh - 32px); overflow-y: auto;
     padding: var(--sp-6);
     background: var(--bg-elevated);
     border: 1px solid var(--border);
@@ -639,6 +656,7 @@
     display: flex; justify-content: flex-end; gap: var(--sp-3);
     margin-top: var(--sp-6);
 }
+.delete-confirm-actions [hidden] { display: none; }
 .delete-confirm-danger {
     color: #fff;
     background: color-mix(in srgb, var(--danger) 58%, #000);
@@ -652,6 +670,26 @@
 .delete-confirm-actions .btn:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--brand) 38%, transparent);
     outline-offset: 2px;
+}
+.file-item.is-recycling, .column-entry.is-recycling { position: relative; }
+.recycle-status {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 8px; border-radius: inherit;
+    background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+    color: var(--text-secondary); font-size: 13px;
+}
+.recycle-status::before, button.is-recycling::before {
+    content: ''; flex: 0 0 auto; width: 14px; height: 14px;
+    border: 2px solid currentColor; border-right-color: transparent;
+    border-radius: 50%; animation: recycleSpin .8s linear infinite;
+}
+button.is-recycling { display: inline-flex; align-items: center; gap: 8px; }
+.delete-confirm-overlay[aria-busy="true"] .delete-confirm-card { cursor: progress; }
+.delete-confirm-card p { max-height: 35dvh; overflow-y: auto; }
+@keyframes recycleSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .recycle-status::before, button.is-recycling::before { animation: none; }
 }
 @keyframes deleteConfirmIn {
     from { opacity: 0; transform: translateY(8px) scale(.98); }
@@ -676,7 +714,7 @@
     color: var(--text-muted);
     transition: all .14s var(--ease);
 }
-.segmented button svg { width: 16px; height: 16px; }
+.segmented button svg { width: 21px; height: 21px; }
 .segmented button.on {
     background: var(--bg-elevated);
     color: var(--brand);
@@ -823,4 +861,40 @@
     outline: none;
     border-color: var(--brand);
     box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+/* 批量操作栏 */
+.batch-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 150;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    box-shadow: var(--shadow-lg);
+}
+#batchCount {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.batch-bar .btn { flex-shrink: 0; }
+@media (max-width: 860px) {
+    .batch-bar {
+        bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+        border-radius: var(--r-lg);
+        gap: var(--sp-2);
+        padding: var(--sp-2) var(--sp-3);
+    }
+    .batch-bar .btn { min-height: 44px; }
 }

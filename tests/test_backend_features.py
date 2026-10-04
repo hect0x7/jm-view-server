@@ -16,6 +16,21 @@ from urllib.parse import quote
 from unittest import mock
 
 import requests
+import pytest
+import shutil
+
+
+@pytest.fixture
+def recycle_bin(tmp_path, monkeypatch):
+    """Keep recycled test data isolated and let pytest clean it up."""
+    destination = tmp_path / 'recycle-bin'
+    destination.mkdir()
+
+    def recycle(path):
+        shutil.move(path, str(destination / Path(path).name))
+
+    monkeypatch.setattr('jm_view_server.routes.files.send2trash', recycle)
+    return destination
 
 
 def test_settings_page_route(live_server):
@@ -318,11 +333,23 @@ def test_download_zip_no_images_404(live_server):
     assert resp.status_code == 404
 
 
-def test_download_zip_escape_root_denied(live_server):
-    """穿越到根外 → 拒绝。"""
-    resp = requests.get(live_server.url + '/api/download_zip',
-                        params={'path': _p(live_server.root, '..')})
-    assert resp.status_code == 403
+def test_download_zip_outside_shared_root(tmp_path, monkeypatch):
+    """已通过访问校验的请求可以打包共享根外的普通目录。"""
+    from jm_view_server.app import JmServer
+    from PIL import Image
+    monkeypatch.setenv('USERPROFILE', str(tmp_path))
+    monkeypatch.setenv('HOME', str(tmp_path))
+    shared = tmp_path / 'shared'
+    shared.mkdir()
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    Image.new('RGB', (8, 12)).save(outside / '1.png')
+    server = JmServer(str(shared), '')
+    server.register_routes()
+    response = server.app.test_client().get('/api/download_zip', query_string={'path': str(outside)})
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+        assert archive.namelist() == ['1.png']
 
 
 # ===== #7 rename =====
@@ -378,18 +405,19 @@ def test_move_ok(live_server):
     assert os.path.exists(_p(dst_dir, 'cover.jpg'))
 
 
-def test_move_to_dangerous_path_denied(live_server):
-    """移动到危险/根外路径被拒，源文件不动。"""
-    src = _p(live_server.root, 'cover.jpg')
+def test_move_protected_shared_root_denied(live_server):
+    """默认共享根本身不可移动，内部文件保持不变。"""
+    src = live_server.root
     resp = requests.post(live_server.url + '/api/move',
                          data={'src': src, 'dst_dir': _p(live_server.root, '..')})
     assert resp.status_code == 403
-    assert os.path.exists(src)
+    assert os.path.isdir(src)
+    assert os.path.isfile(_p(src, 'cover.jpg'))
 
 
-# ===== 安全护栏（删除可操作已浏览路径，rename/move 仍限制在共享根内） =====
+# ===== 安全护栏与共享根外普通路径操作 =====
 
-def test_delete_outside_shared_root_allowed(live_server, tmp_path):
+def test_delete_outside_shared_root_allowed(live_server, tmp_path, recycle_bin):
     """浏览器可进入共享根外目录时，单删和批删也能删除其中的普通项目。"""
     outside_single = tmp_path / 'outside-single.txt'
     outside_batch = tmp_path / 'outside-batch.txt'
@@ -436,22 +464,25 @@ def test_delete_protects_shared_root_drive_root_and_windows_system_dirs(live_ser
         'Permission denied: Cannot operate on critical system directories.', 403)
 
 
-def test_rename_and_move_outside_root_still_denied(live_server, tmp_path):
-    """放开删除不影响 rename/move 的共享根边界。"""
+def test_rename_and_move_outside_root_allowed(live_server, tmp_path):
+    """已通过访问校验的普通路径支持共享根外重命名和移动。"""
     outside = tmp_path / 'outside.txt'
     outside.write_text('keep')
-    for endpoint, data in [
-        ('/api/rename', {'path': str(outside), 'new_name': 'x.txt'}),
-        ('/api/move', {'src': str(outside), 'dst_dir': live_server.root}),
-    ]:
-        resp = requests.post(live_server.url + endpoint, data=data)
-        assert resp.status_code == 403, endpoint
-    assert outside.exists()
+    resp = requests.post(live_server.url + '/api/rename',
+                         data={'path': str(outside), 'new_name': 'renamed.txt'})
+    assert resp.status_code == 200
+    renamed = tmp_path / 'renamed.txt'
+    assert renamed.read_text() == 'keep'
+    resp = requests.post(live_server.url + '/api/move',
+                         data={'src': str(renamed), 'dst_dir': live_server.root})
+    assert resp.status_code == 200
+    assert not renamed.exists()
+    assert (Path(live_server.root) / 'renamed.txt').read_text() == 'keep'
 
 
 # ===== #10 batch_delete =====
 
-def test_batch_delete_all_ok(live_server):
+def test_batch_delete_all_ok(live_server, recycle_bin):
     paths = [_p(live_server.root, '漫画B'), _p(live_server.root, 'cover.jpg')]
     resp = requests.post(live_server.url + '/api/batch_delete',
                          data={'paths': '\n'.join(paths)})
@@ -463,7 +494,7 @@ def test_batch_delete_all_ok(live_server):
     assert not os.path.exists(paths[1])
 
 
-def test_batch_delete_partial(live_server):
+def test_batch_delete_partial(live_server, recycle_bin):
     """含一个不存在的路径 → 部分成功，failed 报告不存在项。"""
     good = _p(live_server.root, 'cover.jpg')
     missing = _p(live_server.root, 'nope-does-not-exist')

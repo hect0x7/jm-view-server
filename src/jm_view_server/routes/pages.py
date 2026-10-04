@@ -17,6 +17,22 @@ class PageRoutesMixin:
         if not self.verify():
             return redirect('/login')
 
+        if request.args.get('favorites') == '1':
+            try:
+                records = self.favorite_manager.list_images()
+            except (OSError, ValueError):
+                return jsonify({'error': '无法读取收藏记录'}), 500
+            images = [{'filename': os.path.basename(item['path']),
+                       'data_original': '/view_file?path=' + quote(item['path']),
+                       'data_thumb': '/api/thumb?path=' + quote(item['path'])}
+                      for item in records if os.path.isfile(item['path'])]
+            if not images:
+                return redirect('/favorites')
+            return render_template('jm_view.html', data={
+                'title': '收藏图片', 'full_path': '收藏图片', 'images': images,
+                'openFromDir': '', 'next_dir_path': '', 'favorites': True,
+            }, randomArg=self.url_random_arg())
+
         # path是要阅读的文件夹
         path = request.args.get('path', None)
         # 从哪个文件夹打开的
@@ -79,9 +95,7 @@ class PageRoutesMixin:
         if not raw_path:
             return jsonify({'error': 'Path required'}), 400
 
-        from urllib.parse import unquote
-        path = unquote(raw_path)
-        path = os.path.abspath(path)
+        path = os.path.abspath(raw_path)
 
         if not os.path.isfile(path):
             return abort(404)
@@ -150,7 +164,7 @@ class PageRoutesMixin:
         path = os.path.abspath(path)
         path = common.fix_filepath(path)
 
-        # I-8：路径不存在（含手动输入越权/不存在目录）时，渲染友好错误页而非浏览器默认 404/持续 loading。
+        # 路径不存在（含手动输入越权/不存在目录）时，渲染友好错误页而非浏览器默认 404/持续 loading。
         #      注意：本项目设计上允许自由浏览文件系统（驱动器/盘符），故不在此加“越权”硬拦截，
         #      仅把“打不开的路径”统一导向友好空态页。
         if common.file_not_exists(path):

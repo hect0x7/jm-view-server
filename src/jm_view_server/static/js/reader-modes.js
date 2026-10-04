@@ -456,6 +456,9 @@ function setReaderMode(mode, options) {
   if (modeScroll) modeScroll.classList.toggle('active', readerMode === 'scroll');
   if (modeSingle) modeSingle.classList.toggle('active', readerMode === 'single');
   if (modeDouble) modeDouble.classList.toggle('active', readerMode === 'double');
+  if (window.JmvPrefs && readerMode !== 'double') {
+    applyImageSize(JmvPrefs.get(readerMode === 'scroll' ? 'scrollImageSize' : 'imageSize'), true);
+  }
   applySingleFit(singleFit, false);
   if (previousMode === 'double' && readerMode !== 'double') cleanupDoubleLayout();
   pages.forEach(function(page, idx) {

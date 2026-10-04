@@ -22,7 +22,7 @@ def _visible_names(pg):
     )
 
 
-# ---------- 功能 #4：搜索/过滤 ----------
+# ---------- 搜索/过滤 ----------
 
 def test_filter_single_match(live_server, browser):
     pg = _open(live_server, browser)
@@ -71,7 +71,7 @@ def test_filter_case_insensitive(live_server, browser):
     assert any('cover' in n.lower() for n in names)
 
 
-# ---------- 功能 #8：最近浏览历史 ----------
+# ---------- 最近浏览历史 ----------
 
 def test_recent_records_current_path(live_server, browser):
     pg = _open(live_server, browser)

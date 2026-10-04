@@ -1,11 +1,18 @@
 /* ============================================================
-   jm-view-server 原型 · 共享脚本
+   jm-view-server · 共享脚本
    主题切换 + toast + 复制地址 + 内联 SVG 图标
-   所有页面复用此文件（取代旧版散落 3 份的 copyServerAddress）
+   所有页面复用此文件
    ============================================================ */
 
 /* ---------- 内联 SVG 图标（本地，不依赖 FontAwesome CDN） ---------- */
 const ICONS = {
+  favoriteImages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>',
+  folderBookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10H3z"/><path d="M13 10h5v7l-2.5-1.7L13 17z"/></svg>',
+  export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><circle cx="8" cy="10" r="1.2"/><path d="m3 17 4-4 4 4 3-3 5 5M14 10l7-7m-5 0h5v5"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/></svg>',
+  folderPlus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10H3zM9 13h6M12 10v6"/></svg>',
+  folderOpen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V5h6l2 2h9v3M3 17l3-6h16l-4 9H3z"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   folder:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   images:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg>',
   chat:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>',
@@ -49,6 +56,14 @@ const ICONS = {
   palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2.5-2.5c0-.6-.2-1.2-.6-1.6-.4-.5-.6-1-.6-1.6a2.5 2.5 0 0 1 2.5-2.5H18a4 4 0 0 0 4-4c0-4.5-4.5-8-10-8z"/></svg>',
   insertPage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  columns: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>',
+  keyboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M7 16h10"/></svg>',
+  database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+  singlePage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+  doublePage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16M5 9h4M15 9h4M5 13h4M15 13h4"/></svg>',
+  scrollPages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v5H6zM6 17h12v5H6zM12 9v6m-3-3 3 3 3-3"/></svg>',
+  reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg>',
+  history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>',
 };
 function icon(name) { return ICONS[name] || ''; }
@@ -72,11 +87,14 @@ var JMV_PREF_DEFS = {
   sidebarWidth: { key: 'jmv-sidebar-w', type: 'number', min: 180, max: 420, fallback: 248 },
   browserView: { key: 'jmv-view', type: 'enum', values: ['list', 'grid', 'column'], fallback: 'list' },
   browserOperations: { key: 'jmv-browser-operations', type: 'bool', fallback: true },
+  confirmRecycle: { key: 'jmv-confirm-recycle', type: 'bool', fallback: false },
   readerMode: { key: 'jmv-reader-mode', type: 'enum', values: ['scroll', 'single', 'double'], fallback: 'scroll' },
   readingDirection: { key: 'jmv-reading-direction', type: 'enum', values: ['ltr', 'rtl'], fallback: 'ltr' },
   doubleWidthScale: { key: 'jmv-double-width-scale', type: 'number', min: 50, max: 100, fallback: 98 },
   singleFit: { key: 'jmv-single-fit', type: 'enum', values: ['contain', 'custom'], fallback: 'contain' },
   imageSize: { key: 'jmv-img-custom-size', type: 'number', min: 300, max: 1600, fallback: 800 },
+  scrollFit: { key: 'jmv-scroll-fit', type: 'enum', values: ['window', 'custom'], fallback: 'window' },
+  scrollImageSize: { key: 'jmv-scroll-image-size', type: 'number', min: 300, max: 1600, fallback: 800 },
   eyeCare: { key: 'jmv-eyecare', type: 'bool', fallback: false },
   headerHidden: { key: 'jmv-head-hidden', type: 'bool', fallback: true },
   progressHidden: { key: 'jmv-prog-hidden', type: 'bool', fallback: false },
@@ -163,6 +181,19 @@ var JmvPrefs = {
   }
 };
 window.JmvPrefs = JmvPrefs;
+// 旧版本两种模式共用宽度；首次升级复制到下拉设置，之后独立保存。
+(function migrateScrollSizing() {
+  try {
+    if (localStorage.getItem('jmv-reader-sizing-version') === '1') return;
+    var legacy = localStorage.getItem(JMV_PREF_DEFS.imageSize.key);
+    if (legacy != null && localStorage.getItem(JMV_PREF_DEFS.scrollImageSize.key) == null) {
+      JmvPrefs.set('scrollImageSize', legacy);
+      if (localStorage.getItem(JMV_PREF_DEFS.scrollFit.key) == null) JmvPrefs.set('scrollFit', 'custom');
+    }
+    localStorage.setItem('jmv-reader-sizing-version', '1');
+  } catch (e) {}
+})();
+
 
 window.JMV_READER_SHORTCUTS = [
   { keys: ['←'], label: '单页：上一页；连续模式：无操作' },
@@ -416,7 +447,7 @@ function openAppearance() {
 }
 window.openAppearance = openAppearance;
 
-/* ---------- Toast 通知（统一，取代旧版各页自制 alert/notification） ---------- */
+/* ---------- 统一 Toast 通知 ---------- */
 function toast(msg, type = 'default') {
   let host = document.getElementById('toastHost');
   if (!host) {

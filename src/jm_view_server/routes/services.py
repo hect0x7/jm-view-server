@@ -7,6 +7,71 @@ from ..driver import get_lan_ip
 
 
 class ServiceRoutesMixin:
+    def api_copy_favorites(self):
+        if not self.verify():
+            return jsonify({'error': 'Unauthorized'}), 401
+        body = request.get_json(silent=True)
+        destination = body.get('destination') if isinstance(body, dict) else None
+        clear = body.get('clear', False) if isinstance(body, dict) else False
+        mode = body.get('mode') if isinstance(body, dict) else None
+        if mode is not None and mode not in ('copy', 'copy_clear', 'move'):
+            return jsonify({'error': '请选择有效的导出方式'}), 400
+        if not isinstance(clear, bool):
+            return jsonify({'error': 'clear 必须为布尔值'}), 400
+        if (not isinstance(destination, str) or not destination.strip()
+                or '\x00' in destination or not os.path.isabs(destination)):
+            return jsonify({'error': '请输入服务器电脑上的完整文件夹路径'}), 400
+        try:
+            return jsonify(self.favorite_manager.copy_images(os.path.abspath(destination.strip()), clear=clear,
+                                                            mode=mode, guard=self._guard_dangerous_path))
+        except (OSError, ValueError):
+            return jsonify({'error': '无法复制，请检查收藏记录、目标路径与读写权限'}), 500
+
+    def api_favorites(self):
+        if not self.verify():
+            return jsonify({'error': 'Unauthorized'}), 401
+        try:
+            if request.method == 'GET':
+                response = jsonify({'images': self.favorite_manager.list_images()})
+                response.headers['Cache-Control'] = 'no-store'
+                return response
+            body = request.get_json(silent=True)
+            path = body.get('path') if isinstance(body, dict) else None
+            if not isinstance(path, str) or not path or '\x00' in path or not os.path.isabs(path):
+                return jsonify({'error': '需要有效的图片路径'}), 400
+            path = os.path.abspath(path)
+            favorite = request.method == 'PUT'
+            if favorite and (not os.path.isfile(path) or not self.file_manager.is_image_file(path)):
+                return jsonify({'error': '图片不存在或格式不支持'}), 400
+            self.favorite_manager.set_image(path, favorite)
+            return jsonify({'favorite': favorite})
+        except (OSError, ValueError):
+            return jsonify({'error': '无法读写收藏记录，请检查收藏文件与访问权限'}), 500
+
+    def favorites_page(self):
+        if not self.verify():
+            return redirect('/login')
+        try:
+            images = []
+            for item in self.favorite_manager.list_images():
+                image = {**item, 'name': os.path.basename(item['path']), 'available': False,
+                         'parent': os.path.dirname(item['path']),
+                         'modified_at': None, 'size_label': '不可用'}
+                try:
+                    if os.path.isfile(item['path']):
+                        stat = os.stat(item['path'])
+                        image.update(available=True, modified_at=stat.st_mtime,
+                                     size_label=self.file_manager.file_size_format(stat.st_size, 'file') or f'{stat.st_size} B')
+                except OSError:
+                    pass
+                images.append(image)
+        except (OSError, ValueError):
+            return render_template('favorites.html', images=[], error='无法读取收藏记录',
+                                   randomArg=self.url_random_arg()), 500
+        return render_template('favorites.html', images=images,
+                               available_count=sum(image['available'] for image in images),
+                               randomArg=self.url_random_arg())
+
     def pwa_service_worker(self):
         """从根路径提供 service worker，使其作用域可覆盖整站（/）。"""
         resp = send_from_directory(self.app.static_folder, 'sw.js', mimetype='text/javascript')

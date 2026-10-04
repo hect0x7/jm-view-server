@@ -3,9 +3,8 @@
    单一 token 层驱动深/浅双主题。所有页面共用此文件。
    ============================================================ */
 
-/* 字体：品牌/数字用 Space Grotesk（专业、有辨识度，非烂大街 Inter）；
-   正文中文走系统精致无衬线栈；数据等宽用 mono。本地服务器不联网加载，
-   原型阶段用 CDN 便于预览，落地时替换为本地 woff2。 */
+/* 字体：标题和数字使用本地 Space Grotesk woff2；
+   中文正文使用系统无衬线字体，等宽内容使用 mono。 */
 @font-face {
   font-family: 'Space Grotesk';
   src: url('/static/webfonts/SpaceGrotesk.woff2') format('woff2');
@@ -14,7 +13,7 @@
 
 /* ---------- 语义 token（浅色，默认） ---------- */
 :root {
-  /* 主色阶 —— 收敛为单一 indigo，取代旧版 3 个打架的主色 */
+  /* 品牌色：统一 indigo 语义 token */
   --brand: #5b5bd6;
   --brand-hover: #4d4dc9;
   --brand-soft: #eef0fb;
@@ -41,7 +40,7 @@
   --danger: #e5484d;
   --warning: #f5a623;
 
-  /* 阴影 —— 柔和多层，取代旧版生硬的 3px 3px 偏移投影 */
+  /* 阴影：使用多层柔和投影 */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 3px rgba(16, 24, 40, 0.06);
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12), 0 2px 8px rgba(16, 24, 40, 0.06);
@@ -99,7 +98,7 @@
   --shadow-brand: 0 4px 16px var(--brand-ring);
 }
 
-/* I-4：深色模式下浮层/下拉与页面底色对比偏弱，统一加强边框 + 外发光描边，
+/* 深色模式下浮层/下拉与页面底色对比偏弱，统一加强边框 + 外发光描边，
    让最近浏览、操作菜单、跳页浮窗、移动/外观面板等浮层从背景中清晰浮起。 */
 :root[data-theme="dark"] {
   --popover-border: #3a4055;
@@ -144,7 +143,7 @@ input, textarea { font-family: inherit; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ============================================================
-   统一组件 · 按钮（3 种，取代旧版 6 套）
+   统一组件 · 按钮
    ============================================================ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -206,7 +205,7 @@ input, textarea { font-family: inherit; }
 }
 .badge-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-/* 可复制的服务器地址 pill —— 统一样式，取代旧版 3 处各写一份的内联 IP 条 */
+/* 可复制的服务器地址 pill */
 .addr-pill {
   display: inline-flex; align-items: center; gap: var(--sp-2);
   height: 32px; padding: 0 var(--sp-3);
@@ -255,7 +254,7 @@ input, textarea { font-family: inherit; }
 .app.sidebar-collapsed .theme-toggle,
 .app.sidebar-precollapse .theme-toggle { display: none; }
 
-/* 拖拽中低于折叠阈值的“将要折叠”预览：淡化侧栏内容 + 右缘高亮，明确区分未到阈值/已进折叠意图区（I-1） */
+/* 拖拽中低于折叠阈值的“将要折叠”预览：淡化侧栏内容 + 右缘高亮，明确区分未到阈值/已进折叠意图区 */
 .app.sidebar-precollapse .sidebar > *:not(.sidebar-resizer) { opacity: .35; transition: opacity .12s var(--ease); }
 .app.sidebar-precollapse .sidebar { box-shadow: inset -2px 0 0 var(--brand); }
 
@@ -314,7 +313,7 @@ input, textarea { font-family: inherit; }
 /* 主区 */
 .main { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .topbar {
-  /* PWA 全屏时让出手机顶部安全区（状态栏/刘海），避免遮挡内容（I-5） */
+  /* PWA 全屏时让出手机顶部安全区（状态栏/刘海），避免遮挡内容 */
   height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
   flex-shrink: 0;
@@ -598,6 +597,67 @@ body.settings-page { height: 100%; overflow: hidden; }
 .settings-switch-button:focus-visible i { box-shadow: 0 0 0 3px var(--brand-ring); }
 .settings-action-card { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .settings-action-card p { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+
+/* File browsing preferences share one aligned panel. */
+.settings-browser-panel {
+  container-type: inline-size;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.settings-browser-panel > .settings-card {
+  padding: 18px 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.settings-browser-panel > .settings-card + .settings-card { border-top: 1px solid var(--border); }
+.settings-browser-panel > .settings-card:nth-child(odd):not(:first-child) { border-left: 1px solid var(--border); }
+.settings-browser-panel > .settings-browser-reset { flex-direction: column; align-items: stretch; gap: 12px; }
+.settings-browser-reset .settings-inline { display: flex; }
+.settings-browser-reset .btn { flex: 1; }
+.settings-reader-detail { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.settings-reader-panel[hidden] { display: none; }
+.settings-reader-fields { max-width: 680px; }
+.settings-reader-fields .settings-segment { max-width: 480px; }
+.settings-mode-option + .settings-mode-option { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.settings-common-heading { grid-column: 1 / -1; color: var(--text-secondary); font-size: 13px; font-weight: 600; margin-top: 4px; }
+@media (max-width: 1100px) {
+  .settings-browser-panel { grid-template-columns: minmax(0, 1fr); }
+  .settings-browser-panel > .settings-card:nth-child(odd):not(:first-child) { border-left: 0; }
+}
+
+.settings-browser-view { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.settings-browser-label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.settings-browser-label b { font-size: 14px; font-weight: 600; }
+.settings-browser-label small { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.settings-browser-view .settings-segment { width: 300px; max-width: 100%; flex-shrink: 0; }
+.settings-browser-panel .settings-segment button { min-height: 44px; }
+.settings-browser-panel .settings-switch-row { min-height: 44px; }
+.settings-browser-panel .settings-switch-row > span { min-width: 0; gap: 4px; }
+.settings-browser-panel .settings-switch-row small { line-height: 1.6; }
+.settings-browser-panel > .settings-browser-reset { background: var(--bg-sunken); }
+.settings-browser-reset .settings-inline { flex-shrink: 0; }
+.settings-browser-reset .btn { min-height: 44px; font-size: 12px; }
+@container (max-width: 520px) {
+  .settings-browser-view { align-items: stretch; flex-direction: column; gap: 12px; }
+  .settings-browser-view .settings-segment { width: 100%; }
+  .settings-browser-reset { align-items: stretch; flex-direction: column; }
+  .settings-browser-reset .settings-inline { width: 100%; }
+  .settings-browser-reset .btn { flex: 1; }
+}
+@media (max-width: 620px) {
+  .settings-browser-panel > .settings-card { padding: 16px; }
+  .settings-browser-view { align-items: stretch; flex-direction: column; gap: 12px; }
+  .settings-browser-view .settings-segment { width: 100%; }
+  .settings-browser-panel .settings-switch-row { gap: 16px; }
+  .settings-browser-reset .settings-inline { width: 100%; }
+  .settings-browser-reset .btn { flex: 1; }
+}
 .shortcut-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
 .shortcut-row { min-height: 58px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-elevated); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .shortcut-row > span { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
@@ -609,6 +669,20 @@ kbd { min-width: 28px; min-height: 26px; display: inline-grid; place-items: cent
 .settings-data-card > span { font-family: var(--font-brand); font-size: 30px; color: var(--brand); }
 .settings-data-card b { font-size: 13px; }
 .settings-data-card button { justify-self: start; color: var(--danger); font-size: 12px; margin-top: 5px; }
+
+/* 设置图标与文字共用控件热区，装饰图标不接管点击。 */
+.settings-page .settings-icon { display: inline-flex; flex-direction: row; align-items: center; justify-content: center; width: 18px; height: 18px; flex: 0 0 18px; line-height: 0; pointer-events: none; }
+.settings-icon svg { display: block; width: 100%; height: 100%; }
+.settings-rail a, .settings-label, .settings-browser-label b, .settings-switch-row b, .settings-data-card b { display: flex; align-items: center; gap: 8px; }
+.settings-rail a { min-height: 44px; }
+.settings-section-head > div { align-items: center; }
+.settings-page .settings-heading-icon { width: 36px; height: 36px; flex-basis: 36px; padding: 8px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); }
+.settings-label .settings-icon, .settings-browser-label .settings-icon, .settings-switch-row .settings-icon { color: var(--text-muted); }
+.settings-segment button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+.settings-segment-feature button { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 5px; }
+.settings-page .settings-mode-icon { width: 30px; height: 30px; flex-basis: 30px; margin-bottom: 4px; }
+.settings-direction-reverse { transform: scaleX(-1); }
+.settings-data-card button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .settings-footer-actions { display: flex; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); }
 .settings-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
 

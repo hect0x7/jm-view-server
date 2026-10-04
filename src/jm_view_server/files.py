@@ -210,6 +210,13 @@ class FileManager:
 
     @staticmethod
     def get_target_path(lnk_path: str) -> str:
+        from .shortcuts import read_link_info_path
+
+        location_path = read_link_info_path(lnk_path)
+        if location_path:
+            location_path = os.path.abspath(os.path.expandvars(location_path)).replace('\\', '/')
+            if os.path.exists(location_path):
+                return location_path
         try:
             import pylnk3
             lnk = pylnk3.parse(lnk_path)
@@ -218,6 +225,8 @@ class FileManager:
             working_dir = getattr(lnk, 'working_dir', None)
 
             candidates = []
+            if location_path:
+                candidates.append(location_path)
             if raw_path:
                 candidates.append(raw_path)
             if relative_path:
@@ -235,7 +244,7 @@ class FileManager:
             normalized_candidates = []
             for candidate in candidates:
                 normalized = os.path.abspath(os.path.expandvars(candidate))
-                normalized = normalized.replace("\\", '/').replace("//", '/')
+                normalized = normalized.replace("\\", '/')
                 if normalized not in normalized_candidates:
                     normalized_candidates.append(normalized)
 
@@ -244,6 +253,8 @@ class FileManager:
                     return candidate
             return normalized_candidates[0] if normalized_candidates else None
         except Exception:
+            if location_path:
+                return location_path
             return None
 
     @staticmethod

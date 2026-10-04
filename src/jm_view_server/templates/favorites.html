@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>收藏图片 · 看本</title>
+  <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/favorites.css?t={{ randomArg }}">
+  <link rel="stylesheet" href="/static/css/favorites-export.css?t={{ randomArg }}">
+  <script defer src="/static/js/app.js?t={{ randomArg }}"></script>
+  <script defer src="/static/js/app-shell.js?t={{ randomArg }}"></script>
+  <script defer src="/static/js/favorites-export.js?t={{ randomArg }}"></script>
+  <script defer src="/static/js/favorites-page.js?t={{ randomArg }}"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"><a class="btn btn-outline" href="/"><span data-favorite-icon="arrowLeft" aria-hidden="true"></span>返回文件浏览</a></div>
+    <div class="content favorites-content">
+      <div class="favorites-head">
+        <div class="favorites-title"><span class="favorites-feature-icon" data-favorite-icon="favoriteImages" aria-hidden="true"></span><div><h1>收藏图片</h1><p>把喜欢的画面留下来 · 阅读时双击收藏</p></div></div>
+      </div>
+      <section class="favorites-library-card">
+        <div class="favorites-library-summary"><span class="favorites-feature-icon" data-favorite-icon="images" aria-hidden="true"></span><div><h2>你的原图收藏库</h2><p><b id="favoriteTotalCount">{{ images|length }}</b> 张收藏 · <b id="favoriteAvailableCount">{{ available_count|default(0) }}</b> 张原图可用</p></div></div>
+        <div class="favorites-library-actions" role="group" aria-label="收藏库操作">
+          {% if images %}<a class="btn btn-outline favorite-icon-button" id="readFavorites" href="/jm_view?favorites=1" aria-label="看本收藏图" title="看本收藏图"><span data-favorite-icon="book" aria-hidden="true"></span></a>{% endif %}
+          <button class="btn btn-primary favorite-icon-button" type="button" data-open-favorites-export aria-label="导出收藏图" title="导出收藏图"><span data-favorite-icon="export" aria-hidden="true"></span></button>
+        </div>
+        <p class="favorites-library-note">可复制、复制并清空收藏或移动原图，同名文件自动加序号。</p>
+      </section>
+      <div class="favorites-section-title"><h2>收藏记录</h2><span>按收藏时间排列 · 最新在前</span></div>
+      <div class="favorites-empty" id="favoritesEmpty" {% if images %}hidden{% endif %}><span data-favorite-icon="images" aria-hidden="true"></span><p>{{ error|default('还没有收藏图片，去看本页双击喜欢的图片吧。') }}</p></div>
+      <div class="favorites-grid">
+        {% for image in images %}
+        <article class="favorite-card" data-path="{{ image.path }}" data-available="{{ '1' if image.available else '0' }}">
+          {% if image.available %}
+          <a class="favorite-preview" href="/view_file?path={{ image.path|urlencode }}" aria-label="查看 {{ image.name }}">
+            <img src="/api/thumb?path={{ image.path|urlencode }}" loading="lazy" alt="{{ image.name }}">
+          </a>
+          {% else %}<div class="favorite-preview favorite-missing"><span data-favorite-icon="alert" aria-hidden="true"></span>原图已移动或删除</div>{% endif %}
+          <div class="favorite-details">
+            <div class="favorite-caption"><span data-favorite-icon="images" aria-hidden="true"></span><h3 title="{{ image.name }}">{{ image.name }}</h3><span class="favorite-size">{{ image.size_label }}</span></div>
+            <div class="favorite-source"><span data-favorite-icon="folder" aria-hidden="true"></span><span title="{{ image.path }}">{{ image.path }}</span></div>
+            <dl class="favorite-metadata"><div><dt>收藏时间</dt><dd><time data-favorite-time="{{ image.created_at }}"></time></dd></div><div><dt>文件修改</dt><dd>{% if image.modified_at %}<time data-favorite-time="{{ image.modified_at }}"></time>{% else %}不可用{% endif %}</dd></div></dl>
+            <div class="favorite-actions" role="group" aria-label="图片操作"><a class="btn btn-ghost favorite-icon-button" href="/?path={{ image.parent|urlencode }}" aria-label="打开来源目录" title="打开来源目录"><span data-favorite-icon="folder" aria-hidden="true"></span></a><button class="btn btn-ghost favorite-icon-button" type="button" data-favorite-action="copy-path" aria-label="复制原图路径" title="复制原图路径"><span data-favorite-icon="copy" aria-hidden="true"></span></button><button class="btn btn-ghost favorite-icon-button favorite-remove" type="button" aria-label="取消收藏" title="取消收藏"><span data-favorite-icon="favoriteImages" aria-hidden="true"></span></button></div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+  <nav class="mobile-bar"></nav>
+</div>
+{% include 'favorites_export.html' %}
+</body>
+</html>

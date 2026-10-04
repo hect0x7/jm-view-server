@@ -3,6 +3,9 @@ function initSettingsPage() {
   if (!prefs) return;
 
   document.getElementById('settingsHeroIcon').innerHTML = icon('settings');
+  document.querySelectorAll('[data-settings-icon]').forEach(function (element) {
+    element.innerHTML = icon(element.getAttribute('data-settings-icon'));
+  });
 
   var scrollHost = document.querySelector('.settings-content');
   var settingsMain = document.querySelector('.settings-main');
@@ -286,6 +289,7 @@ function initSettingsPage() {
 
   function selectSegment(id, value) {
     document.querySelectorAll('#' + id + ' [data-value]').forEach(function(button) {
+      if (button.closest('.settings-segment') !== document.getElementById(id)) return;
       button.classList.toggle('active', button.dataset.value === value);
     });
   }
@@ -295,7 +299,7 @@ function initSettingsPage() {
     selectSegment(id, prefs.get(prefName));
     group.addEventListener('click', function(event) {
       var button = event.target.closest('[data-value]');
-      if (!button) return;
+      if (!button || button.closest('.settings-segment') !== group) return;
       event.preventDefault();
       runSettingsUpdate(button, function() {
         var value = prefs.set(prefName, button.dataset.value);
@@ -455,6 +459,7 @@ function initSettingsPage() {
   bindSegment('browserViewSegment', 'browserView');
   bindDeferredSwitch('sidebarCollapsed', 'sidebarCollapsed', '已保存，刷新页面后生效');
   bindDeferredSwitch('browserOperations', 'browserOperations', '分栏操作入口设置已即时生效');
+  bindDeferredSwitch('confirmRecycle', 'confirmRecycle', '回收站确认设置已即时生效');
   document.getElementById('sidebarWidthReset').addEventListener('click', function(event) {
     runSettingsUpdate(event.currentTarget, function() {
       prefs.remove('sidebarWidth');
@@ -473,7 +478,16 @@ function initSettingsPage() {
     }, { keepFocus: true });
   });
 
-  bindSegment('readerModeSegment', 'readerMode');
+  function renderReaderMode() {
+    var mode = prefs.get('readerMode');
+    selectSegment('readerModeSegment', mode);
+    document.querySelectorAll('[data-reader-panel]').forEach(function(panel) {
+      panel.hidden = panel.getAttribute('data-reader-panel') !== mode;
+    });
+    document.getElementById('readerOptionsTitle').textContent = { scroll: '下拉阅读设置', single: '单页阅读设置', double: '双页阅读设置' }[mode];
+  }
+  bindSegment('readerModeSegment', 'readerMode', renderReaderMode);
+  renderReaderMode();
   bindSegment('readingDirectionSegment', 'readingDirection');
   var doubleWidthScale = document.getElementById('doubleWidthScale');
   var doubleWidthScaleValue = document.getElementById('doubleWidthScaleValue');
@@ -490,23 +504,42 @@ function initSettingsPage() {
     runSettingsUpdate(doubleWidthScale, function() { notify('双页画面比例已更新'); }, { keepFocus: true });
   });
 
-  bindSegment('singleFitSegment', 'singleFit', function(value) { document.getElementById('imageSize').disabled = value !== 'custom'; });
-  var imageSize = document.getElementById('imageSize');
-  var imageSizeValue = document.getElementById('imageSizeValue');
-  imageSize.value = String(prefs.get('imageSize'));
-  imageSizeValue.textContent = imageSize.value + 'px';
-  imageSize.disabled = prefs.get('singleFit') !== 'custom';
-  imageSize.addEventListener('input', function() {
-    runSettingsUpdate(imageSize, function() {
-      prefs.set('singleFit', 'custom');
-      selectSegment('singleFitSegment', 'custom');
-      imageSize.disabled = false;
-      prefs.set('imageSize', imageSize.value);
-      imageSizeValue.textContent = imageSize.value + 'px';
-    }, { keepFocus: true });
+  var imageSizeControls = [
+    { input: document.getElementById('imageSize'), output: document.getElementById('imageSizeValue'), width: 'imageSize', fit: 'singleFit', custom: 'custom' },
+    { input: document.getElementById('scrollImageSize'), output: document.getElementById('scrollImageSizeValue'), width: 'scrollImageSize', fit: 'scrollFit', custom: 'custom' }
+  ];
+  function renderImageSizing() {
+    selectSegment('singleFitSegment', prefs.get('singleFit'));
+    selectSegment('scrollFitSegment', prefs.get('scrollFit'));
+    imageSizeControls.forEach(function(control) {
+      control.input.value = String(prefs.get(control.width));
+      control.output.textContent = control.input.value + 'px';
+      control.input.disabled = prefs.get(control.fit) !== control.custom;
+    });
+  }
+  bindSegment('singleFitSegment', 'singleFit', renderImageSizing);
+  bindSegment('scrollFitSegment', 'scrollFit', renderImageSizing);
+  renderImageSizing();
+  imageSizeControls.forEach(function(control) {
+    control.input.addEventListener('input', function() {
+      var width = control.input.value;
+      runSettingsUpdate(control.input, function() {
+        prefs.set(control.width, width);
+        renderImageSizing();
+      }, { keepFocus: true });
+    });
+    control.input.addEventListener('change', function() {
+      runSettingsUpdate(control.input, function() { notify('图片宽度已更新'); }, { keepFocus: true });
+    });
   });
-  imageSize.addEventListener('change', function() {
-    runSettingsUpdate(imageSize, function() { notify('图片大小已更新'); }, { keepFocus: true });
+  window.addEventListener('jmv:preference-change', function(event) {
+    if (!event.detail) return;
+    if (event.detail.name === 'readerMode') renderReaderMode();
+    if (['imageSize', 'singleFit', 'scrollImageSize', 'scrollFit'].indexOf(event.detail.name) !== -1) renderImageSizing();
+  });
+  window.addEventListener('storage', function(event) {
+    if (event.key === null || event.key === prefs.definitions.readerMode.key) renderReaderMode();
+    if (event.key === null || ['imageSize', 'singleFit', 'scrollImageSize', 'scrollFit'].some(function(name) { return prefs.definitions[name].key === event.key; })) renderImageSizing();
   });
   bindBoolean('eyeCare', 'eyeCare', false);
   bindBoolean('headerVisible', 'headerHidden', true);

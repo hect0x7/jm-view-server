@@ -3,6 +3,7 @@ from urllib.parse import quote
 
 import common
 from flask import abort, jsonify, redirect, render_template, request, Response
+from send2trash import send2trash
 
 from ..driver import get_lan_ip
 
@@ -123,12 +124,6 @@ class FileRoutesMixin:
 
         return path_abs, None
 
-    def _within_root(self, path_abs):
-        """校验规范化后的绝对路径仍在默认共享根之内（防 .. 穿越到根外）。"""
-        root = os.path.realpath(os.path.abspath(self.file_manager.default_path))
-        target = os.path.realpath(path_abs)
-        return target == root or target.startswith(root + os.sep)
-
     @staticmethod
     def _valid_name(name):
         """校验文件名/文件夹名：非空、不含路径分隔符、不是 . / .."""
@@ -140,7 +135,7 @@ class FileRoutesMixin:
 
     def api_delete_path(self):
         """
-        [New] API: Delete file or folder securely
+        API: Move a file or folder to the server computer's recycle bin.
         """
         if not self.verify():
             return abort(403)
@@ -153,18 +148,16 @@ class FileRoutesMixin:
         if err:
             return jsonify({'error': err[0]}), err[1]
 
-        if not os.path.exists(path_abs):
+        # 安全校验解析目标路径，但回收时保留用户选择的链接本身。
+        path_abs = os.path.abspath(path)
+        if not os.path.lexists(path_abs):
             return jsonify({'error': 'Path not found'}), 404
 
         try:
-            if os.path.isdir(path_abs):
-                import shutil
-                shutil.rmtree(path_abs)
-            else:
-                os.remove(path_abs)
+            send2trash(path_abs)
             return jsonify({'status': 'ok'})
         except Exception as e:
-            return jsonify({'error': f'Delete failed: {e}'}), 500
+            return jsonify({'error': f'移入回收站失败: {e}'}), 500
 
     # ===== 打包下载 / 文件管理 / 批量操作 =====
 
@@ -185,8 +178,6 @@ class FileRoutesMixin:
             return jsonify({'error': 'Path required'}), 400
 
         path_abs = os.path.realpath(os.path.abspath(path))
-        if not self._within_root(path_abs):
-            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
         if common.file_not_exists(path_abs) or not os.path.isdir(path_abs):
             return jsonify({'error': 'Directory not found'}), 404
 
@@ -208,7 +199,7 @@ class FileRoutesMixin:
         import zipfile
         zip_name = common.of_file_name(path_abs) + '.zip'
 
-        # I-6：逐个写入并跳过读不了的文件（权限/损坏），避免单个坏文件让整个打包 500。
+        # 逐个写入并跳过读不了的文件（权限/损坏），避免单个坏文件让整个打包 500。
         def _write_images(zf):
             added = 0
             for f in images:
@@ -274,8 +265,6 @@ class FileRoutesMixin:
         path_abs, err = self._guard_dangerous_path(path)
         if err:
             return jsonify({'error': err[0]}), err[1]
-        if not self._within_root(path_abs):
-            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
         if not os.path.exists(path_abs):
             return jsonify({'error': 'Path not found'}), 404
 
@@ -301,8 +290,6 @@ class FileRoutesMixin:
             return jsonify({'error': 'Invalid name'}), 400
 
         parent_abs = os.path.realpath(os.path.abspath(parent))
-        if not self._within_root(parent_abs):
-            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
         if not os.path.isdir(parent_abs):
             return jsonify({'error': 'Parent directory not found'}), 404
 
@@ -329,8 +316,6 @@ class FileRoutesMixin:
         if err:
             return jsonify({'error': err[0]}), err[1]
         dst_dir_abs = os.path.realpath(os.path.abspath(dst_dir))
-        if not self._within_root(src_abs) or not self._within_root(dst_dir_abs):
-            return jsonify({'error': 'Permission denied: Path escapes shared root.'}), 403
         if not os.path.exists(src_abs):
             return jsonify({'error': 'Source not found'}), 404
         if not os.path.isdir(dst_dir_abs):
@@ -345,7 +330,7 @@ class FileRoutesMixin:
             return jsonify({'error': f'Move failed: {e}'}), 500
 
     def api_batch_delete(self):
-        """[New] API: 批量删除。body: paths（换行分隔或 JSON 数组）。逐个应用危险路径护栏后删除。"""
+        """[New] API: 批量删除。body: paths（换行分隔或 JSON 数组）。逐个应用危险路径护栏后移入服务器电脑的回收站。"""
         if not self.verify():
             return abort(403)
 
@@ -371,17 +356,15 @@ class FileRoutesMixin:
             if err:
                 failed.append({'path': p, 'error': err[0]})
                 continue
-            if not os.path.exists(path_abs):
+            # 与单项回收一致：不将符号链接的目标移入回收站。
+            path_abs = os.path.abspath(p)
+            if not os.path.lexists(path_abs):
                 failed.append({'path': p, 'error': 'Path not found'})
                 continue
             try:
-                if os.path.isdir(path_abs):
-                    import shutil
-                    shutil.rmtree(path_abs)
-                else:
-                    os.remove(path_abs)
+                send2trash(path_abs)
                 succeeded.append(p)
             except Exception as e:
-                failed.append({'path': p, 'error': str(e)})
+                failed.append({'path': p, 'error': f'移入回收站失败: {e}'})
 
         return jsonify({'status': 'ok', 'succeeded': succeeded, 'failed': failed})

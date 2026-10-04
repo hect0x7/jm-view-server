@@ -87,12 +87,12 @@ function initSidebarResize() {
 
   var dragging = false;
   var lastW = MIN;    // 拖动过程中记录的实时宽度
-  var grabDX = 0;     // 按下点与侧栏右边缘的水平偏差，用于消抖（I-2）
+  var grabDX = 0;     // 按下点与侧栏右边缘的水平偏差，用于消抖
 
   resizer.addEventListener('mousedown', function (e) {
     dragging = true;
     // 记录按下时鼠标 x 与侧栏当前右边缘的差值：拖动时用 (clientX - grabDX) 作为宽度，
-    // 消除 resizer 有宽度/-6px 偏移导致的“起手跳一下”抖动（I-2）。
+    // 消除 resizer 有宽度/-6px 偏移导致的“起手跳一下”抖动。
     var rect = app.querySelector('.sidebar').getBoundingClientRect();
     grabDX = e.clientX - rect.right;
 
@@ -118,7 +118,7 @@ function initSidebarResize() {
     var w = Math.max(COLLAPSED_W, Math.min(MAX, e.clientX - grabDX));
     lastW = w;
     app.style.setProperty('--sidebar-w', w + 'px');
-    // I-1：拖动中一旦低于折叠阈值，给个“将要折叠”的预览提示（不锁定，松手才定），
+    // 拖动中一旦低于折叠阈值，给个“将要折叠”的预览提示（不锁定，松手才定），
     // 用 class 让 CSS 淡化文字，明确区分“还没到阈值”与“已进入折叠意图区”。
     app.classList.toggle('sidebar-precollapse', w < COLLAPSE_AT);
   });
@@ -131,7 +131,7 @@ function initSidebarResize() {
     document.body.style.cursor = '';
 
     if (lastW < COLLAPSE_AT) {
-      // 松手时太窄 → 锁进折叠。先移除内联宽度再交回过渡，让 64px 折叠布局平滑落位（I-2）。
+      // 松手时太窄 → 锁进折叠。先移除内联宽度再交回过渡，让 64px 折叠布局平滑落位。
       app.style.removeProperty('--sidebar-w');
       app.classList.remove('sidebar-dragging');
       setCollapsed(true);

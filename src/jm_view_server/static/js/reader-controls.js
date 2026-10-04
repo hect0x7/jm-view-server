@@ -31,14 +31,14 @@ var pageClickTimer = null;
 stream.addEventListener('click', function(e) {
   if (readerMode !== 'single') return;
   if (Date.now() < suppressPageClickUntil) return;
-  if (e.detail > 1) return;
+  if (e.detail > 1) { clearTimeout(pageClickTimer); return; }
   clearTimeout(pageClickTimer);
   pageClickTimer = setTimeout(function() {
     var rect = stream.getBoundingClientRect();
     var clickedLeft = e.clientX < rect.left + rect.width / 2;
     var delta = clickedLeft ? -1 : 1;
     gotoPage(activePageIndex + delta);
-  }, 220);
+  }, 500);
 });
 stream.addEventListener('dblclick', function(e) {
   clearTimeout(pageClickTimer);

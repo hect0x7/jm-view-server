@@ -42,7 +42,7 @@
 <!-- 顶部悬浮栏 -->
 
 <div class="reader-top">
-  <a href="/?path={{ data.openFromDir }}" class="r-btn" title="原路返回" id="backBtn"></a>
+  <a href="{{ '/favorites' if data.favorites else '/?path=' ~ data.openFromDir }}" class="r-btn" title="原路返回" id="backBtn"></a>
   <div class="reader-title"><b title="{{ data.full_path }}">{{ data.full_path }}</b></div>
   <span class="r-progress" id="topProg">-- / --</span>
 </div>
@@ -128,7 +128,7 @@
     <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
     {% set open_folder_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
     <button id="tOpenFolder" type="button" title="{{ open_folder_label }}" data-tip="{{ open_folder_label }}" aria-label="{{ open_folder_label }}"></button>
-    <a href="/?path={{ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
+    <a href="{{ '/favorites' if data.favorites else '/?path=' ~ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
     <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
     <button id="tMore" title="更多功能" data-tip="阅读设置"></button>
   </div>
@@ -209,12 +209,14 @@
   'albumId': data.title,
   'albumPath': data.full_path,
   'nextDirPath': data.next_dir_path,
-  'openFromDir': data.openFromDir
+  'openFromDir': data.openFromDir,
+  'favorites': data.favorites|default(false)
 } | tojson }}</script>
 <script src="/static/js/reader-core.js?t={{ randomArg }}"></script>
 <script src="/static/js/reader-preferences.js?t={{ randomArg }}"></script>
 <script src="/static/js/reader-modes.js?t={{ randomArg }}"></script>
 <script src="/static/js/reader-contact-sheet.js?t={{ randomArg }}"></script>
 <script src="/static/js/reader-controls.js?t={{ randomArg }}"></script>
+<script src="/static/js/reader-favorites.js?t={{ randomArg }}"></script>
 </body>
 </html>

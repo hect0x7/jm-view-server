@@ -140,10 +140,10 @@ class TransferRoutesMixin:
         if not sys.platform.startswith('win') and not directory.startswith('/'):
             directory = '/' + directory
         path = os.path.normpath(os.path.abspath(directory))
-        # I-7：路径不存在（如已被删/移动）时给出明确错误，前端可提示而非静默失败
+        # 路径不存在（如已被删/移动）时给出明确错误，前端可提示而非静默失败
         if not os.path.exists(path):
             return jsonify({'error': '目标不存在，可能已被移动或删除'}), 404
-        # I-10：reveal=1（默认）在父目录中“选中”该项（适合列表里定位单个文件/文件夹）；
+        # reveal=1（默认）在父目录中“选中”该项（适合列表里定位单个文件/文件夹）；
         #       reveal=0 直接“进入/打开”该目录本身（适合顶部“打开当前文件夹”按钮）。
         reveal = request.args.get('reveal', '1') != '0'
         is_dir = os.path.isdir(path)

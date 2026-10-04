@@ -1,0 +1,30 @@
+<dialog class="favorites-export-dialog" id="favoritesExportDialog" aria-labelledby="favoritesExportTitle">
+  <form id="copyFavoritesForm" class="favorites-export-panel">
+    <header class="favorites-export-header">
+      <span class="favorites-feature-icon" data-favorite-icon="export" aria-hidden="true"></span>
+      <div><h2 id="favoritesExportTitle">导出收藏原图</h2><p>选择目标目录，复制或移动收藏的原始文件</p></div>
+      <button class="btn btn-ghost btn-icon" type="button" id="closeFavoritesExport" aria-label="关闭导出"><span data-favorite-icon="x" aria-hidden="true"></span></button>
+    </header>
+    <div class="favorites-export-columns">
+    <section class="favorites-export-options" aria-label="导出设置">
+    <fieldset class="favorites-export-mode"><legend>导出方式</legend>
+      <label><input type="radio" name="exportMode" value="copy" checked><span><b>复制收藏</b><small>复制后保留收藏</small></span></label>
+      <label><input type="radio" name="exportMode" value="copy_clear"><span><b>复制并清空收藏</b><small>保留来源文件，只清空成功记录</small></span></label>
+      <label><input type="radio" name="exportMode" value="move"><span><b>移动原图并清空收藏</b><small>复制成功后，来源原图移入回收站</small></span></label>
+    </fieldset>
+    <div class="favorites-export-summary"><span data-favorite-icon="favoriteImages" aria-hidden="true"></span><span id="favoritesExportCount">正在读取收藏数量…</span><a href="/favorites" aria-label="查看收藏" title="查看收藏"><span data-favorite-icon="book" aria-hidden="true"></span></a></div>
+    <div class="favorites-export-guarantees"><span><span data-favorite-icon="check" aria-hidden="true"></span><span id="favoritesRetentionHint">保留原图和收藏</span></span><span><span data-favorite-icon="copy" aria-hidden="true"></span>同名自动加序号</span></div>
+    </section>
+    <section class="favorites-export-destination" aria-label="目标与结果">
+    <div class="favorites-export-fields">
+    <label for="copyDestination">目标文件夹</label>
+    <div class="favorites-destination-input"><span data-favorite-icon="folder" aria-hidden="true"></span><input id="copyDestination" name="destination" type="text" required placeholder="输入完整文件夹路径" aria-describedby="copyDestinationHint" autocomplete="off">{% if export_current_directory %}<button class="btn btn-ghost btn-icon" type="button" id="useCurrentExportDirectory" title="恢复当前浏览目录" aria-label="恢复当前浏览目录"><span data-favorite-icon="arrowLeft" aria-hidden="true"></span></button>{% endif %}</div>
+    <p id="copyDestinationHint" class="favorites-export-hint">填写服务器电脑上的路径，文件夹不存在时自动创建。</p>
+    <div class="favorites-export-placeholder"><span data-favorite-icon="export" aria-hidden="true"></span><b>原始文件，直接导出</b><p>无需打包，同名自动避让。完成后在这里查看结果。</p></div>
+    </div>
+    <section class="favorites-export-result" id="copyFavoritesResult" role="status" aria-live="polite" hidden></section>
+    </section>
+    </div>
+    <footer class="favorites-export-footer"><span>实际文件复制 · 不压缩图片</span><div class="favorites-export-footer-actions"><button class="btn btn-outline" type="button" id="favoritesEditExport" hidden><span data-favorite-icon="arrowLeft" aria-hidden="true"></span>返回设置</button><button class="btn btn-primary" type="submit" id="copyFavoritesButton"><span data-favorite-icon="export" aria-hidden="true"></span><span id="copyFavoritesButtonText">复制全部原图</span></button></div></footer>
+  </form>
+</dialog>

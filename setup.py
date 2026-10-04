@@ -32,6 +32,7 @@ setup(
         'psutil',
         'cryptography',
         'Pillow',
+        'Send2Trash>=1.8.3,<2',
     ],
     keywords=['python', 'jmcomic', 'jm-view-server', '18comic', '禁漫天堂', 'NSFW'],
     classifiers=[
