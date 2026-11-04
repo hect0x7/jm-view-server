@@ -1,7 +1,7 @@
 import os
 from urllib.parse import quote
 
-import common
+from .. import common
 from flask import abort, Response
 from flask import render_template, send_from_directory
 from flask import request, session, redirect, flash, jsonify

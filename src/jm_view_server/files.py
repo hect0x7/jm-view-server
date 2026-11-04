@@ -3,7 +3,7 @@ import os
 import time
 import re
 
-import common
+from . import common
 
 
 class FileManager:

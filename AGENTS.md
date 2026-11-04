@@ -29,6 +29,8 @@
     - **排序逻辑**: 实现 `natural_key` 算法，确保带数字的文件夹按逻辑顺序排列（如 1, 2, 10 而非 1, 10, 2）。
     - **路径处理**: 支持 Windows 盘符识别及 `.lnk` 链接解析。
     - **快捷方式展示**: `.lnk` 保留快捷方式名称并向前端暴露执行目标；列表和网格中的快捷方式名称与目标路径均可点击；点击目录快捷方式进入目标目录，文件快捷方式沿用目标文件访问入口，重命名 / 移动 / 删除则作用于快捷方式文件本身。解析 LinkInfo 时优先读取 Unicode 路径，旧 ANSI 路径使用 Windows 当前代码页，不得使用固定西里尔编码或修改 pylnk3 全局字符集；失效和循环链接保持明确提示。
+- **`common.py` (内置路径与时间工具)**:
+    - 内联原 `commonX` 的路径斜杠规范化（`fix_filepath`）、目录枚举（`files_of_dir`）、文件名与父目录提取（`of_file_name` / `of_dir_path`）、存在性检查（`file_not_exists`）及日志时间戳与线程获取（`format_ts` / `current_thread`），仅依赖 Python 标准库，禁止重新引入外部顶层 `import common`（`commonX`）隐式依赖。
 
 #### 3.2 前端资源 (`src/jm_view_server/static/ & templates/`)
 

@@ -2,6 +2,13 @@
 
 本文件记录 `jm-view-server` 的重要版本变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [v0.3.10] - 2026-11-04
+
+### Fixed
+
+- 内联路径规范化、目录枚举与日志时间工具函数至 `jm_view_server.common`，移除对未声明第三方包 `commonX`（`common`）的隐式依赖，修复搭配 `jmcomic >= 2.7.11` 安装时启动报错 `ModuleNotFoundError: No module named 'common'` 的问题。
+- 适配 `jmcomic` 的三参数 `EXECUTOR_LOG(topic, msg, e=None)` 日志钩子签名，消除异常日志触发的参数个数告警并在 `/stream` 输出中保留异常详情。
+
 ## [v0.3.9] - 2026-10-14
 
 ### Changed

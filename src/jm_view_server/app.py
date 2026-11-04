@@ -95,8 +95,12 @@ class JmServer(FileRoutesMixin, PageRoutesMixin, TransferRoutesMixin, ServiceRou
 
     def __hook_jm_logging(self):
         import jmcomic
-        def executor_log(topic: str, msg: str):
-            from common import format_ts, current_thread
+        def executor_log(topic: str, msg, e=None):
+            from .common import format_ts, current_thread
+            if isinstance(msg, BaseException):
+                msg = str(msg)
+            elif e is not None:
+                msg = f'{msg}: {e}'
             msg = '[{}] [{}]:【{}】{}\n'.format(format_ts(), current_thread().name, topic, msg)
             self.jm_log_msg_queue.put(msg)
 
