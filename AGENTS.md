@@ -1,7 +1,5 @@
 # jm-view-server 项目简介
 
-> 本项目原名 `plugin-jm-server`，自 v0.2.4 起更名为 `jm-view-server`（PyPI 包名 `jm-view-server`，import 包 `jm_view_server`）。CLI 命令 `jms` 与 jmcomic 插件 key `jm_server` 保持不变。
-
 ### 1. 项目概览
 `jm-view-server` 是一个基于 Python Flask 的文件服务器，旨在为本地漫画/图片资源提供类似“禁漫天堂”的 Web 浏览体验。它不仅支持文件夹浏览，还针对图片阅读进行了深度优化。
 
@@ -139,18 +137,12 @@
 
 - **前端浏览器验收**：统一使用官方 Chrome DevTools Skills CLI（`chrome-devtools-mcp` 提供的 `chrome-devtools` 命令），移动端必须通过 `emulate --viewport '<width>x<height>x<dpr>,mobile,touch'` 验证真实触控媒体条件。项目内既有 Playwright 用例视为待迁移的旧基建，不再作为验收基线，也不新增 Playwright 覆盖。
 
-本项目的发布流程强依赖于 GitHub Actions，主要分为以下两个策略：
+本项目的自动发布流程依赖 GitHub Actions：
 
-1. **主包自动发版 (`jm-view-server`)**
-   - **工作流配置**：依赖 `.github/workflows/release_auto.yml`。
-   - **触发条件**：将代码 `push` 到 `master` 分支，且本次 commit message **必须以小写字母 `v` 开头**。
-   - **Commit Message 格式**：`v<版本号>: <发版说明>`。
-     - *示例*：`git commit -m "v0.3.2: 发布 v0.3.2"`
-   - **更新记录**：发版前必须在 `CHANGELOG.md` 新增 `## [v<版本号>] - YYYY-MM-DD` 章节；GitHub Release 正文优先从该章节提取，缺失时才回退到 commit message。
-   - **README 边界**：`README.md` 只维护当前稳定能力、安装和使用方式，不堆叠逐版本更新公告；历史变化统一写入 `CHANGELOG.md`。 效果展示以简短功能表和配图为主，不追加平台降级或内部实现的独立说明；缓存、并发、重载机制等放开发文档，必要的操作前提保留在使用说明。 未要求调整的旧教程、代码示例和迁移说明保持原文；文档验收发现的无关历史问题不得自动扩写或重构。
-   - **执行动作**：触发工作流后，会自动提取版本号创建对应的 Git Tag 和 GitHub Release，最后构建打包并发布到 PyPI。
-
-2. **重定向兼容包手动发版 (`plugin_jm_server`)**
-   - **工作流配置**：依赖 `.github/workflows/release_shim.yml`。
-   - **触发条件**：通过 GitHub 网页端手动点击 `Run workflow` 触发（或使用 GitHub CLI `gh workflow run release_shim.yml`）。
-   - **说明**：此薄壳包内容极少变动（仅负责导入 `jm_view_server`），不随主工程每次自动发版，仅在 `legacy_shim/` 内修改版本或逻辑时才需单独发布。
+- **工作流配置**：依赖 `.github/workflows/release_auto.yml`。
+- **触发条件**：将代码 `push` 到 `master` 分支，且本次 commit message **必须以小写字母 `v` 开头**。
+- **Commit Message 格式**：`v<版本号>: <发版说明>`。
+  - *示例*：`git commit -m "v0.3.2: 发布 v0.3.2"`
+- **更新记录**：发版前必须在 `CHANGELOG.md` 新增 `## [v<版本号>] - YYYY-MM-DD` 章节；GitHub Release 正文优先从该章节提取，缺失时才回退到 commit message。
+- **README 边界**：`README.md` 只维护当前稳定能力、安装和使用方式，不堆叠逐版本更新公告；历史变化统一写入 `CHANGELOG.md`。 效果展示以简短功能表和配图为主，不追加平台降级或内部实现的独立说明；缓存、并发、重载机制等放开发文档，必要的操作前提保留在使用说明。 未要求调整的旧教程、代码示例和迁移说明保持原文；文档验收发现的无关历史问题不得自动扩写或重构。
+- **执行动作**：触发工作流后，会自动提取版本号创建对应的 Git Tag 和 GitHub Release，最后构建打包并发布到 PyPI。

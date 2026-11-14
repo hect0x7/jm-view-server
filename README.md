@@ -13,20 +13,19 @@
 [![PyPI](https://img.shields.io/pypi/v/jm-view-server?color=blue&label=version)](https://pypi.org/project/jm-view-server/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/jm-view-server?style=flat&color=hotpink)](https://pepy.tech/projects/jm-view-server)
 [![Licence](https://img.shields.io/github/license/hect0x7/jm-view-server?color=red)](https://github.com/hect0x7/jm-view-server)
+[![在线体验](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-Live_Demo-5b5bd6?style=flat&logo=googlechrome&logoColor=white)](https://hect0x7.github.io/works/jm-view-server/)
 
 </div>
 
 > 该项目会在你的电脑上启动一个**本地文件服务器**。你可以直接在浏览器（手机或电脑）中打开它，它会把本地文件夹里的图片转换成类似“禁漫天堂”的章节观看页面。
 >
+> 
 > **核心优势**：
 > - 原生支持**连续下拉、单页翻页、无缝双页**三种阅读模式，无需额外安装阅读插件。
 > - 仍可配合各种浏览器插件和用户脚本，继续扩展个性化阅读能力。
 > - 一键开启局域网共享，电脑下载，躺在床上用手机看。
 >
-> 从 v0.2.4 起，本项目正式更名为 `jm-view-server`，原名 `plugin-jm-server`
-> ，安装了旧包的老用户请参考文末的 [老用户迁移指南](#老用户迁移指南) 进行升级。
->
-> 各版本的新增、优化与修复内容统一记录在 [CHANGELOG.md](CHANGELOG.md)。
+> [**在线体验地址**](https://hect0x7.github.io/works/jm-view-server/)
 
 ![架构与流程图](https://raw.githubusercontent.com/hect0x7/hect0x7/master/images/jmcomic-intro-main.png)
 
@@ -206,29 +205,3 @@ op.download_album(123)
 # Python 3.12+ 特别注意：必须插入下面这行代码，Web 服务器才能继续处理请求！
 op.wait_all_plugins_finish()
 ```
-
----
-
-## 老用户迁移指南
-
-原名 `plugin-jm-server` 里的 `plugin-` 前缀会让人误以为它必须搭配 jmcomic 才能用。其实它**首先是一个可独立运行的本地看本服务器
-**，jmcomic 插件只是附加能力，因此更名为 `jm-view-server`。
-
-**老用户迁移** —— 一行搞定：
-
-```shell
-pip uninstall -y plugin_jm_server && pip install jm-view-server
-```
-
-命令行 `jms` 和 jmcomic 插件 key `jm_server` **都不变**；脚本里把 `import plugin_jm_server` 换成 `import jm_view_server`
-即可（不换也行，旧包名仍能用）。
-
-> 旧包 `plugin_jm_server` 仍保留在 PyPI 上做**重定向薄壳**：安装它会自动带上 `jm-view-server`，旧的 `import` 和 `jms`
-> 命令继续可用，仅在导入时打印一条弃用提示。建议尽快迁移到新包名。
-
----
-
-## 💡 想法起源
-
-- 想法起源：https://github.com/hect0x7/JMComic-Crawler-Python/issues/192
-- UI 与部分基础架构参考：https://github.com/AiCorein/Flask-Files-Server

@@ -17,7 +17,7 @@ if version is None:
 setup(
     name='jm-view-server',
     version=version,
-    description='jm-view-server, a local web server (also usable as a jmcomic plugin) for viewing comics in a web browser. Renamed from plugin_jm_server.',
+    description='jm-view-server, a local web server (also usable as a jmcomic plugin) for viewing comics in a web browser.',
     long_description_content_type="text/markdown",
     long_description=long_description,
     url='https://github.com/hect0x7/jm-view-server',
