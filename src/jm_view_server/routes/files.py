@@ -122,7 +122,27 @@ class FileRoutesMixin:
         if any(path_norm.startswith(sys_root) for sys_root in system_roots):
             return None, ('Permission denied: Cannot operate on critical system directories.', 403)
 
+        # 4. Android 关键根挂载点/系统根精确保护（允许操作 /storage/emulated/0/... 下的子目录）
+        if os.name != 'nt':
+            android_protected_roots = {
+                '/storage', '/storage/emulated', '/storage/emulated/0',
+                '/sdcard', '/system', '/vendor', '/data', '/proc', '/dev',
+            }
+            normalized_unix = path_norm.replace('\\', '/').rstrip('/') or '/'
+            if normalized_unix in android_protected_roots:
+                return None, ('Permission denied: Cannot operate on critical system directories.', 403)
+
         return path_abs, None
+
+    def _recycle_path(self, path_abs):
+        """将文件/目录移入系统回收站；Android 存储层报错时降级到 .jm_trash。"""
+        try:
+            send2trash(path_abs)
+        except OSError:
+            from ..driver import is_android, android_move_to_trash
+            if not is_android():
+                raise
+            android_move_to_trash(path_abs, self.file_manager.default_path)
 
     @staticmethod
     def _valid_name(name):
@@ -154,7 +174,7 @@ class FileRoutesMixin:
             return jsonify({'error': 'Path not found'}), 404
 
         try:
-            send2trash(path_abs)
+            self._recycle_path(path_abs)
             return jsonify({'status': 'ok'})
         except Exception as e:
             return jsonify({'error': f'移入回收站失败: {e}'}), 500
@@ -362,7 +382,7 @@ class FileRoutesMixin:
                 failed.append({'path': p, 'error': 'Path not found'})
                 continue
             try:
-                send2trash(path_abs)
+                self._recycle_path(path_abs)
                 succeeded.append(p)
             except Exception as e:
                 failed.append({'path': p, 'error': f'移入回收站失败: {e}'})

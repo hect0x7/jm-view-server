@@ -2,6 +2,18 @@
 
 本文件记录 `jm-view-server` 的重要版本变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [v0.3.11] - 2026-11-14
+
+### Added
+
+- 新增 Android / Termux 原生运行兼容：非 Root 环境下默认监听端口自动切换为 `8080`，驱动器列表自动展示 `/storage/emulated/0`、用户主目录及可读外置存储入口，并补充 [Android (Termux) 自部署与本地代码同步指南](docs/android-termux-sync.md)。
+- 新增 Android 存储安全回收与根挂载点保护：对 `/storage/emulated/0` 等系统与存储根挂载点本身提供删除和移动写保护；当 FUSE 共享存储不支持系统回收站时，单项删除、批量删除及收藏移动导出自动降级移入 `.jm_trash` 并处理重名冲突。
+
+### Changed
+
+- 优化局域网 IP 识别（`get_lan_ip`）：优先选用活动状态的 Wi-Fi、有线或热点私有网段地址以避开虚拟网卡与蜂窝网络干扰，并在 Android SELinux 限制 `netlink` 访问时回退至 POSIX `SIOCGIFADDR` 接口查询。
+- 移除双页阅读模式下当前页右上角的圆点指示标记，保持对开画面整洁。
+
 ## [v0.3.10] - 2026-11-04
 
 ### Fixed

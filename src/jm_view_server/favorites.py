@@ -115,7 +115,13 @@ class FavoriteManager:
                     if (source_stat.st_dev, source_stat.st_ino, source_stat.st_size, source_stat.st_mtime_ns) != (
                             current_stat.st_dev, current_stat.st_ino, current_stat.st_size, current_stat.st_mtime_ns):
                         raise OSError('Source changed during copy')
-                    send2trash(str(source))
+                    try:
+                        send2trash(str(source))
+                    except OSError:
+                        from .driver import is_android, android_move_to_trash
+                        if not is_android():
+                            raise
+                        android_move_to_trash(str(source))
                     result['moved'] += 1
                 copied_records.add((os.path.normcase(item['path']), item['created_at']))
             except FileNotFoundError:

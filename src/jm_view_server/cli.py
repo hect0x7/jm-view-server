@@ -32,6 +32,9 @@ EPILOG = """\
 
 def build_parser():
     """构造 argparse 解析器。单独抽出便于测试。"""
+    from .driver import is_android
+    default_port = 8080 if is_android() else JmServer.DEFAULT_PORT
+
     parser = argparse.ArgumentParser(
         prog='jms',
         description='“离线版”禁漫天堂：在本地启动文件服务器，用浏览器以禁漫章节模式查看图片。',
@@ -44,7 +47,7 @@ def build_parser():
                         help='登录密码(默认: 空, 即免密登录)')
     parser.add_argument('-H', '--host', default='0.0.0.0',
                         help='监听地址(默认: 0.0.0.0, 局域网可访问)')
-    parser.add_argument('-p', '--port', type=int, default=JmServer.DEFAULT_PORT,
+    parser.add_argument('-p', '--port', type=int, default=default_port,
                         help='监听端口(默认: %(default)s)')
     parser.add_argument('-s', '--ssl', action='store_true',
                         help='启用 HTTPS(使用 adhoc 自签名证书, 需安装 cryptography)')

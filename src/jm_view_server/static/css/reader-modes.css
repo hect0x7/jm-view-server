@@ -93,12 +93,6 @@ body.reader-double {
 .stream.reader-double-mode > .scramble-page { height: auto; align-items: flex-start; }
 .stream.reader-double-mode .page-img { width: 100%; max-height: none; }
 .stream.reader-double-mode > .scramble-page.is-double-current { box-shadow: none; }
-.stream.reader-double-mode > .scramble-page.is-double-current::after {
-  content: ''; position: absolute; z-index: 2; top: 7px; right: 7px;
-  width: 4px; height: 4px; border-radius: 50%; pointer-events: none;
-  background: color-mix(in srgb, var(--brand) 66%, transparent);
-  box-shadow: 0 0 0 3px rgba(0,0,0,.24);
-}
 .stream.reader-double-mode > .reader-double-blank,
 .stream.reader-double-mode > .reader-double-slot.is-blank {
   min-width: 0; min-height: 100%; align-self: stretch;

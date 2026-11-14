@@ -18,7 +18,8 @@ class FileManager:
             from .driver import get_winDriver
             return get_winDriver()
         else:
-            return ['/']
+            from .driver import is_android, get_android_drivers
+            return get_android_drivers() if is_android() else ['/']
 
     def get_jm_view_images(self, path):
         images = []
