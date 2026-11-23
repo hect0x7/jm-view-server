@@ -83,6 +83,14 @@ def _open_reader_settings(pg):
     assert pg.eval_on_selector('#morePop', 'el => el.classList.contains("show")')
 
 
+def _open_reader_mode(pg):
+    """从主工具栏打开阅读方式与画面大小面板。"""
+    _open_toolbar(pg)
+    if pg.is_hidden('#readerModePop'):
+        pg.click('#tReaderMode')
+    assert pg.is_visible('#readerModePop')
+
+
 def test_progress_memory(browser, live_server):
     ctx = browser.new_context()  # 同一 context 共享 localStorage，模拟重开页面
     pg = _open(ctx, live_server)
@@ -234,7 +242,7 @@ def test_single_page_click_zones_and_input_guard(browser, live_server):
     pg.wait_for_timeout(300)
     assert pg.inner_text('#curPage') == '第 1 页'
 
-    _open_reader_settings(pg)
+    _open_reader_mode(pg)
     pg.focus('#tSizeRange')
     pg.keyboard.press('ArrowRight')
     assert pg.inner_text('#curPage') == '第 1 页'
@@ -247,9 +255,8 @@ def test_single_page_custom_size_persisted(browser, live_server):
         'jmv-reader-mode': 'single',
         'jmv-single-fit': 'contain',
     })
+    _open_reader_mode(pg)
     assert pg.eval_on_selector('#tSizeRange', 'range => range.getBoundingClientRect().height') >= 18
-    _open_reader_settings(pg)
-    pg.click('#tSize')
     pg.eval_on_selector(
         '#tSizeRange',
         "el => { el.value = '1200'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
@@ -441,6 +448,7 @@ def test_double_mode_uses_continuous_width_scale_and_reset(browser, live_server)
     })
     _set_page_types(pg)
 
+    _open_reader_mode(pg)
     assert pg.is_hidden('#sizeRangeControl')
     assert pg.is_visible('#doubleWidthScaleControl')
     assert pg.is_hidden('#tSizeVal')
@@ -459,8 +467,7 @@ def test_double_mode_uses_continuous_width_scale_and_reset(browser, live_server)
     )
     assert abs(image_width - page_width) < 2
 
-    _open_reader_settings(pg)
-    pg.click('#tSize')
+    _open_reader_mode(pg)
     pg.click('#tSizeReset')
     assert pg.evaluate("localStorage.getItem('jmv-double-width-scale')") == '98'
     assert pg.input_value('#doubleWidthScaleRange') == '98'
@@ -557,7 +564,7 @@ def test_reader_configuration_buttons_preserve_viewport(browser, live_server):
     assert_stable(lambda: pg.click('#tProg'))
     assert_stable(lambda: pg.click('#tEye'))
     assert_stable(lambda: pg.click('#tAutoNext'))
-    assert_stable(lambda: pg.click('#tSize'))
+    assert_stable(lambda: pg.click('#tReaderMode'))
     assert_stable(lambda: pg.eval_on_selector(
         '#tSizeRange',
         "element => { element.value = '950'; element.dispatchEvent(new Event('input', { bubbles: true })); }",

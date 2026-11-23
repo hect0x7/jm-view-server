@@ -158,12 +158,3 @@ body.reader-double {
   border-color: var(--brand);
   transform: scale(1.03);
 }
-.reader-mode-control {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; width: 184px;
-  padding: 3px; border-radius: var(--r-md); background: var(--bg-sunken);
-}
-.reader-mode-control button {
-  width: auto !important; height: 32px !important; border-radius: calc(var(--r-md) - 3px) !important;
-  padding: 0 8px; font-size: 11px; white-space: nowrap;
-}
-.reader-mode-control button.active { background: var(--brand); color: #fff; }

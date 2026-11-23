@@ -1,5 +1,10 @@
 /* 阅读区兼容深浅主题，移除 hardcode 的深色 */
-:root { --reader-header-height: calc(56px + env(safe-area-inset-top, 0px)); }
+:root { color-scheme: light dark; --reader-header-height: calc(56px + env(safe-area-inset-top, 0px)); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: only light; }
 html, body { min-height: 100vh; background: var(--bg); color: var(--text); }
 html { overflow-x: hidden; }
 body.reader-header-visible { padding-top: var(--reader-header-height); }
@@ -126,7 +131,6 @@ html.reader-progress-prehidden .r-bottom,
 .r-tools #tProg.active,
 .r-tools #tHead.active,
 .r-tools #tEye.active,
-.r-tools #tSize.active,
 .r-tools #tAutoNext.active,
 .r-tools #tFull.active,
 .r-tools #tGrid.active,
@@ -138,12 +142,10 @@ html.reader-progress-prehidden .r-bottom,
   .r-tools #tProg.active:hover,
   .r-tools #tHead.active:hover,
   .r-tools #tEye.active:hover,
-  .r-tools #tSize.active:hover,
   .r-tools #tAutoNext.active:hover,
   .r-tools #tFull.active:hover,
   .r-tools #tGrid.active:hover,
   .r-tools #tMore.active:hover { background: var(--brand); }
-  #tSizeReset:hover { background: var(--surface-hover); color: var(--brand); }
 }
 
 /* 跳页浮层：不弹全屏 modal，而是贴附在工具栏左侧原地展开一个小浮窗
@@ -173,15 +175,7 @@ html.reader-progress-prehidden .r-bottom,
   z-index: 40;
 }
 .jump-pop.show { opacity: 1; pointer-events: auto; transform: translateY(-50%) scale(1); }
-.reader-size-pop {
-  display: flex; align-items: center; gap: 8px; min-width: 220px; padding: 8px 10px;
-}
-.reader-size-pop.is-double-scale { min-width: 0; }
-.reader-size-value {
-  min-width: 38px; color: var(--text-secondary); font: 12px/1 var(--font-mono); white-space: nowrap;
-}
-.reader-size-value[hidden] { display: none !important; }
-.reader-size-range-control { display: flex; align-items: center; flex: 1; min-width: 96px; }
+.reader-size-range-control { display: flex; align-items: center; min-width: 0; }
 .reader-size-range-control input {
   width: 100%; height: 20px; margin: 0; cursor: pointer;
   appearance: none; -webkit-appearance: none; background: transparent;
@@ -204,16 +198,7 @@ html.reader-progress-prehidden .r-bottom,
   width: 17px; height: 17px; border: 2px solid var(--bg-elevated); border-radius: 50%;
   background: var(--brand); box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 34%, transparent);
 }
-.reader-double-scale-control {
-  display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; align-items: center; gap: 9px;
-  color: var(--text-secondary); font-size: 11px; white-space: nowrap;
-}
-.reader-double-scale-control[hidden] { display: none !important; }
-.reader-double-scale-control input {
-  width: 100%; height: 20px; margin: 0; cursor: pointer; accent-color: var(--brand);
-}
-.reader-double-scale-control output { min-width: 34px; font: 11px/1 var(--font-mono); text-align: right; color: var(--brand); }
-.reader-size-range-control[hidden] { display: none !important; }
+.reader-size-range-control[hidden] { display: none; }
 .jump-pop select {
   display: block; box-sizing: border-box;
   min-width: 130px; height: 38px;

@@ -6,24 +6,26 @@ from pathlib import Path
 def test_image_actions_gestures_explicit_actions_and_stale_reads():
     script = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-let now=0,next=1;const timers=new Map(),globalEvents={},reads=[],sets=[];
+let now=0,next=1;const timers=new Map(),globalEvents={},reads=[],sets=[],inserts=[];
 function node(id){const events={},classes=new Set();return {id,dataset:{},attributes:{},isConnected:true,disabled:false,
  classList:{add:n=>classes.add(n),remove:n=>classes.delete(n),contains:n=>classes.has(n)},
  addEventListener(n,f){events[n]=f},emit(n,e={}){return events[n]?.call(this,e)},
  setAttribute(n,v){this.attributes[n]=v},removeAttribute(n){delete this.attributes[n]},
  getAttribute(n){return this.attributes[n]},focus(){context.document.activeElement=this},
- closest(s){return s==='.page-img'?this:null}
+ closest(s){return s==='.page-img'?this:s==='.scramble-page'?this.pageWrapper:null}
 };}
-const ids=['imageActions','imageActionPreview','imageActionTitle','imageActionFavorite','imageActionStatus','imageActionClose'];
+const ids=['imageActions','imageActionPreview','imageActionTitle','imageActionFavorite','imageActionStatus','imageActionClose','imageActionInsert'];
 const els=Object.fromEntries(ids.map(id=>[id,node(id)])),rotate=node('rotate');rotate.dataset.rotate='90';
 const a=node('a'),b=node('b');a.attributes['data-original']='/image/a';b.attributes['data-original']='/image/b';
-const stream=node('stream');stream.querySelectorAll=()=>[a,b];
-els.imageActions.querySelectorAll=s=>s==='[data-rotate]'?[rotate]:[els.imageActionClose,els.imageActionFavorite,rotate].filter(x=>!x.disabled);
-const context={stream,pageClickTimer:null,Date:{now:()=>now},Math,
+a.pageWrapper={dataset:{page:'0'}};b.pageWrapper={dataset:{page:'7'}};
+const stream=node('stream');
+els.imageActions.querySelectorAll=s=>s==='[data-rotate]'?[rotate]:[els.imageActionClose,els.imageActionFavorite,els.imageActionInsert,rotate].filter(x=>!x.disabled&&!x.hidden);
+const context={stream,readerMode:'single',pageClickTimer:null,Date:{now:()=>now},Math,
  document:{getElementById:id=>els[id],activeElement:stream},
  setTimeout(f,delay){const id=next++;timers.set(id,{f,delay});return id},clearTimeout:id=>timers.delete(id),
  addEventListener(n,f){globalEvents[n]=f},
  setImageRotation(i,v){i.dataset.rotate=v},
+ insertBlankBeforePage(index){inserts.push(index);return true},
  JmvFavorites:{read(i){return new Promise(resolve=>reads.push({image:i,resolve}))},
  set(i,wanted){sets.push({image:i,wanted});return Promise.resolve(wanted)}}
 };context.window=context;vm.createContext(context);
@@ -40,6 +42,8 @@ async function flush(){await Promise.resolve();await Promise.resolve();}
  stream.emit('pointerdown',event('touch'));globalEvents.scroll();assert.equal(timers.size,0);
  stream.emit('pointerdown',event('mouse'));tick();
  assert.equal(els.imageActions.classList.contains('show'),true);assert.equal(reads.length,1);assert.equal(sets.length,0);
+ assert.equal(els.imageActionInsert.hidden,true);
+ els.imageActionInsert.emit('click');assert.deepEqual(inserts,[]);
  let navigationPrevented=0;
  for (const key of ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','PageUp','PageDown','Home','End']) {
    els.imageActions.emit('keydown',{key,preventDefault(){navigationPrevented++}});
@@ -62,6 +66,19 @@ async function flush(){await Promise.resolve();await Promise.resolve();}
  assert.equal(prevented,true);assert.equal(context.document.activeElement,els.imageActionClose);
  rotate.emit('click');assert.equal(b.dataset.rotate,'90');assert.equal(els.imageActions.classList.contains('show'),false);
  assert.equal(els.imageActions.attributes['aria-hidden'],'true');assert.ok('inert' in els.imageActions.attributes);
+ // A replaced appended image still uses its original wrapper index, never its order on screen.
+ context.readerMode='double';context.openImageActions(b);
+ assert.equal(els.imageActionInsert.hidden,false);
+ assert.equal(els.imageActionTitle.textContent,'第 8 页 · 图片操作');
+ const replacement=node('replacement');replacement.pageWrapper=b.pageWrapper;b.pageWrapper=null;
+ globalEvents['jmv:reader-image-replaced']({detail:{previous:b,image:replacement}});
+ els.imageActionInsert.focus();context.readerMode='scroll';context.syncImageActionInsert();
+ assert.equal(els.imageActionInsert.hidden,true);assert.equal(context.document.activeElement,els.imageActionClose);
+ els.imageActionInsert.emit('click');assert.deepEqual(inserts,[]);
+ context.readerMode='double';context.syncImageActionInsert();
+ els.imageActionInsert.emit('click');assert.deepEqual(inserts,[7]);
+ assert.equal(els.imageActions.classList.contains('show'),false);
+ reads.shift().resolve({favorite:false});await flush();
  // A double click has no favorite handler in the action layer.
  const before=sets.length;stream.emit('dblclick',{target:a});assert.equal(sets.length,before);
 })().catch(e=>{console.error(e);process.exitCode=1});

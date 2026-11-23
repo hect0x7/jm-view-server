@@ -8,15 +8,16 @@ function cancelReaderPageNavigation() {
 ['pointerdown', 'wheel', 'keydown', 'blur', 'pagehide'].forEach(function(name) {
   window.addEventListener(name, cancelReaderPageNavigation, {capture: true, passive: true});
 });
-function navigateDoublePage(index) {
+function navigateDoublePage(index, position) {
   cancelReaderPageNavigation();
+  var pagePosition = typeof position === 'number' ? position : 0.5;
   var navigation = {index: index, timers: []};
   readerPageNavigation = navigation;
   function align() {
     if (readerPageNavigation !== navigation || readerMode !== 'double' || !pages[index]) return;
     setActiveDoubleGroup(findDoubleGroupIndex(index), index, false);
     var rect = pages[index].getBoundingClientRect();
-    window.scrollBy(0, rect.top + rect.height / 2 - window.innerHeight / 2);
+    window.scrollBy(0, rect.top + rect.height * pagePosition - window.innerHeight / 2);
   }
   align();
   [80, 180, 350, 700, 1200, 2000].forEach(function(delay) {
@@ -60,19 +61,30 @@ function getAlbumRangesForGrouping() {
   return pages.length ? [{ start: 0, end: pages.length - 1 }] : [];
 }
 
-function pushDoublePair(groups, firstIdx, secondIdx, meta) {
-  var physicalSlots = readingDirection === 'rtl' ? [secondIdx, firstIdx] : [firstIdx, secondIdx];
+function pushDoublePair(groups, first, second, beforePage) {
+  var slots = [null, null];
+  var blankIds = [null, null];
+  var insertedSlots = [];
   var pageList = [];
-  if (typeof firstIdx === 'number') pageList.push(firstIdx);
-  if (typeof secondIdx === 'number') pageList.push(secondIdx);
-  var anchorIdx = typeof firstIdx === 'number' ? firstIdx : (typeof secondIdx === 'number' ? secondIdx : 0);
+  [first, second].forEach(function(item, position) {
+    if (!item) return;
+    var slot = readingDirection === 'rtl' ? 1 - position : position;
+    if (item.type === 'page') {
+      slots[slot] = item.pageIndex;
+      pageList.push(item.pageIndex);
+    } else {
+      blankIds[slot] = item.id;
+      insertedSlots.push(slot);
+    }
+  });
   groups.push({
     pages: pageList,
-    slots: physicalSlots,
-    anchor: anchorIdx,
-    kind: (firstIdx === null || secondIdx === null) ? 'single' : 'pair',
-    insertedSlots: (meta && meta.insertedSlots) || [],
-    beforePage: meta && meta.beforePage
+    slots: slots,
+    anchor: pageList.length ? pageList[0] : 0,
+    kind: first === null ? 'cover' : (pageList.length === 2 ? 'pair' : 'single'),
+    blankIds: blankIds,
+    insertedSlots: insertedSlots,
+    beforePage: beforePage
   });
 }
 
@@ -86,17 +98,11 @@ function buildDoubleGroups() {
   var cursor = 0;
   var end = seq.length - 1;
 
-  // 封面判定：第一项若为常规非宽图单页（且第一项不是空白插页），作为单页封面
-  var firstItem = seq[cursor];
-  if (firstItem.type === 'page' && !isWidePage(firstItem.pageIndex)) {
-    groups.push({
-      pages: [firstItem.pageIndex],
-      slots: readingDirection === 'rtl' ? [firstItem.pageIndex, null] : [null, firstItem.pageIndex],
-      anchor: firstItem.pageIndex,
-      kind: 'cover',
-      insertedSlots: [],
-      beforePage: null
-    });
+  // 竖版封面的起始留白独占一个页槽，序列开头的手动插页占用下一个页槽。
+  var firstPage = seq.find(function(item) { return item.type === 'page'; });
+  if (firstPage && !isWidePage(firstPage.pageIndex)) {
+    var beforePage = seq[cursor].type === 'blank' ? firstPage.pageIndex : null;
+    pushDoublePair(groups, null, seq[cursor], beforePage);
     cursor += 1;
   }
 
@@ -107,54 +113,32 @@ function buildDoubleGroups() {
 
     if (item.type === 'page' && isWidePage(item.pageIndex)) {
       if (pendingItem !== null) {
-        if (pendingItem.type === 'page') {
-          pushDoublePair(groups, pendingItem.pageIndex, null);
-        } else {
-          var pairMeta = { insertedSlots: [readingDirection === 'rtl' ? 1 : 0], beforePage: item.pageIndex };
-          pushDoublePair(groups, null, null, pairMeta);
-        }
+        pushDoublePair(groups, pendingItem, null, item.pageIndex);
         pendingItem = null;
       }
-      groups.push({ pages: [item.pageIndex], slots: [item.pageIndex, item.pageIndex], anchor: item.pageIndex, kind: 'wide' });
+      groups.push({ pages: [item.pageIndex], slots: [item.pageIndex, item.pageIndex], anchor: item.pageIndex, kind: 'wide', blankIds: [null, null] });
       continue;
     }
 
     if (pendingItem === null) {
       pendingItem = item;
     } else {
-      var first = pendingItem;
-      var second = item;
-      var firstIdx = first.type === 'page' ? first.pageIndex : null;
-      var secondIdx = second.type === 'page' ? second.pageIndex : null;
-
-      var insertedSlots = [];
       var nextRealPage = null;
-      if (first.type === 'blank') {
-        insertedSlots.push(readingDirection === 'rtl' ? 1 : 0);
-        if (second.type === 'page') nextRealPage = second.pageIndex;
-      }
-      if (second.type === 'blank') {
-        insertedSlots.push(readingDirection === 'rtl' ? 0 : 1);
-        if (nextRealPage === null) {
-          for (var k = cursor + 1; k <= end; k++) {
-            if (seq[k].type === 'page') { nextRealPage = seq[k].pageIndex; break; }
-          }
+      if (item.type === 'blank') {
+        for (var k = cursor + 1; k <= end; k++) {
+          if (seq[k].type === 'page') { nextRealPage = seq[k].pageIndex; break; }
         }
+      } else if (pendingItem.type === 'blank') {
+        nextRealPage = item.pageIndex;
       }
 
-      var pairMeta = { insertedSlots: insertedSlots, beforePage: nextRealPage };
-      pushDoublePair(groups, firstIdx, secondIdx, pairMeta);
+      pushDoublePair(groups, pendingItem, item, nextRealPage);
       pendingItem = null;
     }
   }
 
   if (pendingItem !== null) {
-    if (pendingItem.type === 'page') {
-      pushDoublePair(groups, pendingItem.pageIndex, null);
-    } else {
-      var pairMeta = { insertedSlots: [readingDirection === 'rtl' ? 1 : 0], beforePage: null };
-      pushDoublePair(groups, null, null, pairMeta);
-    }
+    pushDoublePair(groups, pendingItem, null, null);
   }
 
   return groups;
@@ -184,7 +168,8 @@ function removeDoubleBlankSlots() {
   doubleBlankSlots = [];
 }
 
-function createDoubleBlankSlot(groupIndex, slot, isInserted, beforePage, isEmptySpread) {
+function createDoubleBlankSlot(groupIndex, slot, blankId, beforePage, isEmptySpread) {
+  var isInserted = blankId !== null;
   var blankSlot = document.createElement('div');
   blankSlot.className = 'reader-double-blank' + (isInserted ? ' is-inserted' : '');
   if (isEmptySpread) blankSlot.classList.add('is-empty-spread');
@@ -217,30 +202,7 @@ function createDoubleBlankSlot(groupIndex, slot, isInserted, beforePage, isEmpty
     removeBtn.textContent = '✕ 移除插页';
     removeBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var foundIdx = -1;
-      for (var i = 0; i < pageSequence.length; i++) {
-        if (pageSequence[i].type === 'blank') {
-          if (typeof beforePage === 'number') {
-            for (var j = i + 1; j < pageSequence.length; j++) {
-              if (pageSequence[j].type === 'page') {
-                if (pageSequence[j].pageIndex === beforePage) foundIdx = i;
-                break;
-              }
-            }
-            if (foundIdx !== -1) break;
-          } else {
-            foundIdx = i;
-            break;
-          }
-        }
-      }
-      if (foundIdx !== -1) {
-        pageSequence.splice(foundIdx, 1);
-        saveSequenceState();
-        applySequenceToDOM();
-        rebuildReaderGrid();
-        if (window.toast) toast('已移除插页', 'info');
-      }
+      removeReaderBlank(blankId);
     });
 
     var content = document.createElement('div');
@@ -326,8 +288,7 @@ function renderDoubleGroups() {
       [0, 1].forEach(function(slotIdx) {
         if (group.slots[slotIdx] === null) {
           var side = slotIdx === 0 ? 'left' : 'right';
-          var isInserted = group.insertedSlots && group.insertedSlots.indexOf(slotIdx) !== -1;
-          createDoubleBlankSlot(groupIndex, side, isInserted, group.beforePage, group.pages.length === 0);
+          createDoubleBlankSlot(groupIndex, side, group.blankIds[slotIdx], group.beforePage, group.pages.length === 0);
         }
       });
     }
@@ -384,8 +345,8 @@ function updateDoubleGroupFromScroll() {
       var other = pages[index].getBoundingClientRect();
       top = Math.min(top, other.top); bottom = Math.max(bottom, other.bottom);
     });
-    var distance = Math.abs((top + bottom) / 2 - viewportCenter);
-    if (distance < bestDistance) {
+    var distance = Math.max(top - viewportCenter, viewportCenter - bottom, 0);
+    if (distance < bestDistance || (distance === bestDistance && groupIndex === activeDoubleGroupIndex)) {
       bestDistance = distance;
       bestGroupIndex = groupIndex;
     }
@@ -405,13 +366,19 @@ function rebuildDoubleGroups(preferredPageIdx, options) {
   if (readerMode !== 'double') return;
   setDoubleContinuousLayout(true);
   renderDoubleGroups();
+  if (options.navigateToPage) {
+    navigateDoublePage(keepIndex, options.pagePosition);
+    return;
+  }
   setActiveDoubleGroup(activeDoubleGroupIndex, keepIndex, false);
   if (options.scroll !== false) {
     requestAnimationFrame(function() {
-      scrollToDoubleGroup(activeDoubleGroupIndex, options.behavior || 'auto');
+      if (readerMode !== 'double' || readerPageNavigation) return;
+      scrollToDoubleGroup(findDoubleGroupIndex(keepIndex), options.behavior || 'auto');
     });
   } else if (anchorTop !== null && pages[keepIndex]) {
     requestAnimationFrame(function() {
+      if (readerMode !== 'double' || readerPageNavigation) return;
       var newTop = pages[keepIndex].getBoundingClientRect().top;
       window.scrollBy(0, newTop - anchorTop);
     });
@@ -492,21 +459,25 @@ function showSingleReaderTip() {
 function setReaderMode(mode, options) {
   options = options || {};
   cancelReaderPageNavigation();
+  cancelAnimationFrame(viewportRestoreFrame);
+  viewportRestoreFrame = null;
   var nextMode = mode === 'single' || mode === 'double' ? mode : 'scroll';
   var keepIndex = currentPageIdx();
   var previousMode = readerMode;
+  var switchToDouble = nextMode === 'double' && previousMode !== 'double' && !options.initial && !!pages[keepIndex];
+  var pagePosition;
+  if (switchToDouble && previousMode === 'scroll') {
+    var rect = pages[keepIndex].getBoundingClientRect();
+    if (rect.height > 0) pagePosition = Math.max(0, Math.min(1, (window.innerHeight / 2 - rect.top) / rect.height));
+  }
   readerMode = nextMode;
   activePageIndex = Math.max(0, Math.min(pages.length - 1, keepIndex));
   document.body.classList.toggle('reader-single', readerMode === 'single');
   document.body.classList.toggle('reader-double', readerMode === 'double');
   stream.classList.toggle('reader-single-mode', readerMode === 'single');
   stream.classList.toggle('reader-double-mode', readerMode === 'double');
-  var modeScroll = document.getElementById('modeScroll');
-  var modeSingle = document.getElementById('modeSingle');
-  var modeDouble = document.getElementById('modeDouble');
-  if (modeScroll) modeScroll.classList.toggle('active', readerMode === 'scroll');
-  if (modeSingle) modeSingle.classList.toggle('active', readerMode === 'single');
-  if (modeDouble) modeDouble.classList.toggle('active', readerMode === 'double');
+  syncReaderModeControl();
+  syncImageActionInsert();
   if (window.JmvPrefs && readerMode !== 'double') {
     applyImageSize(JmvPrefs.get(readerMode === 'scroll' ? 'scrollImageSize' : 'imageSize'), true);
   }
@@ -526,9 +497,14 @@ function setReaderMode(mode, options) {
     if (!options.initial) saveCurrentProgress(activePageIndex);
     if (!options.initial) showSingleReaderTip();
   } else if (readerMode === 'double') {
-    rebuildDoubleGroups(activePageIndex, { behavior: options.initial ? 'auto' : 'smooth' });
+    rebuildDoubleGroups(activePageIndex, {
+      behavior: options.initial ? 'auto' : 'smooth',
+      navigateToPage: switchToDouble,
+      pagePosition: pagePosition
+    });
   } else {
     requestAnimationFrame(function() {
+      if (readerMode !== 'scroll') return;
       var target = pages[activePageIndex];
       if (target) target.scrollIntoView({ behavior: options.initial ? 'auto' : 'smooth', block: 'start' });
       updateProgress(activePageIndex);
@@ -589,14 +565,16 @@ function scrollActiveSinglePage(direction) {
 
 function applyReadingDirection(direction, persist) {
   readingDirection = direction === 'rtl' ? 'rtl' : 'ltr';
+  var changed = stream.dataset.readingDirection !== readingDirection;
   document.body.dataset.readingDirection = readingDirection;
   stream.dataset.readingDirection = readingDirection;
-  var dirLtrBtn = document.getElementById('dirLtr');
-  var dirRtlBtn = document.getElementById('dirRtl');
-  if (dirLtrBtn) dirLtrBtn.classList.toggle('active', readingDirection === 'ltr');
-  if (dirRtlBtn) dirRtlBtn.classList.toggle('active', readingDirection === 'rtl');
-  if (readerMode === 'double') rebuildDoubleGroups(activePageIndex, { scroll: false });
-  if (readerGridOverlay && readerGridOverlay.classList.contains('show')) rebuildReaderGrid();
+  document.querySelectorAll('[data-reader-direction]').forEach(function(button) {
+    var selected = button.dataset.readerDirection === readingDirection;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  if (changed && readerMode === 'double') rebuildDoubleGroups(activePageIndex, { scroll: false });
+  if (changed && readerGridOverlay && readerGridOverlay.classList.contains('show')) rebuildReaderGrid();
   if (persist) {
     if (window.JmvPrefs) JmvPrefs.set('readingDirection', readingDirection);
     else try { localStorage.setItem('jmv-reading-direction', readingDirection); } catch (e) {}

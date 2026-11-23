@@ -123,69 +123,103 @@
   color: var(--text-muted); font-family: var(--font-mono);
   font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
 }
-.more-pop .reader-mode-control button.active {
-  background: var(--bg-elevated); color: var(--brand); box-shadow: var(--shadow-sm);
-}
-.more-pop > button,
-.more-pop > .reader-size-control > #tSize {
+.more-pop > button {
   position: relative !important; inset: auto !important; margin: 0 !important;
   width: 100% !important; height: 48px !important; padding: 0 11px;
   display: flex; align-items: center; justify-content: flex-start; gap: 9px;
   border: 1px solid transparent; border-radius: 13px;
   background: var(--bg-sunken); color: var(--text-secondary);
 }
-.r-tools .more-pop > button[data-tip]::after,
-.r-tools .more-pop > .reader-size-control > #tSize[data-tip]::after {
+.r-tools .more-pop > button[data-tip]::after {
   content: attr(data-tip); position: static; inset: auto; transform: none;
   padding: 0; border: 0; border-radius: 0; background: transparent;
   color: inherit; opacity: 1; visibility: visible; pointer-events: none;
   font-size: 12px; line-height: 1; font-weight: 600;
 }
-.more-pop > button svg,
-.more-pop > .reader-size-control > #tSize svg { width: 17px; height: 17px; flex: 0 0 auto; }
-.more-pop > .reader-size-control {
-  width: auto !important; height: auto !important; min-width: 0;
-}
+.more-pop > button svg { width: 17px; height: 17px; flex: 0 0 auto; }
 .more-pop #tHelp {
-  grid-column: 1 / -1; justify-content: center;
   font-family: var(--font-mono); font-size: 16px;
 }
 .more-pop #tProg.active,
 .more-pop #tHead.active,
 .more-pop #tEye.active,
-.more-pop #tSize.active,
 .more-pop #tInsertPage.active,
 .more-pop #tAutoNext.active {
   background: color-mix(in srgb, var(--brand) 14%, var(--bg-elevated));
   color: var(--brand); box-shadow: inset 3px 0 0 var(--brand);
 }
 @media (hover: hover) and (pointer: fine) {
-  .more-pop > button:hover,
-  .more-pop > .reader-size-control > #tSize:hover {
+  .more-pop > button:hover {
     background: var(--surface-hover); color: var(--text); border-color: var(--border);
   }
   .more-pop #tProg.active:hover,
   .more-pop #tHead.active:hover,
   .more-pop #tEye.active:hover,
-  .more-pop #tSize.active:hover,
   .more-pop #tInsertPage.active:hover,
   .more-pop #tAutoNext.active:hover {
     background: color-mix(in srgb, var(--brand) 20%, var(--bg-elevated)); color: var(--brand);
   }
 }
-.more-pop .reader-mode-control {
-  grid-column: 1 / -1; width: 100%; height: auto;
-  margin-bottom: 2px; padding: 4px; gap: 4px; border-radius: 14px;
+.reader-mode-tool { position: relative; }
+.reader-tools-main #tReaderMode[aria-expanded="true"] { background: var(--brand-soft); color: var(--brand); }
+#tReaderMode[aria-expanded="true"]::after { opacity: 0; }
+.reader-mode-pop,
+.reader-direction-control {
+  position: absolute; display: grid; z-index: 5;
+  padding: 4px; gap: 3px; border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--bg-elevated); box-shadow: var(--shadow-lg);
 }
-.more-pop .reader-mode-control button {
-  width: auto !important; height: 34px !important;
-  border-radius: 10px !important; padding: 0 6px; border: 0;
-  background: transparent; color: var(--text-secondary); font-size: 11px; font-weight: 600;
-  cursor: pointer; transition: all .14s var(--ease);
+.reader-mode-pop {
+  top: 0; right: calc(100% + 44px);
+  width: min(244px, calc(100vw - 122px));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-.more-pop .reader-mode-control button.active {
-  background: color-mix(in srgb, var(--brand) 22%, transparent) !important;
-  color: var(--brand) !important;
+.reader-direction-control { right: 4px; top: calc(100% + 5px); min-width: 146px; }
+.reader-mode-pop[hidden], .reader-direction-control[hidden] { display: none; }
+.reader-tools-main .reader-mode-pop button {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  width: 100%; height: 36px; padding: 0 3px; border-radius: var(--r-sm);
+  white-space: nowrap; font-size: 14px; color: var(--text);
+}
+.reader-tools-main .reader-mode-pop button:hover { transform: none; }
+.reader-tools-main .reader-mode-pop button[aria-pressed="true"] {
+  background: var(--brand-soft); font-weight: 600;
+}
+.reader-mode-icon { display: grid; }
+.reader-tools-main .reader-mode-pop button svg { width: 16px; height: 16px; flex: none; }
+.reader-mode-pop button[aria-pressed="true"] svg { color: var(--brand); }
+.reader-tools-main .reader-mode-pop .reader-mode-chevron { width: 12px; height: 12px; }
+#modeDouble[aria-pressed="false"] .reader-mode-chevron { display: none; }
+#modeDouble[aria-expanded="true"] .reader-mode-chevron { transform: rotate(180deg); }
+.reader-tools-main .reader-direction-control button {
+  display: grid; grid-template-columns: 16px 1fr 12px; justify-items: start;
+  gap: 7px; padding: 0 8px;
+}
+.reader-direction-control button[aria-pressed="true"]::after { content: '✓'; color: var(--brand); }
+.reader-size-setting {
+  grid-column: 1 / -1; margin-top: 2px; padding: 6px 6px 0;
+  border-top: 1px solid var(--border);
+}
+.reader-size-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; min-height: 20px; color: var(--text); font-size: 13px;
+}
+.reader-size-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reader-size-value[hidden] { display: none; }
+.reader-size-adjust {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+}
+.reader-tools-main .reader-size-adjust #tSizeReset { width: 32px; height: 30px; }
+@media (max-width: 860px), (pointer: coarse) {
+  .reader-mode-pop { right: calc(100% + 56px); width: min(244px, calc(100vw - 134px)); }
+  .reader-tools-main #tReaderMode, .reader-tools-main .reader-mode-pop button { min-height: 44px; }
+  .reader-tools-main .reader-size-adjust #tSizeReset { width: 44px; }
+}
+@media (max-width: 360px) {
+  .reader-tools-main .reader-mode-pop [data-reader-mode] { gap: 2px; padding-inline: 2px; font-size: 12px; }
+  .reader-tools-main .reader-mode-pop [data-reader-mode] svg { width: 14px; height: 14px; }
+  .reader-tools-main .reader-mode-pop .reader-mode-chevron { width: 10px; height: 10px; }
 }
 .reader-help-overlay {
   position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;

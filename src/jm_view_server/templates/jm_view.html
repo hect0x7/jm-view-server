@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="color-scheme" content="light dark" />
   <title>看本 · {{ data.title }}</title>
   <!-- PWA -->
   <link rel="manifest" href="/static/manifest.webmanifest">
@@ -81,35 +82,9 @@
   <!-- 更多功能浮窗 -->
   <div class="more-pop" id="morePop">
     <div class="more-pop-head"><b>阅读设置</b><span>Reader controls</span></div>
-    <div class="reader-mode-control" aria-label="阅读模式">
-      <button id="modeScroll" type="button">下拉</button>
-      <button id="modeSingle" type="button">单页</button>
-      <button id="modeDouble" type="button">双页</button>
-    </div>
     <button id="tHead" title="顶部栏开关" data-tip="顶部栏"></button>
     <button id="tProg" title="进度条开关" data-tip="进度条"></button>
     <button id="tEye" title="护眼滤镜" data-tip="护眼模式"></button>
-    
-    <!-- 图片大小按钮，将其包裹，使 sizePop 相对其水平定位 -->
-    <div class="reader-size-control" style="position:relative; width:42px; height:42px;">
-      <button id="tSize" title="图片大小" data-tip="图片大小" style="position:absolute; inset:0; margin:0;"></button>
-      
-      <!-- 图片大小调节浮窗 -->
-      <div class="jump-pop reader-size-pop" id="sizePop" style="position:absolute; right:calc(100% + 12px); top:50%; transform:translateY(-50%) scale(0.96); transform-origin:right center;">
-        <span id="tSizeVal" class="reader-size-value">800px</span>
-        <div id="sizeRangeControl" class="reader-size-range-control">
-          <input type="range" id="tSizeRange" min="300" max="1600" step="50" value="800" title="拖动调节图片大小">
-        </div>
-        <label id="doubleWidthScaleControl" class="reader-double-scale-control" for="doubleWidthScaleRange" hidden>
-          <span>画面比例</span>
-          <input type="range" id="doubleWidthScaleRange" min="50" max="100" step="1" value="98">
-          <output id="doubleWidthScaleValue">98%</output>
-        </label>
-        <button id="tSizeReset" title="恢复默认" style="border:none; background:none; color:var(--text-secondary); cursor:pointer; display:grid; place-items:center; width:22px; height:22px; border-radius:4px; padding:0; transition:all 0.14s;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px; height:13px;"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 3h5v5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 21H3v-5"/></svg>
-        </button>
-      </div>
-    </div>
     
     <button id="tAutoNext" title="自动连播下本" data-tip="自动连播"></button>
     <button id="tFull" title="全屏阅读" data-tip="全屏阅读" aria-pressed="false"></button>
@@ -125,6 +100,49 @@
         <rect x="3.5" y="13.5" width="6.5" height="7" rx="1"/><rect x="14" y="13.5" width="6.5" height="7" rx="1"/>
       </svg>
     </button>
+    <div class="reader-mode-tool" id="readerModeTool">
+      <button id="tReaderMode" type="button" data-tip="阅读方式" aria-label="阅读方式" aria-expanded="false" aria-controls="readerModePop"></button>
+      <div class="reader-mode-pop" id="readerModePop" role="group" aria-label="阅读方式" hidden>
+        <button id="modeScroll" type="button" data-reader-mode="scroll" aria-pressed="false">
+          <span class="reader-mode-icon" aria-hidden="true"></span><span>下拉</span>
+        </button>
+        <button id="modeSingle" type="button" data-reader-mode="single" aria-pressed="false">
+          <span class="reader-mode-icon" aria-hidden="true"></span><span>单页</span>
+        </button>
+        <div class="reader-double-option">
+          <button id="modeDouble" type="button" data-reader-mode="double" aria-pressed="false" aria-expanded="false" aria-controls="readerDirectionControl">
+            <span class="reader-mode-icon" aria-hidden="true"></span><span>双页</span>
+            <svg class="reader-mode-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>
+          </button>
+          <div class="reader-direction-control" id="readerDirectionControl" role="group" aria-label="双页排版方向" hidden>
+            <button type="button" data-reader-direction="ltr" aria-label="从左到右" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16m-6-6 6 6-6 6"/></svg>
+              <span>从左到右</span>
+            </button>
+            <button type="button" data-reader-direction="rtl" aria-label="从右到左" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 12H4m6-6-6 6 6 6"/></svg>
+              <span>从右到左</span>
+            </button>
+          </div>
+        </div>
+        <div class="reader-size-setting" role="group" aria-labelledby="readerSizeTitle">
+          <div class="reader-size-heading">
+            <span id="readerSizeTitle">画面大小</span>
+            <output id="tSizeVal" class="reader-size-value" for="tSizeRange">自动适配</output>
+            <output id="doubleWidthScaleValue" class="reader-size-value" for="doubleWidthScaleRange" hidden>98%</output>
+          </div>
+          <div class="reader-size-adjust">
+            <div id="sizeRangeControl" class="reader-size-range-control">
+              <input type="range" id="tSizeRange" min="300" max="1600" step="50" value="800" aria-label="图片宽度">
+            </div>
+            <div id="doubleWidthScaleControl" class="reader-size-range-control" hidden>
+              <input type="range" id="doubleWidthScaleRange" min="50" max="100" step="1" value="98" aria-label="双页画面比例">
+            </div>
+            <button id="tSizeReset" type="button" title="恢复默认大小" aria-label="恢复默认大小"></button>
+          </div>
+        </div>
+      </div>
+    </div>
     <span class="reader-tool-divider" aria-hidden="true"></span>
     <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
     {% set open_folder_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
@@ -148,8 +166,8 @@
       <div class="reader-grid-toolbar">
         <span class="reader-grid-stats" id="readerGridStats">共 {{ data.images|length }} 页</span>
         <div class="reader-grid-dir-control" id="readerGridDirControl" aria-label="双页排版方向" title="双页排版方向">
-          <button type="button" id="dirLtr" class="reader-grid-dir-btn active" title="常规排版（从左向右）">从左向右</button>
-          <button type="button" id="dirRtl" class="reader-grid-dir-btn" title="日漫标准排版（从右向左）">从右向左</button>
+          <button type="button" id="dirLtr" class="reader-grid-dir-btn active" data-reader-direction="ltr" aria-pressed="true" title="常规排版（从左向右）">从左向右</button>
+          <button type="button" id="dirRtl" class="reader-grid-dir-btn" data-reader-direction="rtl" aria-pressed="false" title="日漫标准排版（从右向左）">从右向左</button>
         </div>
         <button type="button" id="readerGridDoublePreview" class="reader-grid-toolbar-btn" title="切换缩略图双页对开排版预览" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px;"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/></svg>
@@ -192,7 +210,10 @@
       <h2 id="imageActionTitle">图片操作</h2>
       <button id="imageActionClose" class="image-actions-close" type="button" aria-label="关闭图片操作">×</button>
     </div>
-    <button id="imageActionFavorite" class="image-actions-favorite" type="button">收藏图片</button>
+    <div class="image-actions-quick">
+      <button id="imageActionFavorite" class="image-actions-favorite" type="button">收藏图片</button>
+      <button id="imageActionInsert" class="image-actions-insert" type="button" hidden>在此页前插入空白页</button>
+    </div>
     <fieldset class="image-actions-rotation"><legend>旋转图片</legend><div>
       <button type="button" data-rotate="0" aria-pressed="true">恢复</button>
       <button type="button" data-rotate="90" aria-pressed="false">90°</button>

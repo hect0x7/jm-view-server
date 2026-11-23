@@ -1,4 +1,6 @@
 var imageActions = document.getElementById('imageActions');
+var imageActionClose = document.getElementById('imageActionClose');
+var imageActionInsert = document.getElementById('imageActionInsert');
 var imageActionTarget = null;
 var imageActionVersion = 0;
 var imageHoldTimer = null;
@@ -24,6 +26,17 @@ function closeImageActions() {
   if (imageActionPreviousFocus && imageActionPreviousFocus.isConnected) imageActionPreviousFocus.focus({preventScroll: true});
 }
 
+function imageActionPageIndex(image) {
+  return Number(image.closest('.scramble-page').dataset.page);
+}
+
+function syncImageActionInsert() {
+  if (readerMode !== 'double' && document.activeElement === imageActionInsert) {
+    imageActionClose.focus({preventScroll: true});
+  }
+  imageActionInsert.hidden = readerMode !== 'double';
+}
+
 async function openImageActions(image) {
   if (!imageActions || !image) return;
   if (window.JmvImageLoader) image = JmvImageLoader.currentImage(image);
@@ -32,8 +45,9 @@ async function openImageActions(image) {
   if (!imageActions.classList.contains('show')) imageActionPreviousFocus = document.activeElement;
   suppressPageClickUntil = Date.now() + 700;
   document.getElementById('imageActionPreview').src = image.getAttribute('data-original') || image.getAttribute('data-src') || image.src;
-  var index = Array.from(stream.querySelectorAll('.page-img')).indexOf(image);
+  var index = imageActionPageIndex(image);
   document.getElementById('imageActionTitle').textContent = '第 ' + (index + 1) + ' 页 · 图片操作';
+  syncImageActionInsert();
   var favoriteButton = document.getElementById('imageActionFavorite');
   var status = document.getElementById('imageActionStatus');
   favoriteButton.disabled = true;
@@ -47,7 +61,7 @@ async function openImageActions(image) {
   imageActions.removeAttribute('inert');
   imageActions.classList.add('show');
   imageActions.setAttribute('aria-hidden', 'false');
-  document.getElementById('imageActionClose').focus({preventScroll: true});
+  imageActionClose.focus({preventScroll: true});
   try {
     var state = await JmvFavorites.read(image);
     if (version !== imageActionVersion) return;
@@ -89,7 +103,11 @@ window.addEventListener('jmv:reader-image-replaced', function(event) {
 stream.addEventListener('contextmenu', function(event) { if (event.target.closest && event.target.closest('.page-img')) event.preventDefault(); });
 stream.addEventListener('dragstart', function(event) { if (event.target.closest && event.target.closest('.page-img')) event.preventDefault(); });
 
-document.getElementById('imageActionClose').addEventListener('click', closeImageActions);
+imageActionClose.addEventListener('click', closeImageActions);
+imageActionInsert.addEventListener('click', function() {
+  if (readerMode !== 'double' || !imageActionTarget) return;
+  if (insertBlankBeforePage(imageActionPageIndex(imageActionTarget))) closeImageActions();
+});
 imageActions.addEventListener('click', function(event) { if (event.target === imageActions) closeImageActions(); });
 imageActions.addEventListener('keydown', function(event) {
   if (event.key === 'Escape') { event.preventDefault(); closeImageActions(); }
@@ -97,7 +115,7 @@ imageActions.addEventListener('keydown', function(event) {
     event.preventDefault();
   }
   if (event.key !== 'Tab') return;
-  var buttons = Array.from(imageActions.querySelectorAll('button:not([disabled])'));
+  var buttons = Array.from(imageActions.querySelectorAll('button:not([disabled]):not([hidden])'));
   var first = buttons[0], last = buttons[buttons.length - 1];
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }

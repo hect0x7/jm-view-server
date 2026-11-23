@@ -511,6 +511,12 @@ body.has-bg .app { position: relative; }
 }
 html.settings-page-root,
 body.settings-page { height: 100%; overflow: hidden; }
+:root.settings-page-root { color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  :root.settings-page-root:not([data-theme="light"]) { color-scheme: dark; }
+}
+:root.settings-page-root[data-theme="dark"] { color-scheme: dark; }
+:root.settings-page-root[data-theme="light"] { color-scheme: only light; }
 .settings-page .app {
   height: 100vh;
   height: 100dvh;

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark" />
   <title>设置 · jm-view-server</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#5b5bd6">
@@ -145,7 +146,7 @@
                         <span>图片宽度</span><output id="scrollImageSizeValue">800px</output>
                       </label>
                       <input id="scrollImageSize" class="settings-range" type="range" min="300" max="1600" step="50" value="800">
-                      <p class="settings-help">自动适配按窗口宽度显示；自定义宽度受窗口宽度限制。</p>
+                      <p class="settings-help">自动适配在窄窗口铺满可用宽度，宽窗口居中显示，最大 800 px。自定义宽度受窗口宽度限制。</p>
                     </div>
                   </section>
                   <section class="settings-reader-panel" data-reader-panel="single" aria-label="单页阅读设置" hidden>

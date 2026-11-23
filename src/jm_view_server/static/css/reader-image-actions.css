@@ -14,7 +14,11 @@
 .image-actions-heading h2 { margin: 0; flex: 1; font-size: 16px; line-height: 1.5; }
 .image-actions-panel button { min-width: 44px; min-height: 44px; cursor: pointer; }
 .image-actions-close { border: 0; border-radius: 50%; background: var(--surface-hover); color: var(--text); font-size: 24px; }
-.image-actions-favorite { width: 100%; border: 1px solid var(--brand); border-radius: 12px; background: color-mix(in srgb,var(--brand) 12%,var(--bg-elevated)); color: var(--brand); font-size: 15px; font-weight: 600; }
+.image-actions-quick { display: flex; gap: 8px; }
+.image-actions-quick button { flex: 1; padding: 4px 8px; border-radius: 12px; font-size: 15px; font-weight: 600; }
+.image-actions-favorite { border: 1px solid var(--brand); background: color-mix(in srgb,var(--brand) 12%,var(--bg-elevated)); color: var(--brand); }
+.image-actions-insert { border: 1px solid var(--border); background: var(--bg-sunken); color: var(--text); }
+.image-actions-insert:hover { background: var(--surface-hover); }
 .image-actions-panel button:disabled { opacity: .55; cursor: wait; }
 .image-actions-rotation { margin: 16px 0 0; padding: 0; border: 0; }
 .image-actions-rotation legend { margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; }

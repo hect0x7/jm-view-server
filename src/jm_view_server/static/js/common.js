@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    window.addEventListener('scroll', function () {
+    // 看本页的页码由 reader-core.js 统一维护。
+    if (!document.getElementById('readerConfig')) window.addEventListener('scroll', function () {
         if (document.body.classList.contains('reader-single') ||
             document.body.classList.contains('reader-double')) return;
         let wsTop = window.scrollY

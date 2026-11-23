@@ -92,14 +92,16 @@ function saveSequenceState() {
 function applySequenceToDOM(options) {
   options = options || {};
 
-  // 1. 同步 stream 中的 DOM 节点挂载顺序
-  var pageItems = pageSequence.filter(function(item) { return item.type === 'page'; });
-  pageItems.forEach(function(item) {
-    var el = rawPages[item.pageIndex];
-    if (el && el.parentNode === stream) {
-      stream.appendChild(el);
-    }
-  });
+  // 空白页的变更只需重新编组，保留已挂载的原图节点。
+  if (!options.blanksOnly) {
+    var pageItems = pageSequence.filter(function(item) { return item.type === 'page'; });
+    pageItems.forEach(function(item) {
+      var el = rawPages[item.pageIndex];
+      if (el && el.parentNode === stream) {
+        stream.appendChild(el);
+      }
+    });
+  }
 
   // 2. 双页模式下重新构建双页组
   if (readerMode === 'double') {
@@ -133,9 +135,7 @@ document.getElementById('tEye').addEventListener('click', function() {
   applyEye(!stream.classList.contains('eye-care'));
 });
 
-// ---------- 自定义图片大小滑动条重构（横向独立浮窗） ----------
-var tSize = document.getElementById('tSize');
-var sizePop = document.getElementById('sizePop');
+// ---------- 阅读方式中的画面大小 ----------
 var sizeRange = document.getElementById('tSizeRange');
 var sizeVal = document.getElementById('tSizeVal');
 var sizeReset = document.getElementById('tSizeReset');
@@ -146,15 +146,21 @@ var doubleWidthScaleValue = document.getElementById('doubleWidthScaleValue');
 
 function syncSizeControls() {
   var isDouble = readerMode === 'double';
-  if (sizePop) sizePop.classList.toggle('is-double-scale', isDouble);
   if (sizeRangeControl) sizeRangeControl.hidden = isDouble;
   if (doubleWidthScaleControl) doubleWidthScaleControl.hidden = !isDouble;
   if (doubleWidthScaleRange) doubleWidthScaleRange.value = String(doubleWidthScale);
-  if (doubleWidthScaleValue) doubleWidthScaleValue.textContent = formatDoubleWidthScale(doubleWidthScale);
+  if (doubleWidthScaleValue) {
+    doubleWidthScaleValue.textContent = formatDoubleWidthScale(doubleWidthScale);
+    doubleWidthScaleValue.hidden = !isDouble;
+  }
+  if (doubleWidthScaleRange && doubleWidthScaleValue) {
+    doubleWidthScaleRange.setAttribute('aria-valuetext', doubleWidthScaleValue.textContent);
+  }
   if (sizeVal) sizeVal.hidden = isDouble;
   if (!sizeVal || isDouble) return;
   var automatic = readerMode === 'scroll' ? (window.JmvPrefs && JmvPrefs.get('scrollFit') === 'window') : singleFit === 'contain';
-  sizeVal.textContent = automatic ? '适应' : (sizeRange ? sizeRange.value + 'px' : '800px');
+  sizeVal.textContent = automatic ? '自动适配' : (sizeRange ? sizeRange.value + ' px' : '800 px');
+  if (sizeRange) sizeRange.setAttribute('aria-valuetext', sizeVal.textContent);
 }
 
 function applyDoubleWidthScale(value, persist) {
@@ -190,33 +196,20 @@ function applyImageSize(val, isInit) {
   var isScroll = readerMode === 'scroll';
   var widthPreference = isScroll ? 'scrollImageSize' : 'imageSize';
   if (!isInit && isScroll && window.JmvPrefs) JmvPrefs.set('scrollFit', 'custom');
-  var fitWindow = isScroll && window.JmvPrefs && JmvPrefs.get('scrollFit') === 'window';
-  // 模式分别读取宽度；下拉适应窗口时不限制最大宽度。
-  stream.style.maxWidth = fitWindow ? 'none' : v + 'px';
+  var automaticScrollWidth = isScroll && window.JmvPrefs && JmvPrefs.get('scrollFit') === 'window';
+  stream.style.maxWidth = (automaticScrollWidth ? 800 : v) + 'px';
   stream.style.setProperty('--reader-custom-width', v + 'px');
 
   // 同步滑块及文字显示
   if (sizeRange) sizeRange.value = String(v);
-  if (sizeVal && readerMode !== 'double') sizeVal.textContent = (fitWindow || (!isScroll && singleFit === 'contain' && isInit)) ? '适应' : v + 'px';
 
   if (readerMode !== 'double') {
     if (window.JmvPrefs) JmvPrefs.set(widthPreference, v);
     else try { localStorage.setItem(isScroll ? 'jmv-scroll-image-size' : 'jmv-img-custom-size', String(v)); } catch (e) {}
   }
   if (!isInit && !isScroll) applySingleFit('custom', true);
+  else syncSizeControls();
   restoreReaderViewport(viewportSnapshot);
-}
-
-if (tSize && sizePop) {
-  tSize.addEventListener('click', function(e) {
-    this.blur();
-    e.stopPropagation();
-    var isShow = sizePop.classList.toggle('show');
-    tSize.classList.toggle('active', isShow);
-    if (isShow) {
-      closeJump();
-    }
-  });
 }
 
 if (sizeRange) {
@@ -250,9 +243,11 @@ if (sizeReset) {
       }
       return;
     }
-    if (readerMode === 'scroll' && window.JmvPrefs) JmvPrefs.set('scrollFit', 'window');
-    applyImageSize(800, true);
-    if (readerMode === 'single') applySingleFit('contain', true);
+    preserveReaderViewport(function() {
+      if (readerMode === 'scroll' && window.JmvPrefs) JmvPrefs.set('scrollFit', 'window');
+      applyImageSize(800, true);
+      if (readerMode === 'single') applySingleFit('contain', true);
+    });
     if (window.toast) {
       toast('已恢复适应屏幕', 'success');
     }

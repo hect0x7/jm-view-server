@@ -60,5 +60,7 @@ assert.equal(timers.size,0);
 const settled=scrollY;
 documentTop+=300;
 assert.equal(scrollY,settled);
+navigateDoublePage(1, 0.8);
+assert.equal(documentTop-scrollY+240,400);
 """
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)

@@ -69,6 +69,29 @@ function updateGridCurrentPage() {
   });
 }
 
+function insertBlankBeforePage(pageIndex) {
+  var index = pageSequence.findIndex(function(item) { return item.type === 'page' && item.pageIndex === pageIndex; });
+  if (index === -1) return false;
+  var blank = { type: 'blank', id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) };
+  pageSequence.splice(index, 0, blank);
+  saveSequenceState();
+  applySequenceToDOM({ blanksOnly: true });
+  if (readerGridOverlay && readerGridOverlay.classList.contains('show')) rebuildReaderGrid();
+  if (window.toast) toast('已在第 ' + (pageIndex + 1) + ' 页前插入空白页', 'success');
+  return true;
+}
+
+function removeReaderBlank(blankId) {
+  var index = pageSequence.findIndex(function(item) { return item.type === 'blank' && item.id === blankId; });
+  if (index === -1) return false;
+  pageSequence.splice(index, 1);
+  saveSequenceState();
+  applySequenceToDOM({ blanksOnly: true });
+  if (readerGridOverlay && readerGridOverlay.classList.contains('show')) rebuildReaderGrid();
+  if (window.toast) toast('已移除空白页', 'info');
+  return true;
+}
+
 function createGridPageCard(pageIdx, seqIdx) {
   var pageEl = rawPages[pageIdx];
   if (!pageEl) return null;
@@ -120,12 +143,7 @@ function createGridPageCard(pageIdx, seqIdx) {
   insertBtn.innerHTML = (icon('plus') || '') + '<span>在此插页</span>';
   insertBtn.addEventListener('click', function(e) {
     e.stopPropagation();
-    var blankItem = { type: 'blank', id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) };
-    pageSequence.splice(Number(card.dataset.seqIndex), 0, blankItem);
-    saveSequenceState();
-    applySequenceToDOM();
-    rebuildReaderGrid();
-    if (window.toast) toast('已在第 ' + (pageIdx + 1) + ' 页前插入空白页', 'success');
+    insertBlankBeforePage(pageIdx);
   });
   thumbWrap.appendChild(insertBtn);
 
@@ -172,11 +190,7 @@ function createGridBlankCard(blankItem, seqIdx) {
   delBtn.textContent = '✕';
   delBtn.addEventListener('click', function(e) {
     e.stopPropagation();
-    pageSequence.splice(Number(blankCard.dataset.seqIndex), 1);
-    saveSequenceState();
-    applySequenceToDOM();
-    rebuildReaderGrid();
-    if (window.toast) toast('已移除空白页', 'info');
+    removeReaderBlank(blankItem.id);
   });
 
   var iconEl = document.createElement('div');
@@ -250,16 +264,13 @@ function rebuildReaderGrid() {
     });
   } else {
     var previewGroups = buildDoubleGroups();
-    var usedBlankSeqIndices = [];
+    var blankIndices = new Map();
+    pageSequence.forEach(function(item, seqIdx) {
+      if (item.type === 'blank') blankIndices.set(item.id, seqIdx);
+    });
 
     previewGroups.forEach(function(group, gIdx) {
-      var spreadKey = group.kind + ':' + group.slots.join(',') + ':' + (group.insertedSlots || []).join(',');
-      if (group.insertedSlots && group.insertedSlots.length) {
-        var groupBlankIds = pageSequence.filter(function(item) { return item.type === 'blank'; })
-          .slice(usedBlankSeqIndices.length, usedBlankSeqIndices.length + group.insertedSlots.length)
-          .map(function(item) { return item.id; });
-        spreadKey += ':' + groupBlankIds.join(',');
-      }
+      var spreadKey = JSON.stringify([group.kind, group.slots, group.blankIds]);
       usedSpreads.add(spreadKey);
       var spreadRow = readerGridSpreads.get(spreadKey);
       if (!spreadRow) { spreadRow = document.createElement('div'); readerGridSpreads.set(spreadKey, spreadRow); }
@@ -268,7 +279,7 @@ function rebuildReaderGrid() {
 
       var badgeEl = spreadRow.querySelector('.reader-grid-spread-badge') || document.createElement('span');
       badgeEl.className = 'reader-grid-spread-badge';
-      var spreadLabel = (gIdx === 0 && group.kind === 'cover') ? '封面 Cover' : ('折页 ' + (gIdx + 1));
+      var spreadLabel = group.kind === 'cover' ? '封面 Cover' : ('折页 ' + (gIdx + 1));
       badgeEl.innerHTML = spreadLabel + ' <b>[' + (readingDirection === 'rtl' ? '右←左' : '左→右') + ']</b>';
       spreadChildren.push(badgeEl);
 
@@ -284,24 +295,12 @@ function rebuildReaderGrid() {
             var card = createGridPageCard(slot, seqIdx >= 0 ? seqIdx : 0);
             if (card) spreadChildren.push(card);
           } else {
-            var isInserted = group.insertedSlots && group.insertedSlots.indexOf(sIdx) !== -1;
-            if (isInserted) {
-              var blankSeqIdx = -1;
-              for (var b = 0; b < pageSequence.length; b++) {
-                if (pageSequence[b].type === 'blank' && usedBlankSeqIndices.indexOf(b) === -1) {
-                  blankSeqIdx = b;
-                  usedBlankSeqIndices.push(b);
-                  break;
-                }
-              }
-              if (blankSeqIdx !== -1) {
-                var blankCard = createGridBlankCard(pageSequence[blankSeqIdx], blankSeqIdx);
-                if (blankCard) spreadChildren.push(blankCard);
-              } else {
-                spreadChildren.push(spreadRow.children[spreadChildren.length] || createGridPlaceholderCard('已插入空白页'));
-              }
+            var blankId = group.blankIds[sIdx];
+            if (blankId !== null) {
+              var blankSeqIdx = blankIndices.get(blankId);
+              spreadChildren.push(createGridBlankCard(pageSequence[blankSeqIdx], blankSeqIdx));
             } else {
-              spreadChildren.push(spreadRow.children[spreadChildren.length] || createGridPlaceholderCard(gIdx === 0 ? '封面留白' : '对开留白'));
+              spreadChildren.push(spreadRow.children[spreadChildren.length] || createGridPlaceholderCard(group.kind === 'cover' ? '封面留白' : '对开留白'));
             }
           }
         });
@@ -477,6 +476,7 @@ function bindCardDragEvents(card, seqIdx, pointerHandle) {
 }
 
 function openReaderGrid() {
+  closeReaderModePop();
   if (!readerGridOverlay || !readerGrid) return;
   rebuildReaderGrid();
   readerGridOverlay.classList.add('show');

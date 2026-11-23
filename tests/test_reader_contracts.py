@@ -93,7 +93,8 @@ def test_double_width_scale_static_contract():
     assert 'min="50" max="100" step="1" value="98"' in settings_html
     assert 'min="50" max="100" step="1" value="98"' in reader_html
     assert '双页画面比例' in settings_html
-    assert '<span>画面比例</span>' in reader_html
+    assert 'id="readerSizeTitle">画面大小</span>' in reader_html
+    assert 'aria-label="双页画面比例"' in reader_html
     assert "if (isNaN(numberValue)) return def.fallback;" in app_js
     assert "Math.max(50, Math.min(100, percentage)) + '%'" in app_js
     assert 'parseInt(value, 10) || def.fallback' not in app_js
@@ -113,8 +114,8 @@ def test_double_width_scale_static_contract():
     assert 'bindRangeValueFeedback' not in app_js
     assert 'bindRangeValueFeedback' not in reader_js
     assert 'settings-scale-control' not in settings_html
-    assert '.reader-double-scale-control.is-adjusting output' not in reader_css
-    assert '.reader-double-scale-control input {' in reader_css
+    assert '.reader-size-range-control.is-adjusting' not in reader_css
+    assert '.reader-size-range-control input {' in reader_css
     assert 'height: 20px' in reader_css
     assert "document.body.classList.toggle('reader-double', readerMode === 'double')" in reader_js
     assert "stream.classList.toggle('reader-double-mode', readerMode === 'double')" in reader_js
@@ -195,6 +196,14 @@ def test_thumbnail_card_canvas_algorithm_node_eval():
     const reorderedGroups = buildDoubleGroups();
     const reorderedSlots = reorderedGroups.map(g => g.slots);
 
+    // A manual blank before the cover adds a slot after the implicit cover gap.
+    pageSequence.unshift({type: 'blank', id: 'cover-insert'});
+    const coverInsert = buildDoubleGroups().slice(0, 2).map(g => [g.slots, g.blankIds]);
+    readingDirection = 'rtl';
+    const coverInsertRtl = buildDoubleGroups().slice(0, 2).map(g => [g.slots, g.blankIds]);
+    readingDirection = 'ltr';
+    pageSequence.shift();
+
     // 3. Insert multiple blanks at beginning: [b1, b2, b3, 0, 3, 1, 2, 4]
     pageSequence.unshift({ type: 'blank', id: 'b1' }, { type: 'blank', id: 'b2' }, { type: 'blank', id: 'b3' });
     const multiBlankHeadGroups = buildDoubleGroups();
@@ -206,7 +215,8 @@ def test_thumbnail_card_canvas_algorithm_node_eval():
     const reversedGroups = buildDoubleGroups();
     const reversedSlots = reversedGroups.map(g => g.slots);
 
-    console.log(JSON.stringify({ defSlots, reorderedSequence, reorderedSlots, multiBlankHeadSlots, multiBlankHeadInserted, reversedSlots }));
+    console.log(JSON.stringify({ defSlots, reorderedSequence, reorderedSlots, coverInsert, coverInsertRtl,
+      multiBlankHeadSlots, multiBlankHeadInserted, reversedSlots }));
     """
 
     proc = subprocess.run(['node', '-e', js_test_script], capture_output=True, text=True, check=True)
@@ -215,9 +225,10 @@ def test_thumbnail_card_canvas_algorithm_node_eval():
     assert data['defSlots'] == [[None, 0], [1, 2], [3, 4]]
     assert data['reorderedSequence'] == [0, 3, 1, 2, 4]
     assert data['reorderedSlots'] == [[None, 0], [3, 1], [2, 4]]
-    # multi blanks: row 1 is [b1, b2], row 2 is [b3, 0], row 3 is [3, 1], row 4 is [2, 4]
-    assert data['multiBlankHeadSlots'] == [[None, None], [None, 0], [3, 1], [2, 4]]
-    assert data['multiBlankHeadInserted'] == [[0, 1], [0], [], []]
+    assert data['coverInsert'] == [[[None, None], [None, 'cover-insert']], [[0, 3], [None, None]]]
+    assert data['coverInsertRtl'] == [[[None, None], ['cover-insert', None]], [[3, 0], [None, None]]]
+    assert data['multiBlankHeadSlots'] == [[None, None], [None, None], [0, 3], [1, 2], [4, None]]
+    assert data['multiBlankHeadInserted'] == [[1], [0, 1], [], [], []]
     assert data['reversedSlots'] == [[None, 4], [3, 2], [1, 0]]
 
 

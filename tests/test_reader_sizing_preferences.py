@@ -17,8 +17,8 @@ const context = {
   CustomEvent: function() {}, dispatchEvent() {},
   readerMode: 'scroll', singleFit: 'contain', doubleWidthScale: 98,
   stream: {style: {setProperty() {}}, classList: {toggle() {}}},
-  sizePop: {classList: {toggle() {}}}, sizeRange: {}, sizeVal: {},
-  sizeRangeControl: {}, doubleWidthScaleControl: {}, doubleWidthScaleRange: {}, doubleWidthScaleValue: {},
+  sizeRange: {setAttribute() {}}, sizeVal: {},
+  sizeRangeControl: {}, doubleWidthScaleControl: {}, doubleWidthScaleRange: {setAttribute() {}}, doubleWidthScaleValue: {},
   captureReaderViewport: () => null, restoreReaderViewport() {}
 };
 context.window = context;
@@ -33,14 +33,16 @@ vm.runInContext(prefs, context);
 assert.equal(context.JmvPrefs.get('scrollImageSize'), 1200);
 assert.equal(context.JmvPrefs.get('imageSize'), 1050);
 const reader = read('reader-preferences.js');
-vm.runInContext(reader.slice(reader.indexOf('function syncSizeControls()'), reader.indexOf('if (tSize && sizePop)')), context);
+vm.runInContext(reader.slice(reader.indexOf('function syncSizeControls()'), reader.indexOf('if (sizeRange) {')), context);
 context.JmvPrefs.set('scrollFit', 'window');
 context.applyImageSize(1200, true);
-assert.equal(context.stream.style.maxWidth, 'none');
+assert.equal(context.stream.style.maxWidth, '800px');
+assert.equal(context.sizeVal.textContent, '自动适配');
 context.applyImageSize(1300, false);
 assert.equal(context.stream.style.maxWidth, '1300px');
 assert.equal(context.JmvPrefs.get('scrollImageSize'), 1300);
 assert.equal(context.JmvPrefs.get('scrollFit'), 'custom');
+assert.equal(context.sizeVal.textContent, '1300 px');
 assert.equal(context.JmvPrefs.get('imageSize'), 1050);
 assert.equal(context.JmvPrefs.get('singleFit'), 'contain');
 context.readerMode = 'single';
@@ -52,6 +54,9 @@ assert.equal(context.JmvPrefs.get('imageSize'), 900);
 assert.equal(context.JmvPrefs.get('scrollImageSize'), 1300);
 context.readerMode = 'double';
 context.applyImageSize(800, true);
+assert.equal(context.sizeRangeControl.hidden, true);
+assert.equal(context.doubleWidthScaleControl.hidden, false);
+assert.equal(context.doubleWidthScaleValue.textContent, '98%');
 assert.equal(context.JmvPrefs.get('imageSize'), 900);
 assert.equal(context.JmvPrefs.get('scrollImageSize'), 1300);
 context.JmvPrefs.resetPreferences();
