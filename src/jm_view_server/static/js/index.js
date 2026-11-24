@@ -159,8 +159,6 @@ function openJmView(filename, _fileType) {
 function getCurPath() {
     const el = document.getElementById('currentPathText');
     if (!el) return '';
-    // Prefer data-path attribute which preserves spaces/raw values
-    // Fallback to innerText (though innerText collapses spaces)
     return el.getAttribute('data-path') || el.innerText.trim();
 }
 
@@ -171,7 +169,6 @@ function goBack() {
     }
     let curPath = getCurPath();
     let backPath = curPath + '/..';
-    console.log(`go back -> ${backPath}`);
     changeDir(backPath);
 }
 
@@ -186,31 +183,34 @@ window.addEventListener('DOMContentLoaded', function () {
     // 初始化并应用单文件夹维度的排序记忆
     initFolderSort();
 
-    // UI Elements
     const backToTopBtn = document.getElementById('to-top');
     const driverLinks = document.querySelectorAll('.driver-pill');
     const pathFormInput = document.querySelector('#pathForm input[type="text"]');
     const resultSubmitBtn = document.querySelector('#pathForm input[type="submit"]');
-
-    // Select directory links based on the new HTML structure
-    // We look for .file-link inside items marked as folders
     const dirLinks = document.querySelectorAll('.file-item[data-type="dir"] .file-link');
 
-    // Scroll Logic for Back-to-Top button
-    window.addEventListener('scroll', function () {
-        if (window.pageYOffset > 300) {
-            backToTopBtn.classList.add('visible');
-        } else {
-            backToTopBtn.classList.remove('visible');
-        }
-    });
+    // 回到顶部：监听真正滚动容器 .content（兼容回退 window）
+    const scrollHost = document.querySelector('.content');
+    function updateBackToTop() {
+        if (!backToTopBtn) return;
+        const offset = scrollHost ? scrollHost.scrollTop : window.pageYOffset;
+        backToTopBtn.classList.toggle('visible', offset > 300);
+    }
+    if (scrollHost) scrollHost.addEventListener('scroll', updateBackToTop, { passive: true });
+    window.addEventListener('scroll', updateBackToTop, { passive: true });
+    updateBackToTop();
 
     if (backToTopBtn) {
+        backToTopBtn.setAttribute('role', 'button');
+        backToTopBtn.setAttribute('aria-label', '回到顶部');
+        backToTopBtn.setAttribute('title', '回到顶部');
         backToTopBtn.addEventListener('click', function () {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth',
-            });
+            const behavior = (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 'auto' : 'smooth';
+            if (scrollHost && scrollHost.scrollTop > 0) {
+                scrollHost.scrollTo({ top: 0, behavior: behavior });
+            } else {
+                window.scrollTo({ top: 0, behavior: behavior });
+            }
         });
     }
 
@@ -239,11 +239,9 @@ window.addEventListener('DOMContentLoaded', function () {
         link.addEventListener('click', whenClickDir);
     });
 
-    // Disable "Back" button if at root (roughly determined by path length)
+    // Disable "Back" button if at root
     const btnBack = document.getElementById('btn-back');
     if (btnBack) {
-        // Windows root paths are short (e.g., C:\), Linux roots are purely slash /
-        // The original logic checked length <= 3. We'll keep that heuristic.
         if (getCurPath().length <= 3) {
             btnBack.disabled = true;
             btnBack.style.opacity = '0.5';
@@ -251,15 +249,14 @@ window.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Preview Image Interaction
-    const previewImages = document.querySelectorAll('.preview-img');
-    
+    // Preview Image Interaction（仅桌面精确指针启用 7.5 倍预览放大，避免触屏误触闪烁）
+    const canHoverPreview = !window.matchMedia || window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const previewImages = canHoverPreview ? document.querySelectorAll('.preview-img') : [];
+
     function applyDynamicOrigin(img) {
         const rect = img.getBoundingClientRect();
         const parent = img.closest('.content') || document.body;
         const parentRect = parent.getBoundingClientRect();
-        // Image is ~64px height, expanded 7.5x is 480px.
-        // Center origin grows ~208px upwards.
         if (rect.top - 208 < parentRect.top) {
             img.style.transformOrigin = 'top right';
         } else if (rect.bottom + 208 > parentRect.bottom) {
@@ -272,10 +269,6 @@ window.addEventListener('DOMContentLoaded', function () {
     previewImages.forEach(img => {
         img.addEventListener('click', function (e) {
             e.stopPropagation();
-
-            // If already expanded, we assume user wants to close/shrink it.
-            // We set a 'force-closed' flag to temporarily suppress hover expansion
-            // until the mouse leaves.
             if (this.classList.contains('expanded')) {
                 this.classList.remove('expanded');
                 this.dataset.forceClose = 'true';
@@ -286,37 +279,97 @@ window.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        img.addEventListener('mouseenter', function (e) {
-            // Only expand if we haven't explicitly force-closed it during this hover session
+        img.addEventListener('mouseenter', function () {
             if (this.dataset.forceClose !== 'true') {
                 applyDynamicOrigin(this);
                 this.classList.add('expanded');
             }
         });
 
-        img.addEventListener('mouseleave', function (e) {
-            // Reset state
+        img.addEventListener('mouseleave', function () {
             this.classList.remove('expanded');
             this.dataset.forceClose = 'false';
         });
     });
 });
+
 /* --- Bookmarks Logic --- */
 const BOOKMARKS_KEY = 'plugin_jm_bookmarks';
+let bookmarksOpener = null;
+let bookmarkAddTimer = null;
+
+function canonicalBookmarkPath(path) {
+    if (window.JmvSync && typeof window.JmvSync.canonicalPath === 'function') {
+        return window.JmvSync.canonicalPath(path);
+    }
+    const value = String(path || '').replace(/\\/g, '/');
+    const isWindows = /^[a-z]:\//i.test(value) || /^\/\/[^/]+\/[^/]+/.test(value);
+    const drive = /^[a-z]:\//i.test(value) ? value.slice(0, 3) : '';
+    const unc = !drive && isWindows ? value.match(/^\/\/[^/]+\/[^/]+/)[0] : '';
+    const root = drive || unc || (value.charAt(0) === '/' ? '/' : '');
+    const remainder = value.slice(root.length);
+    const parts = [];
+    remainder.split('/').forEach(part => {
+        if (!part || part === '.') return;
+        if (part === '..') { if (parts.length) parts.pop(); return; }
+        parts.push(part);
+    });
+    const normalized = root + (unc && (parts.length || remainder) ? '/' : '') + parts.join('/');
+    return isWindows ? normalized.toLowerCase() : normalized;
+}
+
+function syncBookmarkAddButton() {
+    const btn = document.querySelector('.bookmark-add-btn');
+    if (!btn) return;
+    const path = getCurPath();
+    const canon = path ? canonicalBookmarkPath(path) : '';
+    const exists = !!canon && getBookmarks().some(b => canonicalBookmarkPath(b.path) === canon);
+    btn.classList.toggle('is-saved', exists);
+    btn.innerHTML = exists
+        ? icon('check') + ' 当前目录已收藏'
+        : '<span id="bookmarkPlusIco" aria-hidden="true">' + icon('folderPlus') + '</span> 收藏当前目录';
+}
+
+function closeBookmarks(restoreFocus) {
+    const backdrop = document.getElementById('bookmarks-backdrop');
+    const drawer = document.getElementById('bookmarks-drawer');
+    const trigger = document.getElementById('bookmarksBtn');
+    if (!drawer || !drawer.classList.contains('open')) return;
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.inert = true;
+    if (backdrop) backdrop.classList.remove('open');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && bookmarksOpener && bookmarksOpener.isConnected && bookmarksOpener.focus) {
+        bookmarksOpener.focus({ preventScroll: true });
+    }
+    bookmarksOpener = null;
+}
 
 function toggleBookmarks() {
     const backdrop = document.getElementById('bookmarks-backdrop');
     const drawer = document.getElementById('bookmarks-drawer');
+    const trigger = document.getElementById('bookmarksBtn');
+    if (!drawer) return;
 
     if (drawer.classList.contains('open')) {
-        drawer.classList.remove('open');
-        backdrop.classList.remove('open');
+        closeBookmarks(true);
     } else {
+        bookmarksOpener = document.activeElement;
         renderBookmarks();
+        drawer.inert = false;
+        drawer.setAttribute('aria-hidden', 'false');
         drawer.classList.add('open');
-        backdrop.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        const closeBtn = document.getElementById('bookmarksCloseBtn');
+        if (closeBtn) closeBtn.focus({ preventScroll: true });
     }
 }
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeBookmarks(true);
+});
 
 function getBookmarks() {
     const stored = localStorage.getItem(BOOKMARKS_KEY);
@@ -348,10 +401,11 @@ function addCurrentBookmark() {
     if (!path) return;
 
     const bookmarks = getBookmarks();
-    // Check if already exists
-    const exists = bookmarks.some(b => b.path === path);
+    const canon = canonicalBookmarkPath(path);
+    const exists = bookmarks.some(b => canonicalBookmarkPath(b.path) === canon);
     if (exists) {
-        alert('当前目录已在收藏夹中！');
+        if (window.toast) toast('当前目录已在收藏目录中', 'default');
+        syncBookmarkAddButton();
         return;
     }
 
@@ -362,21 +416,39 @@ function addCurrentBookmark() {
 
     saveBookmarks(bookmarks);
 
-    // Suggestion: show a toast or feedback here
+    if (window.toast) toast('已添加到收藏目录', 'success');
     const btn = document.querySelector('.bookmark-add-btn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = icon('check') + ' 已收藏';
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-    }, 2000);
+    if (btn) {
+        if (bookmarkAddTimer) clearTimeout(bookmarkAddTimer);
+        btn.classList.add('is-saved');
+        btn.innerHTML = icon('check') + ' 已收藏';
+        bookmarkAddTimer = setTimeout(() => {
+            bookmarkAddTimer = null;
+            syncBookmarkAddButton();
+        }, 1600);
+    }
 }
 
 function deleteBookmark(index) {
-    if (!confirm('确定要删除这个收藏吗？')) return;
-
     const bookmarks = getBookmarks();
+    if (index < 0 || index >= bookmarks.length) return;
+    const removed = bookmarks[index];
     bookmarks.splice(index, 1);
     saveBookmarks(bookmarks);
+    if (window.toast) {
+        toast('已移除收藏目录', 'default', {
+            actionLabel: '撤销',
+            onAction: function () {
+                const current = getBookmarks();
+                const removedCanon = canonicalBookmarkPath(removed.path);
+                if (!current.some(b => canonicalBookmarkPath(b.path) === removedCanon)) {
+                    current.splice(Math.min(index, current.length), 0, removed);
+                    saveBookmarks(current);
+                    toast('已恢复收藏目录', 'success');
+                }
+            }
+        });
+    }
 }
 
 function formatTime(isoString) {
@@ -388,6 +460,7 @@ function renderBookmarks() {
     const list = document.getElementById('bookmarks-list');
     const emptyState = document.getElementById('bookmarks-empty');
     const bookmarks = getBookmarks();
+    syncBookmarkAddButton();
     if (!list || !emptyState) return;
     list.innerHTML = '';
 
@@ -410,11 +483,10 @@ function renderBookmarks() {
         timeLabel.className = 'bookmark-time'; timeLabel.textContent = formatTime(b.timestamp);
         link.append(pathLabel, timeLabel);
         const removeButton = document.createElement('button');
-        removeButton.className = 'bookmark-delete'; removeButton.title = '删除'; removeButton.setAttribute('aria-label', '删除收藏目录');
+        removeButton.type = 'button';
+        removeButton.className = 'bookmark-delete'; removeButton.title = '移除'; removeButton.setAttribute('aria-label', '移除收藏目录');
         removeButton.innerHTML = icon('x'); removeButton.addEventListener('click', () => deleteBookmark(index));
         li.append(link, removeButton);
         list.appendChild(li);
     });
 }
-
-// Initial render check? No, only when opened.

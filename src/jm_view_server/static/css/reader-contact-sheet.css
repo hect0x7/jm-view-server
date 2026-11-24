@@ -3,6 +3,7 @@
   position: fixed; inset: 0; z-index: 110; display: grid; place-items: center;
   padding: clamp(10px, 3vw, 32px);
   background: rgba(4, 5, 8, .82); backdrop-filter: blur(12px) saturate(.8);
+  overscroll-behavior: contain;
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity .18s var(--ease), visibility .18s var(--ease);
 }
@@ -55,7 +56,7 @@
 .reader-grid-dir-btn {
   height: 26px; padding: 0 10px; border-radius: 6px; border: 0;
   background: transparent; color: #aeb1bd; font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all .14s var(--ease); white-space: nowrap;
+  cursor: pointer; transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); white-space: nowrap;
 }
 .reader-grid-dir-btn:hover {
   color: #fff; background: rgba(255,255,255,.07);
@@ -69,7 +70,7 @@
   height: 32px; padding: 0 12px; border-radius: 8px;
   background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
   color: #c5c8d4; font-size: 12px; font-weight: 500; cursor: pointer;
-  transition: all .14s var(--ease); white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); white-space: nowrap;
 }
 .reader-grid-toolbar-btn:hover {
   background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.2);
@@ -240,7 +241,7 @@
   border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
   background: #08090d;
   box-shadow: 0 8px 20px rgba(0,0,0,.26);
-  transition: all .14s var(--ease);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 .reader-grid-blank:hover {
   border-color: var(--brand);
@@ -255,7 +256,7 @@
   border: 1px solid rgba(255,255,255,.15);
   background: rgba(255,255,255,.08); color: #ccc;
   display: grid; place-items: center; font-size: 13px; line-height: 1;
-  cursor: pointer; transition: all .14s var(--ease);
+  cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .reader-grid-blank-del:hover {
   background: #e03131; border-color: #e03131; color: #fff; transform: scale(1.1);

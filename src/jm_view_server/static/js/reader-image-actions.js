@@ -8,10 +8,43 @@ var imageHoldStart = null;
 var suppressPageClickUntil = 0;
 var imageActionPreviousFocus = null;
 
+var imageHoldRing = null;
+
+function removeHoldRing() {
+  if (imageHoldRing) {
+    imageHoldRing.remove();
+    imageHoldRing = null;
+  }
+}
+
+function showHoldRing(x, y, durationMs) {
+  removeHoldRing();
+  if (typeof document.createElement !== 'function' || !document.body) return;
+  if (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) return;
+  var ring = document.createElement('div');
+  ring.className = 'image-hold-ring';
+  ring.setAttribute('aria-hidden', 'true');
+  ring.style.left = x + 'px';
+  ring.style.top = y + 'px';
+  ring.style.setProperty('--hold-fill-ms', Math.max(180, durationMs - 140) + 'ms');
+  ring.innerHTML = '<svg viewBox="0 0 48 48"><circle class="ring-track" cx="24" cy="24" r="20"/><circle class="ring-progress" cx="24" cy="24" r="20"/></svg>';
+  document.body.appendChild(ring);
+  imageHoldRing = ring;
+}
+
+function renderFavoriteButtonLabel(button, favorite) {
+  if (typeof icon === 'function' && icon('favoriteImages')) {
+    button.innerHTML = icon('favoriteImages') + '<span>' + (favorite ? '取消收藏' : '收藏图片') + '</span>';
+  } else {
+    button.textContent = favorite ? '♥ 取消收藏' : '♡ 收藏图片';
+  }
+}
+
 function cancelImageHold() {
   clearTimeout(imageHoldTimer);
   imageHoldTimer = null;
   imageHoldStart = null;
+  removeHoldRing();
 }
 
 function closeImageActions() {
@@ -66,7 +99,7 @@ async function openImageActions(image) {
     var state = await JmvFavorites.read(image);
     if (version !== imageActionVersion) return;
     favoriteButton.dataset.favorite = state.favorite ? '1' : '0';
-    favoriteButton.textContent = state.favorite ? '♥ 取消收藏' : '♡ 收藏图片';
+    renderFavoriteButtonLabel(favoriteButton, state.favorite);
     favoriteButton.disabled = false;
   } catch (error) {
     if (version !== imageActionVersion) return;
@@ -81,12 +114,18 @@ stream.addEventListener('pointerdown', function(event) {
   var image = event.target.closest ? event.target.closest('.page-img') : null;
   if (!image || (event.pointerType === 'mouse' && event.button !== 0)) return;
   cancelImageHold();
+  var holdMs = event.pointerType === 'mouse' ? 520 : 650;
   imageHoldStart = {x: event.clientX, y: event.clientY, pointerId: event.pointerId};
   imageHoldTimer = setTimeout(function() {
     clearTimeout(pageClickTimer);
+    removeHoldRing();
+    if (event.pointerType === 'touch' && navigator && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(12); } catch (err) {}
+    }
     openImageActions(image);
     imageHoldTimer = null;
-  }, event.pointerType === 'mouse' ? 520 : 650);
+  }, holdMs);
+  showHoldRing(event.clientX, event.clientY, holdMs);
 });
 window.addEventListener('pointermove', function(event) {
   if (imageHoldStart && event.pointerId === imageHoldStart.pointerId && Math.hypot(event.clientX - imageHoldStart.x, event.clientY - imageHoldStart.y) > 10) cancelImageHold();
@@ -95,7 +134,7 @@ function endImageHold(event) { if (imageHoldStart && event.pointerId === imageHo
 window.addEventListener('pointerup', endImageHold, true);
 window.addEventListener('pointercancel', endImageHold, true);
 window.addEventListener('blur', cancelImageHold);
-window.addEventListener('scroll', cancelImageHold, {passive: true});
+window.addEventListener('scroll', cancelImageHold, {passive: true, capture: true});
 window.addEventListener('jmv:reader-image-replaced', function(event) {
   cancelImageHold();
   if (imageActionTarget === event.detail.previous) imageActionTarget = event.detail.image;
@@ -138,7 +177,12 @@ document.getElementById('imageActionFavorite').addEventListener('click', async f
     var favorite = await JmvFavorites.set(image, wanted);
     if (version !== imageActionVersion) return;
     this.dataset.favorite = favorite ? '1' : '0';
-    this.textContent = favorite ? '♥ 取消收藏' : '♡ 收藏图片';
+    renderFavoriteButtonLabel(this, favorite);
+    if (favorite && this.classList) {
+      this.classList.remove('is-popped');
+      void this.offsetWidth;
+      this.classList.add('is-popped');
+    }
     document.getElementById('imageActionStatus').textContent = favorite ? '图片已收藏' : '已取消收藏';
   } catch (error) {
     if (version === imageActionVersion) document.getElementById('imageActionStatus').textContent = error.message;

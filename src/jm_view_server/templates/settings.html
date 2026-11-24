@@ -8,9 +8,14 @@
   <title>设置 · jm-view-server</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#5b5bd6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="看本">
+  <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <script>
     (function(){var s=localStorage.getItem('jmv-theme'),p=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.setAttribute('data-theme',s||(p?'dark':'light'));})();
+    if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});});}
   </script>
   <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
   <link rel="stylesheet" href="/static/css/sync-settings.css?t={{ randomArg }}">
@@ -34,14 +39,14 @@
           <a href="#message"><span class="settings-icon" data-settings-icon="chat" aria-hidden="true"></span>消息身份</a>
           <a href="#shortcuts"><span class="settings-icon" data-settings-icon="keyboard" aria-hidden="true"></span>快捷键</a>
           <a href="#data"><span class="settings-icon" data-settings-icon="database" aria-hidden="true"></span>本地数据</a>
-          <a href="#sync"><span class="settings-icon" data-settings-icon="database" aria-hidden="true"></span>跨设备同步</a>
+          <a href="#sync"><span class="settings-icon" data-settings-icon="sync" aria-hidden="true"></span>跨设备同步</a>
         </nav>
 
         <main class="settings-main">
           <header class="settings-hero">
             <span class="settings-hero-icon" id="settingsHeroIcon"></span>
             <div>
-              <p class="settings-eyebrow">Browser control room</p>
+              <p class="settings-eyebrow">偏好与同步</p>
               <h1>把常用习惯提前设好</h1>
               <p>默认作用于当前浏览器；开启跨设备同步后，服务器允许的记忆和设置会共享。除标注需刷新生效的项目外，其余修改会立即应用。</p>
             </div>
@@ -202,7 +207,7 @@
             </div>
             <div class="settings-card">
               <label class="settings-label" for="chatNickname"><span class="settings-icon" data-settings-icon="chat" aria-hidden="true"></span>默认昵称</label>
-              <input id="chatNickname" class="settings-input" maxlength="40" placeholder="留空时使用页面默认昵称">
+              <input id="chatNickname" class="settings-input" maxlength="20" placeholder="留空时使用页面默认昵称">
             </div>
           </section>
 
@@ -230,7 +235,7 @@
             </div>
           </section>
           <section class="settings-section" id="sync">
-            <div class="settings-section-head"><div><span class="settings-icon settings-heading-icon" data-settings-icon="database" aria-hidden="true"></span><h2>跨设备同步</h2></div><p>在手机与电脑间接着阅读。</p></div>
+            <div class="settings-section-head"><div><span class="settings-icon settings-heading-icon" data-settings-icon="sync" aria-hidden="true"></span><h2>跨设备同步</h2></div><p>在手机与电脑间接着阅读。</p></div>
             <div id="syncSettings">
               <div class="sync-panel settings-card sync-device-panel">
                 <div class="sync-panel-heading"><span class="settings-icon sync-panel-icon" data-settings-icon="network" aria-hidden="true"></span><div><h3>当前设备</h3><p class="sync-description">仅控制当前浏览器。</p></div><span class="sync-badge" id="syncDeviceBadge">正在连接</span></div>

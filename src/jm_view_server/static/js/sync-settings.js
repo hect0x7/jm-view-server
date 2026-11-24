@@ -14,8 +14,19 @@
   var policyDirty = false;
   var policySaving = false;
   var policyError = '';
+  function computePolicyDirty() {
+    var state = window.JmvSync.getStatus();
+    if (!state || !state.config) return false;
+    var enabledNow = serverToggle.getAttribute('aria-checked') === 'true';
+    if (enabledNow !== Boolean(state.config.enabled)) return true;
+    var dirty = false;
+    ranges.querySelectorAll('input').forEach(function(input) {
+      if (input.checked !== (state.config.scopes[input.dataset.scope] === true)) dirty = true;
+    });
+    return dirty;
+  }
   ranges.addEventListener('change', function(event) {
-    update(event.target, function() { policyDirty = true; policyError = ''; renderDraft(); });
+    update(event.target, function() { policyDirty = computePolicyDirty(); policyError = ''; renderDraft(); });
   });
   [{ title: '阅读记忆', scopes: ['bookmarks', 'progress', 'sequence'] },
     { title: '阅读偏好', scopes: ['readerMode', 'readingDirection', 'doubleWidthScale', 'eyeCare', 'headerHidden', 'progressHidden', 'autoNext'] }].forEach(function(group) {
@@ -35,7 +46,10 @@
     });
     section.append(heading, options); ranges.appendChild(section);
   });
-  function update(target, fn) { if (window.runSettingsUpdate) window.runSettingsUpdate(target, fn, { keepFocus: true }); else fn(); }
+  function update(target, fn, keepFocus) {
+    if (window.runSettingsUpdate) window.runSettingsUpdate(target, fn, { keepFocus: keepFocus !== false && Boolean(target) });
+    else fn();
+  }
   function renderDraft() {
     var count = 0;
     ranges.querySelectorAll('input').forEach(function(input) {
@@ -45,6 +59,8 @@
     });
     serverToggle.disabled = policySaving;
     policy.classList.toggle('is-saving', policySaving);
+    var footer = saveButton.closest ? saveButton.closest('.sync-policy-footer') : null;
+    if (footer && footer.classList) footer.classList.toggle('is-dirty', policyDirty && !policySaving);
     document.getElementById('syncRangeCount').textContent = '已选择 ' + count + ' 项';
     document.getElementById('syncPolicyHint').textContent = policyError || (policyDirty ? '有未保存的修改' : '保存后对所有设备生效。');
     document.getElementById('syncPolicyHint').classList.toggle('is-error', Boolean(policyError));
@@ -55,11 +71,12 @@
   }
   function render() {
     var state = window.JmvSync.getStatus();
-    update(participant, function() {
+    // 后台状态轮询不抢占用户当前焦点，也不强拉锚点
+    update(null, function() {
       participant.setAttribute('aria-checked', String(state.participating));
       document.getElementById('syncDeviceBadge').textContent = state.participating ? '已参与' : '未参与';
       document.getElementById('syncDeviceBadge').classList.toggle('is-active', state.participating);
-      host.dataset.status = state.status === '已同步' ? 'success' : /失败|不足/.test(state.status) ? 'warning' : 'idle';
+      host.dataset.status = state.status === '已同步' ? 'success' : (/失败|不足/.test(state.status) ? 'warning' : (/正在|连接|同步中/.test(state.status) ? 'syncing' : 'idle'));
       document.getElementById('syncStatus').textContent = state.status;
       policy.hidden = !state.config.editable;
       host.dataset.policyEditable = String(Boolean(state.config.editable));
@@ -74,16 +91,26 @@
       summary.setAttribute('title', active.join('、'));
       document.getElementById('syncMergeBookmarks').disabled = !window.JmvSync.allows('bookmarks');
       renderDraft();
-    });
+    }, false);
   }
   function confirmation(message, onAccept) {
+    var opener = document.activeElement;
     var dialog = document.createElement('dialog'); dialog.className = 'sync-confirm';
     var text = document.createElement('p'); text.textContent = message;
-    var accept = document.createElement('button'); accept.className = 'btn btn-primary'; accept.textContent = '确认';
-    var cancel = document.createElement('button'); cancel.className = 'btn btn-outline'; cancel.textContent = '取消';
+    var accept = document.createElement('button'); accept.type = 'button'; accept.className = 'btn btn-primary'; accept.textContent = '确认';
+    var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-outline'; cancel.textContent = '取消';
     var actions = document.createElement('div'); actions.className = 'sync-actions'; actions.append(cancel, accept);
     dialog.append(text, actions); document.body.appendChild(dialog);
-    dialog.addEventListener('close', function() { dialog.remove(); });
+    dialog.addEventListener('close', function() {
+      dialog.remove();
+      if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true });
+    });
+    dialog.addEventListener('click', function(event) {
+      if (event.target === dialog) {
+        var rect = dialog.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+      }
+    });
     cancel.onclick = function() { dialog.close(); };
     accept.onclick = function() { dialog.close(); onAccept(); };
     dialog.showModal();
@@ -105,12 +132,12 @@
       }
     });
   };
-  serverToggle.onclick = function() { update(serverToggle, function() { policyDirty = true; policyError = ''; serverToggle.setAttribute('aria-checked', String(serverToggle.getAttribute('aria-checked') !== 'true')); renderDraft(); }); };
+  serverToggle.onclick = function() { update(serverToggle, function() { serverToggle.setAttribute('aria-checked', String(serverToggle.getAttribute('aria-checked') !== 'true')); policyDirty = computePolicyDirty(); policyError = ''; renderDraft(); }); };
   saveButton.onclick = async function() {
     if (policySaving || !policyDirty) return;
     policySaving = true; policyError = ''; update(saveButton, renderDraft);
     var scopes = {}; ranges.querySelectorAll('input').forEach(function(input) { scopes[input.dataset.scope] = input.checked; });
-    try { await window.JmvSync.saveConfig({ enabled: serverToggle.getAttribute('aria-checked') === 'true', scopes: scopes }); policyDirty = false; render(); }
+    try { await window.JmvSync.saveConfig({ enabled: serverToggle.getAttribute('aria-checked') === 'true', scopes: scopes }); policyDirty = false; render(); if (window.toast) window.toast('同步设置已保存', 'success'); }
     catch (error) { policyError = error.conflict ? '配置已被其他窗口修改，请检查后重新保存' : '保存失败，修改已保留，请重试'; update(saveButton, renderDraft); await window.JmvSync.refresh(); }
     finally { policySaving = false; update(saveButton, renderDraft); }
   };
@@ -118,6 +145,9 @@
   document.getElementById('syncMergeBookmarks').onclick = function() {
     confirmation('将当前浏览器的收藏目录加入共享收藏；不会覆盖已有记录。', function() { window.JmvSync.mergeBookmarks(); });
   };
+  window.addEventListener('beforeunload', function(event) {
+    if (policyDirty) { event.preventDefault(); event.returnValue = ''; }
+  });
   window.addEventListener('jmv:sync-status', render);
   window.JmvSync.ready.then(render);
 })();

@@ -15,6 +15,7 @@
     form.classList.toggle('has-result', show);
     result.hidden = !show;
     editButton.hidden = !show;
+    button.hidden = !!show;
   }
   editButton.addEventListener('click', function() {
     if (busy) return;
@@ -27,9 +28,13 @@
   function selectedMode() { return form.querySelector('[name="exportMode"]:checked').value; }
   function updateMode() {
     var mode = selectedMode();
+    form.dataset.mode = mode;
+    button.classList.toggle('btn-danger', mode === 'move');
+    button.classList.toggle('btn-primary', mode !== 'move');
     buttonText.textContent = {copy:'复制全部原图',copy_clear:'复制并清空收藏',move:'移动原图并清空收藏'}[mode];
     document.getElementById('favoritesRetentionHint').textContent = mode === 'move' ? '成功后来源原图移入回收站，失败记录保留' : (mode === 'copy_clear' ? '来源文件保留，只清空成功的收藏' : '保留原图和收藏');
   }
+  updateMode();
   modes.forEach(function(mode) { mode.addEventListener('change', updateMode); });
   var opener = null;
   document.querySelectorAll('[data-open-favorites-export]').forEach(function(trigger) {
@@ -38,6 +43,8 @@
       dialog.showModal();
       if (busy) return;
       showResult(false);
+      result.classList.remove('is-error');
+      updateMode();
       if (currentDirectoryButton) input.value = getCurPath();
       else { try { input.value = localStorage.getItem('jmv-favorites-destination') || input.value; } catch (error) {} }
       button.disabled = true;
@@ -52,35 +59,77 @@
       } catch (error) { count.textContent = '无法读取收藏，请关闭后重试'; }
     });
   });
-  document.getElementById('closeFavoritesExport').addEventListener('click', function() { dialog.close(); });
+  var closeBtn = document.getElementById('closeFavoritesExport');
+  var summaryLinks = Array.from(form.querySelectorAll('a[href]'));
+  function setExportBusyUI(isBusy) {
+    busy = isBusy;
+    if (closeBtn) closeBtn.disabled = isBusy;
+    summaryLinks.forEach(function(link) {
+      if (isBusy) {
+        link.setAttribute('aria-disabled', 'true');
+        link.setAttribute('tabindex', '-1');
+      } else {
+        link.removeAttribute('aria-disabled');
+        link.removeAttribute('tabindex');
+      }
+    });
+  }
+  summaryLinks.forEach(function(link) {
+    link.addEventListener('click', function(event) {
+      if (busy) { event.preventDefault(); event.stopPropagation(); }
+    });
+  });
+  closeBtn.addEventListener('click', function() { if (!busy) dialog.close(); });
+  dialog.addEventListener('cancel', function(event) { if (busy) event.preventDefault(); });
   dialog.addEventListener('click', function(event) {
+    if (busy) return;
     if (event.target === dialog) {
       var rect = dialog.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
     }
   });
-  dialog.addEventListener('close', function() { if (opener) opener.focus({preventScroll:true}); });
+  dialog.addEventListener('close', function() { if (opener && opener.isConnected) opener.focus({preventScroll:true}); });
   var currentDirectoryButton = document.getElementById('useCurrentExportDirectory');
   if (currentDirectoryButton) currentDirectoryButton.addEventListener('click', function() {
     input.value = getCurPath();
     input.focus({preventScroll:true});
   });
+  var hintEl = document.getElementById('copyDestinationHint');
+  var defaultHintText = hintEl ? hintEl.textContent : '';
+  input.addEventListener('input', function() {
+    if (hintEl) {
+      hintEl.textContent = defaultHintText;
+      hintEl.classList.remove('is-error');
+    }
+    input.removeAttribute('aria-invalid');
+  });
   form.addEventListener('submit', async function(event) {
     event.preventDefault();
     if (busy || button.disabled) return;
-    busy = true;
+    var destination = input.value.trim();
+    if (!destination) {
+      if (hintEl) {
+        hintEl.textContent = '请填写有效的服务器目标文件夹路径';
+        hintEl.classList.add('is-error');
+      }
+      input.setAttribute('aria-invalid', 'true');
+      input.focus({preventScroll:true});
+      return;
+    }
+    setExportBusyUI(true);
     editButton.disabled = true;
     var mode = selectedMode();
     var clear = mode !== 'copy';
-    modes.forEach(function(mode) { mode.disabled = true; });
+    modes.forEach(function(m) { m.disabled = true; });
     button.disabled = true;
     input.disabled = true;
     if (currentDirectoryButton) currentDirectoryButton.disabled = true;
-    buttonText.textContent = '正在复制…';
+    var progressLabel = {copy:'正在复制…',copy_clear:'正在复制并清空…',move:'正在移动原图…'}[mode];
+    buttonText.textContent = progressLabel;
     showResult(true);
+    result.classList.remove('is-error');
     result.replaceChildren();
-    result.textContent = '正在复制原图，请稍候…';
-    var destination = input.value.trim();
+    result.textContent = progressLabel + '请稍候…';
     try {
       var response = await fetch('/api/favorites/copy', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({destination:destination,mode:mode})
@@ -94,7 +143,8 @@
       result.appendChild(title);
       var stats = document.createElement('div');
       stats.className = 'favorites-export-stats';
-      [['已复制',data.copied],['跳过',data.skipped],['未完成',data.failed]].forEach(function(item) {
+      var primaryStat = mode === 'move' ? ['已移动', data.moved] : ['已复制', data.copied];
+      [primaryStat, ['跳过', data.skipped], ['未完成', data.failed]].forEach(function(item) {
         var cell = document.createElement('span');
         var number = document.createElement('b');
         number.textContent = item[1];
@@ -158,8 +208,11 @@
         var issueIndex = 0;
         function renderIssue() {
           var item = data.issues[issueIndex];
+          issue.classList.remove('is-swapping');
+          void issue.offsetWidth;
           issue.textContent = item.name + '：' + item.reason;
           issue.title = issue.textContent;
+          issue.classList.add('is-swapping');
           page.textContent = '明细 ' + (issueIndex + 1) + ' / ' + data.issues.length;
           previous.disabled = issueIndex === 0;
           next.disabled = issueIndex === data.issues.length - 1;
@@ -184,9 +237,12 @@
       });
       actions.appendChild(download);
       result.appendChild(actions);
-    } catch (error) { result.textContent = error.message || '复制失败，请重试'; }
+    } catch (error) {
+      result.classList.add('is-error');
+      result.textContent = error.message || '导出失败，请重试';
+    }
     finally {
-      busy = false;
+      setExportBusyUI(false);
       editButton.disabled = false;
       button.disabled = favoriteCount === 0;
       input.disabled = false;

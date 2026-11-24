@@ -16,8 +16,10 @@ body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-head
   border-radius: var(--r-pill); color: var(--text); background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
   box-shadow: 0 8px 24px rgba(0,0,0,.22); backdrop-filter: blur(12px);
   font: 700 12px/1 var(--font-mono); text-align: center; pointer-events: none;
-  opacity: 0; transform: translateY(-50%) translateX(8px); transition: opacity .16s ease, transform .16s ease;
+  opacity: 0; transform: translateY(-50%) translateX(8px);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), right var(--dur-base) var(--ease-out);
 }
+body.reader-tools-expanded .reader-scroll-progress { right: 82px; }
 .reader-scroll-progress.is-visible { opacity: 1; transform: translateY(-50%) translateX(0); }
 .reader-eye-care .reader-scroll-progress {
   color: #3f2f1f; background: rgba(255,244,210,.94); border-color: rgba(118,82,35,.48);
@@ -50,16 +52,24 @@ body.reader-header-visible .scramble-page { scroll-margin-top: var(--reader-head
   padding: env(safe-area-inset-top, 0px) var(--sp-4) 0;
   background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
-  transition: transform .28s var(--ease);
+  transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-fast) var(--ease-out), visibility 0s linear 0s;
 }
-html.reader-header-prehidden .reader-top,
-.reader-top.hidden { display: none; }
+html.reader-header-prehidden .reader-top { display: none; }
+.reader-top.hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform var(--dur-base) var(--ease-in), opacity var(--dur-fast) var(--ease-in), visibility 0s linear var(--dur-base);
+}
 .r-btn {
   width: 38px; height: 38px; display: grid; place-items: center;
   border-radius: var(--r-md); color: var(--text-secondary);
-  transition: all .14s; text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+  text-decoration: none;
   flex-shrink: 0;
 }
+.r-btn:active { transform: scale(.94); }
 @media (hover: hover) {
   .r-btn:hover { background: var(--surface-hover); color: var(--text); }
 }
@@ -76,6 +86,7 @@ html.reader-header-prehidden .reader-top,
 /* 无缝阅读：图片间零间距、无圆角阴影（对齐旧版看本的连续观感） */
 .stream { max-width: 800px; margin: 0 auto; padding: 0 0 120px; display: flex; flex-direction: column; gap: 0; user-select: none; -webkit-user-select: none; }
 .page-img { --reader-rotation-fit: var(--reader-quarter-turn-fit, 1); width: 100%; background: var(--bg-sunken); min-height: 200px; display: block; vertical-align: bottom; }
+.page-img.lazyload { opacity: 0; }
 
 /* 右侧悬浮工具栏 */
 .r-tools {
@@ -88,14 +99,14 @@ html.reader-header-prehidden .reader-top,
 .r-tools a, .r-tools button {
   width: 42px; height: 42px; display: grid; place-items: center;
   border-radius: 50%; color: var(--text-secondary);
-  transition: all .16s var(--ease);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
   text-decoration: none; cursor: pointer;
   border: none; background: none;
 }
 @media (hover: hover) and (pointer: fine) {
   .r-tools a:hover, .r-tools button:hover { background: var(--brand); color: #fff; }
 }
-.r-tools a svg, .r-tools button svg { width: 18px; height: 18px; }
+.r-tools a svg, .r-tools button svg { display: block; width: 18px; height: 18px; }
 
 /* 悬浮工具栏的自制文字提示（原生 title 被 SVG 遮挡不明显，改用 data-tip） */
 .r-tools [data-tip] { position: relative; }
@@ -125,7 +136,7 @@ html.reader-header-prehidden .reader-top,
 }
 /* 首屏预隐藏类在 reader-core 接管前生效，避免已关闭的组件先闪现。 */
 html.reader-progress-prehidden .r-bottom,
-.r-bottom.hidden { transform: translateY(100%); }
+.r-bottom.hidden { transform: translateY(100%); pointer-events: none; visibility: hidden; }
 /* 工具栏“进度条开关”：进度条开启时按钮呈激活态（弱高亮），关闭时回到普通态。
    用半透明 brand 底色区分 hover 的实心 brand，避免与 hover 态混淆。 */
 .r-tools #tProg.active,
@@ -215,18 +226,40 @@ html.reader-progress-prehidden .r-bottom,
 .jump-pop select option { background: var(--bg-elevated); color: var(--text); }
 
 .r-track {
+  position: relative;
   flex: 1; height: 10px;
   background: color-mix(in srgb, var(--border) 82%, var(--bg-sunken));
   border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--border));
-  border-radius: var(--r-pill); overflow: hidden; cursor: pointer;
+  border-radius: var(--r-pill); overflow: visible; cursor: pointer;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+  touch-action: none;
+}
+/* 透明扩展上下触控热区至 >=44px，保持轨道视觉纤细 */
+.r-track::before {
+  content: ''; position: absolute; inset: -17px 0;
 }
 .r-fill {
   height: 100%; width: 0%; background: var(--brand); border-radius: var(--r-pill);
   box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 28%, transparent);
-  transition: width .2s;
+  transition: width var(--dur-base) var(--ease-out);
 }
+.r-track.is-scrubbing .r-fill { transition: none; }
+.r-track-tip {
+  position: absolute; bottom: calc(100% + 14px);
+  left: clamp(46px, var(--scrub-pct, 0%), calc(100% - 46px));
+  transform: translateX(-50%) translateY(4px) scale(.94);
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--text); color: var(--bg);
+  font: 600 12px/1.2 var(--font-mono); white-space: nowrap;
+  pointer-events: none; opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.r-track.is-scrubbing .r-track-tip { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 .r-count { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+@media (max-width: 640px) {
+  .r-bottom { gap: var(--sp-3); padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .r-count { display: none; }
+}
 .r-jump {
   background: var(--bg-sunken); color: var(--text);
   border: 1px solid var(--border);

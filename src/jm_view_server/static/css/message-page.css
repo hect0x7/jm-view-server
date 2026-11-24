@@ -43,6 +43,15 @@
   letter-spacing: -0.02em;
 }
 
+/* 消息滚动舞台（让新消息浮层稳定贴底，不随滚动偏移） */
+.chat-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* 消息滚动区 */
 #chatMessages {
   flex: 1;
@@ -91,13 +100,33 @@
   white-space: nowrap;
 }
 
-/* 消息项 */
+/* 消息项（仅增量新消息执行入场动画，避免历史消息批量渲染整屏晃动） */
 .message-item {
   display: flex;
   flex-direction: column;
   max-width: 68%;
-  animation: riseIn .3s var(--ease) both;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
+.message-item.is-new:not(.is-removing) {
+  animation: riseIn var(--dur-base) var(--ease-out) both;
+}
+.message-item.is-pending { opacity: .72; }
+.message-item.is-removing { animation: none; opacity: 0; transform: translateY(8px); pointer-events: none; }
+.message-fail-actions {
+  margin-top: 6px; align-self: flex-end; display: inline-flex; gap: 6px;
+}
+.message-edit-btn {
+  font-size: 12px; color: var(--text-secondary); padding: 4px 10px;
+  border-radius: var(--r-pill); border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+}
+.message-edit-btn:hover { background: var(--surface-hover); color: var(--text); }
+.message-retry-btn {
+  font-size: 12px; color: var(--danger); padding: 4px 10px;
+  border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.message-retry-btn:hover { background: var(--danger-btn-bg); color: var(--danger-btn-text); }
 
 /* is-server */
 .message-item.is-server {
@@ -166,22 +195,42 @@
   word-break: break-word;
 }
 
-/* 新消息提示 */
+/* 新消息浮动提示胶囊 */
 #newMsgHint {
-  display: none;
-  position: sticky;
-  bottom: 8px;
-  align-self: center;
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translate3d(-50%, 10px, 0) scale(.96);
   background: var(--brand);
   color: var(--text-on-brand);
   font-size: 13px;
-  padding: 6px 16px;
+  font-weight: 500;
+  padding: 7px 16px;
+  min-height: 36px;
   border-radius: var(--r-pill);
   cursor: pointer;
   box-shadow: var(--shadow-brand);
   z-index: 10;
-  transition: opacity .2s;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-in),
+    transform var(--dur-fast) var(--ease-in),
+    visibility 0s linear var(--dur-fast);
 }
+#newMsgHint.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(-50%, 0, 0) scale(1);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear 0s;
+}
+#newMsgHint:hover { background: var(--brand-hover); }
+#newMsgHint:active { transform: translate3d(-50%, 0, 0) scale(.96); }
 
 /* ——— 输入区改造为精致卡片 ——— */
 .composer {
@@ -232,11 +281,17 @@
   height: 18px;
 }
 .input-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
   font-size: 12px;
   color: var(--text-muted);
   margin-top: var(--sp-2);
   text-align: center;
 }
+.char-count { font-family: var(--font-mono); color: var(--warning); font-weight: 600; }
+.char-count[hidden] { display: none; }
 
 /* 右侧统计面板 */
 .chat-sidebar {
@@ -399,7 +454,8 @@
   margin-left: var(--sp-1);
   margin-right: var(--sp-1);
 }
-.message-item:hover .btn-msg-copy {
+.message-item:hover .btn-msg-copy,
+.message-item:focus-within .btn-msg-copy {
   opacity: 1;
   pointer-events: auto;
 }
@@ -415,6 +471,7 @@
 
 /* 消息删除按钮 */
 .btn-msg-delete {
+  position: relative;
   background: none;
   border: none;
   padding: 2px;
@@ -424,18 +481,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s, background 0.2s, opacity 0.2s;
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
   opacity: 0;
   pointer-events: none;
   margin-left: var(--sp-1);
   margin-right: var(--sp-1);
 }
-.message-item:hover .btn-msg-delete {
+.btn-msg-copy { position: relative; }
+.message-item:hover .btn-msg-delete,
+.message-item:focus-within .btn-msg-delete {
   opacity: 1;
   pointer-events: auto;
 }
 .btn-msg-delete:hover {
-  color: #ef4444;
+  color: var(--danger);
   background: var(--bg-sunken);
 }
 .btn-msg-delete svg {
@@ -444,16 +503,29 @@
   display: block;
 }
 .btn-msg-delete.confirming {
-  color: #ef4444 !important;
-  background: var(--bg-sunken);
-  transform: scale(1.2);
-  animation: msgDeleteShake 0.15s ease-in-out infinite alternate;
+  color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-sunken));
+  transform: scale(1.14);
+  animation: msgDeleteShake 0.16s ease-in-out 2 alternate;
   opacity: 1 !important;
   pointer-events: auto !important;
 }
 @keyframes msgDeleteShake {
-  0% { transform: scale(1.2) rotate(-8deg); }
-  100% { transform: scale(1.2) rotate(8deg); }
+  0% { transform: scale(1.14) rotate(-6deg); }
+  100% { transform: scale(1.14) rotate(6deg); }
+}
+
+@media (max-width: 1024px), (pointer: coarse) {
+  .btn-msg-copy::before, .btn-msg-delete::before {
+    content: ''; position: absolute; inset: -10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-item, .message-item.is-new, #newMsgHint, .btn-msg-copy, .btn-msg-delete, .btn-msg-delete.confirming {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* 响应式降级 */

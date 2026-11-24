@@ -28,7 +28,26 @@ body.reader-header-visible .stream.reader-single-mode {
   padding: 12px max(12px, env(safe-area-inset-right, 0px)) 92px max(12px, env(safe-area-inset-left, 0px));
   scrollbar-gutter: stable both-edges;
 }
-.stream.reader-single-mode .scramble-page.is-active { display: flex; }
+.stream.reader-single-mode .scramble-page.is-active { display: flex; position: relative; }
+.stream.reader-single-mode .scramble-page.is-active:has(> .page-img[data-image-state="loading"])::after,
+.stream.reader-single-mode .scramble-page.is-active:has(> .page-img[data-image-state="queued"])::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  width: 28px; height: 28px; margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 2.5px solid color-mix(in srgb, var(--brand) 25%, var(--border));
+  border-top-color: var(--brand);
+  animation: readerSingleSpin .75s linear infinite;
+  pointer-events: none;
+}
+@keyframes readerSingleSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .stream.reader-single-mode .scramble-page.is-active:has(> .page-img[data-image-state="loading"])::after,
+  .stream.reader-single-mode .scramble-page.is-active:has(> .page-img[data-image-state="queued"])::after {
+    animation: none;
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  }
+}
 .stream.reader-single-mode .page-img {
   width: auto; height: auto; min-height: 0; max-width: 100%;
   max-height: calc(100vh - 104px); max-height: calc(100dvh - 104px); margin: auto; object-fit: contain;
@@ -117,7 +136,7 @@ body.reader-double {
   text-align: center;
   user-select: none;
   box-sizing: border-box;
-  transition: all .16s var(--ease);
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .stream.reader-double-mode > .reader-double-blank.is-inserted:hover {
   border-color: var(--brand);
@@ -150,7 +169,7 @@ body.reader-double {
   color: var(--brand);
   font: 500 12px/1 var(--font-sans);
   cursor: pointer;
-  transition: all .14s var(--ease);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
 .reader-double-blank-remove:hover {
   background: var(--brand);

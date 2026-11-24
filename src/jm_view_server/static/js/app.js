@@ -36,6 +36,9 @@ const ICONS = {
   alert:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
   lock:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   eye:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.1 12.35a1 1 0 0 1 0-.7C3.5 8.1 6.9 5.5 12 5.5s8.5 2.6 9.9 6.15a1 1 0 0 1 0 .7C20.5 15.9 17.1 18.5 12 18.5s-8.5-2.6-9.9-6.15Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c5.1 0 8.5 2.6 9.9 6.15a1 1 0 0 1 0 .7 13.7 13.7 0 0 1-3.1 4.4M6.6 6.6A13.6 13.6 0 0 0 2.1 11.65a1 1 0 0 0 0 .7C3.5 15.9 6.9 18.5 12 18.5c1.6 0 3-.3 4.3-.8"/><path d="M10.6 10.6a2.5 2.5 0 0 0 3.5 3.5"/><path d="M3 3l18 18"/></svg>',
+  chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  sync:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15.5-6.3L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15.5 6.3L21 16"/><path d="M16 16h5v5"/></svg>',
   fullscreen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
   x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   trash:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>',
@@ -84,7 +87,7 @@ var JMV_PREF_DEFS = {
   background: { key: 'jmv-bg', type: 'string', fallback: '' },
   backgroundOpacity: { key: 'jmv-bg-opacity', type: 'number', min: 0, max: 100, fallback: 0 },
   sidebarCollapsed: { key: 'jmv-sidebar-collapsed', type: 'bool', fallback: false },
-  sidebarWidth: { key: 'jmv-sidebar-w', type: 'number', min: 180, max: 420, fallback: 248 },
+  sidebarWidth: { key: 'jmv-sidebar-w', type: 'number', min: 180, max: 420, fallback: 244 },
   browserView: { key: 'jmv-view', type: 'enum', values: ['list', 'grid', 'column'], fallback: 'list' },
   browserOperations: { key: 'jmv-browser-operations', type: 'bool', fallback: true },
   confirmRecycle: { key: 'jmv-confirm-recycle', type: 'bool', fallback: false },
@@ -196,37 +199,67 @@ window.JmvPrefs = JmvPrefs;
 
 
 window.JMV_READER_SHORTCUTS = [
-  { keys: ['←'], label: '单页：上一页；连续模式：无操作' },
-  { keys: ['→'], label: '单页：下一页；连续模式：无操作' },
-  { keys: ['PageUp'], label: '单页：向上滚动，页首后上一页；连续模式：向上滚动' },
-  { keys: ['PageDown', 'Space'], label: '单页：向下滚动，页尾后下一页；连续模式：向下滚动' },
-  { keys: ['Home', 'End'], label: '第一 / 最后一页' },
+  { keys: ['←'], label: '单页 / 下拉：上一页；双页：无操作' },
+  { keys: ['→'], label: '单页 / 下拉：下一页；双页：无操作' },
+  { keys: ['PageUp'], label: '单页：向上滚至页首后上一页；下拉：上一页；双页：向上滚动' },
+  { keys: ['PageDown', 'Space'], label: '单页：向下滚至页尾后下一页；下拉：下一页；双页：向下滚动' },
+  { keys: ['Home', 'End'], label: '单页 / 下拉：第一 / 最后一页；双页：页首 / 页尾' },
   { keys: ['G'], label: '跳转页码' },
-  { keys: ['T'], label: '打开缩略图画板（卡片拖拽调序 / 插页管理）' },
+  { keys: ['T', 'I'], label: '打开缩略图画板（拖拽调序 / 插页管理）' },
   { keys: ['M'], label: '切换下拉 / 单页 / 双页' },
   { keys: ['D'], label: '双页：切换从左向右(1 2) / 从右向左(2 1)' },
   { keys: ['F'], label: '切换全屏' },
-  { keys: ['H'], label: '固定 / 自动收起阅读工具栏' },
+  { keys: ['H'], label: '展开 / 固定阅读工具栏' },
+  { keys: ['长按图片'], label: '打开图片操作面板（收藏 / 旋转 / 双页插页）' },
   { keys: ['?'], label: '快捷键帮助' },
   { keys: ['Esc'], label: '关闭当前浮层' }
 ];
 
-/* ---------- 主题：初始化 + 切换 + 记忆 ---------- */
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+window.jmvPrefersReducedMotion = prefersReducedMotion;
+
+function syncThemeToggleControls(theme) {
+  var isDark = theme === 'dark';
+  document.querySelectorAll('.theme-toggle').forEach(function(toggle) {
+    if (toggle.getAttribute('role') === 'switch' || toggle.tagName === 'BUTTON') {
+      toggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+      toggle.setAttribute('title', isDark ? '切换到浅色模式' : '切换到深色模式');
+    }
+    var knob = toggle.querySelector('.knob');
+    if (knob) knob.innerHTML = isDark ? icon('moon') : icon('sun');
+  });
+}
+window.syncThemeToggleControls = syncThemeToggleControls;
+
+/* ---------- 主题：初始化 + 切换 + 记忆 + 跟随系统变化 ---------- */
 (function initTheme() {
-  const saved = localStorage.getItem('jmv-theme');
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = saved || (prefersDark ? 'dark' : 'light');
+  var saved = null;
+  try { saved = localStorage.getItem('jmv-theme'); } catch (e) {}
+  var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  var theme = (saved === 'dark' || saved === 'light') ? saved : ((mql && mql.matches) ? 'dark' : 'light');
   document.documentElement.setAttribute('data-theme', theme);
+  if (mql) {
+    var onSystemChange = function(e) {
+      var explicit = null;
+      try { explicit = localStorage.getItem('jmv-theme'); } catch (err) {}
+      if (explicit === 'dark' || explicit === 'light') return;
+      var next = e.matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      syncThemeToggleControls(next);
+    };
+    if (mql.addEventListener) mql.addEventListener('change', onSystemChange);
+    else if (mql.addListener) mql.addListener(onSystemChange);
+  }
 })();
 
 function applyThemeToggle() {
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur === 'dark' ? 'light' : 'dark';
+  var cur = document.documentElement.getAttribute('data-theme');
+  var next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('jmv-theme', next);
-  document.querySelectorAll('.theme-toggle .knob').forEach(k => {
-    k.innerHTML = next === 'dark' ? icon('moon') : icon('sun');
-  });
+  JmvPrefs.set('theme', next);
+  syncThemeToggleControls(next);
 }
 function toggleTheme(control) {
   if (control && window.runSettingsUpdate) {
@@ -333,27 +366,27 @@ var APPEARANCE_SWATCHES = ['#5b5bd6', '#e5484d', '#f5a623', '#12a150', '#0ea5e9'
 function openAppearance() {
   var old = document.getElementById('appearanceModal');
   if (old) old.remove();
+  var opener = document.activeElement;
 
-  var curBrand = localStorage.getItem('jmv-brand') || APPEARANCE_DEFAULT_BRAND;
-  var curOpacity = localStorage.getItem('jmv-bg-opacity');
-  curOpacity = curOpacity == null ? 0 : parseInt(curOpacity, 10) || 0;
-  var hasBg = !!localStorage.getItem('jmv-bg');
+  var curBrand = JmvPrefs.get('brand') || APPEARANCE_DEFAULT_BRAND;
+  var curOpacity = JmvPrefs.get('backgroundOpacity') || 0;
+  var hasBg = !!JmvPrefs.get('background');
 
   var overlay = document.createElement('div');
   overlay.id = 'appearanceModal';
   overlay.className = 'appearance-overlay';
   overlay.innerHTML =
-    '<div class="appearance-modal" role="dialog" aria-label="外观设置">' +
+    '<div class="appearance-modal" role="dialog" aria-modal="true" aria-labelledby="apTitle">' +
       '<div class="appearance-head">' +
-        '<span class="appearance-title">' + icon('palette') + '外观设置</span>' +
-        '<button class="appearance-close" id="apClose" title="关闭">' + icon('x') + '</button>' +
+        '<span class="appearance-title" id="apTitle">' + icon('palette') + '外观设置</span>' +
+        '<button type="button" class="appearance-close" id="apClose" title="关闭" aria-label="关闭">' + icon('x') + '</button>' +
       '</div>' +
       '<div class="appearance-body">' +
         '<section class="appearance-sec">' +
           '<div class="appearance-sec-label">主题色</div>' +
           '<div class="appearance-swatches" id="apSwatches">' +
             APPEARANCE_SWATCHES.map(function (c) {
-              return '<button class="appearance-swatch" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+              return '<button type="button" class="appearance-swatch' + (c.toLowerCase() === curBrand.toLowerCase() ? ' active' : '') + '" data-color="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="主题色 ' + c + '"></button>';
             }).join('') +
           '</div>' +
           '<div class="appearance-row">' +
@@ -361,111 +394,444 @@ function openAppearance() {
               '<input type="color" id="apColor" value="' + curBrand + '">' +
               '<span>自定义取色</span>' +
             '</label>' +
-            '<button class="btn btn-ghost btn-sm" id="apBrandReset">恢复默认</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="apBrandReset">恢复默认</button>' +
           '</div>' +
         '</section>' +
         '<section class="appearance-sec">' +
           '<div class="appearance-sec-label">背景图</div>' +
           '<div class="appearance-row">' +
-            '<button class="btn btn-primary btn-sm" id="apUpload">' + icon('upload') + '上传背景图</button>' +
-            '<button class="btn btn-ghost btn-sm" id="apClearBg">清除背景</button>' +
+            '<button type="button" class="btn btn-primary btn-sm" id="apUpload">' + icon('upload') + '<span>上传背景图</span></button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="apClearBg"' + (hasBg ? '' : ' hidden') + '>清除背景</button>' +
           '</div>' +
           '<input type="file" id="apFile" accept="image/*" hidden>' +
         '</section>' +
-        '<section class="appearance-sec">' +
+        '<section class="appearance-sec" id="apOpacitySec"' + (hasBg ? '' : ' hidden') + '>' +
           '<div class="appearance-sec-label">背景淡化 <small id="apOpacityVal">' + curOpacity + '%</small></div>' +
           '<input type="range" id="apOpacity" class="appearance-range" min="0" max="100" value="' + curOpacity + '"' + (hasBg ? '' : ' disabled') + '>' +
-          '<div class="appearance-hint">越高背景越淡、内容越清晰。无背景图时不可用。</div>' +
+          '<div class="appearance-hint">越高背景越淡、内容越清晰。</div>' +
         '</section>' +
       '</div>' +
     '</div>';
   document.body.appendChild(overlay);
-  requestAnimationFrame(function () { overlay.classList.add('open'); });
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { overlay.classList.add('open'); });
+  });
 
-  function close() { overlay.classList.remove('open'); setTimeout(function () { overlay.remove(); }, 220); }
+  var closeBtn = overlay.querySelector('#apClose');
+  closeBtn.focus({ preventScroll: true });
+
+  var closing = false;
+  function onKeydown(e) {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+  }
+  document.addEventListener('keydown', onKeydown);
+  function close() {
+    if (closing) return;
+    closing = true;
+    document.removeEventListener('keydown', onKeydown);
+    overlay.classList.remove('open');
+    var delay = prefersReducedMotion() ? 0 : 160;
+    setTimeout(function () {
+      overlay.remove();
+      if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true });
+    }, delay);
+  }
   overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-  overlay.querySelector('#apClose').addEventListener('click', close);
+  closeBtn.addEventListener('click', close);
 
   var colorInput = overlay.querySelector('#apColor');
+  var swatchesHost = overlay.querySelector('#apSwatches');
+  function syncActiveSwatch(hex) {
+    var target = String(hex || '').toLowerCase();
+    swatchesHost.querySelectorAll('.appearance-swatch').forEach(function (btn) {
+      btn.classList.toggle('active', String(btn.getAttribute('data-color') || '').toLowerCase() === target);
+    });
+  }
   function setBrand(hex) {
     applyBrand(hex);
-    try { localStorage.setItem('jmv-brand', hex); } catch (e) {}
+    JmvPrefs.set('brand', hex);
     colorInput.value = hex;
+    syncActiveSwatch(hex);
   }
-  overlay.querySelector('#apSwatches').addEventListener('click', function (e) {
+  swatchesHost.addEventListener('click', function (e) {
     var btn = e.target.closest('.appearance-swatch');
     if (btn) setBrand(btn.getAttribute('data-color'));
   });
   colorInput.addEventListener('input', function () { setBrand(colorInput.value); });
   overlay.querySelector('#apBrandReset').addEventListener('click', function () {
     clearBrand();
-    try { localStorage.removeItem('jmv-brand'); } catch (e) {}
+    JmvPrefs.remove('brand');
     colorInput.value = APPEARANCE_DEFAULT_BRAND;
+    syncActiveSwatch(APPEARANCE_DEFAULT_BRAND);
     toast('已恢复默认主题色', 'success');
   });
 
   var opacity = overlay.querySelector('#apOpacity');
+  var opacitySec = overlay.querySelector('#apOpacitySec');
   var opacityVal = overlay.querySelector('#apOpacityVal');
+  var clearBgBtn = overlay.querySelector('#apClearBg');
+  var uploadBtn = overlay.querySelector('#apUpload');
+  var uploadLabel = uploadBtn.querySelector('span');
+
+  function syncBgControls(on) {
+    clearBgBtn.hidden = !on;
+    opacitySec.hidden = !on;
+    opacity.disabled = !on;
+  }
+
   opacity.addEventListener('input', function () {
     opacityVal.textContent = opacity.value + '%';
     applyBgOpacity(opacity.value);
-    try { localStorage.setItem('jmv-bg-opacity', opacity.value); } catch (e) {}
+    JmvPrefs.set('backgroundOpacity', opacity.value);
   });
 
   var fileInput = overlay.querySelector('#apFile');
-  overlay.querySelector('#apUpload').addEventListener('click', function () { fileInput.click(); });
+  uploadBtn.addEventListener('click', function () { fileInput.click(); });
   fileInput.addEventListener('change', function () {
     var f = fileInput.files && fileInput.files[0];
     if (!f) return;
+    if (f.type && f.type.indexOf('image/') !== 0) {
+      toast('请选择图片文件', 'error');
+      fileInput.value = '';
+      return;
+    }
     var fd = new FormData();
     fd.append('file', f);
+    uploadBtn.disabled = true;
+    uploadLabel.textContent = '上传中…';
     fetch('/api/upload_bg', { method: 'POST', body: fd })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (res.ok && res.j && res.j.status === 'ok' && res.j.url) {
           var url = res.j.url;
           applyBgImage(url);
-          try { localStorage.setItem('jmv-bg', url); } catch (e) {}
-          opacity.disabled = false;
+          JmvPrefs.set('background', url);
+          syncBgControls(true);
           applyBgOpacity(opacity.value);
           toast('背景图已更新', 'success');
         } else {
-          toast('上传失败：请选图片文件', 'error');
+          toast((res.j && res.j.error) || '上传失败：请选图片文件', 'error');
         }
       })
-      .catch(function () { toast('上传失败', 'error'); })
-      .finally(function () { fileInput.value = ''; });
+      .catch(function () { toast('上传失败，请重试', 'error'); })
+      .finally(function () {
+        uploadBtn.disabled = false;
+        uploadLabel.textContent = '上传背景图';
+        fileInput.value = '';
+      });
   });
 
-  overlay.querySelector('#apClearBg').addEventListener('click', function () {
-    fetch('/api/background/clear', { method: 'POST' }).catch(function () {});
-    applyBgImage('');
-    try { localStorage.removeItem('jmv-bg'); } catch (e) {}
-    opacity.disabled = true;
-    toast('已清除背景图', 'success');
+  clearBgBtn.addEventListener('click', function () {
+    clearBgBtn.disabled = true;
+    clearBgBtn.textContent = '清除中…';
+    fetch('/api/background/clear', { method: 'POST' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('clear failed');
+        applyBgImage('');
+        JmvPrefs.remove('background');
+        syncBgControls(false);
+        toast('已清除背景图', 'success');
+      })
+      .catch(function () {
+        toast('清除背景图失败，请重试', 'error');
+      })
+      .finally(function () {
+        clearBgBtn.disabled = false;
+        clearBgBtn.textContent = '清除背景';
+      });
   });
 }
 window.openAppearance = openAppearance;
 
-/* ---------- 统一 Toast 通知 ---------- */
-function toast(msg, type = 'default') {
-  let host = document.getElementById('toastHost');
+/* ---------- 统一 Toast 通知（支持可选操作按钮与悬停暂停） ---------- */
+function toast(msg, type, options) {
+  var kind = type || 'default';
+  var opts = (options && typeof options === 'object') ? options : {};
+  var host = document.getElementById('toastHost');
   if (!host) {
     host = document.createElement('div');
     host.id = 'toastHost';
-    host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;align-items:flex-end';
+    host.className = 'jmv-toast-host';
+    host.setAttribute('aria-live', 'polite');
+    host.setAttribute('aria-atomic', 'false');
     document.body.appendChild(host);
   }
-  const el = document.createElement('div');
-  const clr = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--brand)';
-  el.style.cssText = `display:flex;align-items:center;gap:10px;background:var(--bg-elevated);border:1px solid var(--border);border-left:3px solid ${clr};box-shadow:var(--shadow-lg);border-radius:var(--r-md);padding:12px 16px;font-size:14px;color:var(--text);max-width:320px;transform:translateX(20px);opacity:0;transition:all .3s var(--ease)`;
-  el.innerHTML = `<span style="color:${clr};display:grid;place-items:center;width:18px;height:18px;flex-shrink:0">${type==='error'?icon('alert'):icon('check')}</span><span style="flex:1">${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 4px;font-size:16px;line-height:1;margin-left:4px" aria-label="关闭">×</button>`;
-  el.onclick = function(e) { if(e.target.tagName !== 'BUTTON') el.remove(); };
+  while (host.children.length >= 4) {
+    host.firstElementChild.remove();
+  }
+  var el = document.createElement('div');
+  el.className = 'jmv-toast';
+  el.setAttribute('data-type', kind);
+  el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+  var ico = document.createElement('span');
+  ico.className = 'jmv-toast-icon';
+  ico.setAttribute('aria-hidden', 'true');
+  ico.innerHTML = (kind === 'error' || kind === 'warning') ? icon('alert') : icon('check');
+  el.appendChild(ico);
+
+  var text = document.createElement('span');
+  text.className = 'jmv-toast-msg';
+  text.textContent = String(msg == null ? '' : msg);
+  el.appendChild(text);
+
+  var dismissed = false;
+  var timer = null;
+  var duration = typeof opts.duration === 'number'
+    ? opts.duration
+    : (opts.actionLabel ? 5000 : (kind === 'error' ? 4200 : 2800));
+  var remaining = duration;
+  var startedAt = Date.now();
+
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    if (timer) { clearTimeout(timer); timer = null; }
+    el.classList.remove('is-visible');
+    el.classList.add('is-leaving');
+    setTimeout(function () { el.remove(); }, prefersReducedMotion() ? 0 : 160);
+  }
+
+  function schedule() {
+    if (dismissed || remaining <= 0) return;
+    startedAt = Date.now();
+    timer = setTimeout(dismiss, remaining);
+  }
+  function pause() {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+    remaining = Math.max(800, remaining - (Date.now() - startedAt));
+  }
+
+  if (opts.actionLabel && typeof opts.onAction === 'function') {
+    var actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'jmv-toast-action';
+    actionBtn.textContent = opts.actionLabel;
+    actionBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dismiss();
+      opts.onAction();
+    });
+    el.appendChild(actionBtn);
+  }
+
+  var closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'jmv-toast-close';
+  closeBtn.setAttribute('aria-label', '关闭通知');
+  closeBtn.innerHTML = icon('x');
+  closeBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    dismiss();
+  });
+  el.appendChild(closeBtn);
+
+  el.addEventListener('mouseenter', pause);
+  el.addEventListener('mouseleave', schedule);
+  el.addEventListener('focusin', pause);
+  el.addEventListener('focusout', schedule);
+  el.addEventListener('click', function (e) {
+    if (!e.target.closest('button')) dismiss();
+  });
+
   host.appendChild(el);
-  requestAnimationFrame(() => { el.style.transform = 'none'; el.style.opacity = '1'; });
-  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; setTimeout(() => el.remove(), 300); }, 2600);
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      if (!dismissed) el.classList.add('is-visible');
+    });
+  });
+  schedule();
+  return dismiss;
 }
 window.toast = toast;
+
+/* ---------- 统一站内确认 / 输入弹窗（原生 <dialog>.showModal 隔离背景与焦点） ---------- */
+var JmvModal = (function () {
+  function openBase(options) {
+    var opts = options || {};
+    var opener = (opts.opener && opts.opener.isConnected) ? opts.opener : document.activeElement;
+    var overlay = document.createElement('dialog');
+    overlay.className = 'jmv-dialog-overlay';
+    var card = document.createElement('div');
+    card.className = 'jmv-dialog-card' + (opts.danger ? ' is-danger' : '');
+
+    var head = document.createElement('div');
+    head.className = 'jmv-dialog-head';
+    if (opts.icon) {
+      var ico = document.createElement('div');
+      ico.className = 'jmv-dialog-icon';
+      ico.setAttribute('aria-hidden', 'true');
+      ico.innerHTML = icon(opts.icon);
+      head.appendChild(ico);
+    }
+    var titles = document.createElement('div');
+    titles.style.minWidth = '0';
+    var titleEl = document.createElement('h3');
+    titleEl.className = 'jmv-dialog-title';
+    titleEl.textContent = opts.title || '';
+    titles.appendChild(titleEl);
+    if (opts.description) {
+      var descEl = document.createElement('p');
+      descEl.className = 'jmv-dialog-desc';
+      descEl.textContent = opts.description;
+      titles.appendChild(descEl);
+    }
+    head.appendChild(titles);
+    card.appendChild(head);
+
+    if (opts.warning) {
+      var warnEl = document.createElement('div');
+      warnEl.className = 'jmv-dialog-warn';
+      warnEl.textContent = opts.warning;
+      card.appendChild(warnEl);
+    }
+
+    var inputEl = null;
+    if (opts.input) {
+      inputEl = document.createElement('input');
+      inputEl.type = 'text';
+      inputEl.className = 'input';
+      inputEl.value = opts.defaultValue || '';
+      if (opts.placeholder) inputEl.placeholder = opts.placeholder;
+      inputEl.setAttribute('aria-label', opts.inputLabel || opts.title || '输入内容');
+      card.appendChild(inputEl);
+    }
+
+    var errorEl = document.createElement('div');
+    errorEl.className = 'jmv-dialog-error';
+    errorEl.hidden = true;
+    card.appendChild(errorEl);
+
+    var actions = document.createElement('div');
+    actions.className = 'jmv-dialog-actions';
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn-outline';
+    cancelBtn.textContent = opts.cancelText || '取消';
+    var confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+    confirmBtn.textContent = opts.confirmText || '确定';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    card.appendChild(actions);
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    if (typeof overlay.showModal === 'function') {
+      overlay.showModal();
+    }
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { overlay.classList.add('open'); });
+    });
+
+    if (inputEl) {
+      inputEl.focus({ preventScroll: true });
+      var val = inputEl.value;
+      if (opts.selectStem && val) {
+        var dot = val.lastIndexOf('.');
+        if (dot > 0) inputEl.setSelectionRange(0, dot);
+        else inputEl.select();
+      } else {
+        inputEl.select();
+      }
+    } else {
+      (opts.danger ? cancelBtn : confirmBtn).focus({ preventScroll: true });
+    }
+
+    return new Promise(function (resolve) {
+      var closed = false;
+      var busy = false;
+      function restoreFocus() {
+        var target = (opts.opener && opts.opener.isConnected) ? opts.opener : opener;
+        if (target && target.isConnected && target.focus) {
+          var rect = target.getBoundingClientRect ? target.getBoundingClientRect() : null;
+          if (!rect || (rect.width > 0 && rect.height > 0)) target.focus({ preventScroll: true });
+        }
+      }
+      function finish(result) {
+        if (closed) return;
+        closed = true;
+        overlay.classList.remove('open');
+        setTimeout(function () {
+          if (typeof overlay.close === 'function' && overlay.open) {
+            try { overlay.close(); } catch (err) {}
+          }
+          overlay.remove();
+          restoreFocus();
+          resolve(result);
+        }, prefersReducedMotion() ? 0 : 160);
+      }
+      function setError(message) {
+        if (message) {
+          errorEl.textContent = message;
+          errorEl.hidden = false;
+        } else {
+          errorEl.textContent = '';
+          errorEl.hidden = true;
+        }
+      }
+      function setBusy(on, label) {
+        busy = on;
+        cancelBtn.disabled = on;
+        confirmBtn.disabled = on;
+        if (inputEl) inputEl.disabled = on;
+        confirmBtn.textContent = on ? (label || opts.busyText || '处理中…') : (opts.confirmText || '确定');
+      }
+      function submit() {
+        if (busy || closed) return;
+        setError('');
+        var value = inputEl ? inputEl.value.trim() : true;
+        if (inputEl && opts.validate) {
+          var invalid = opts.validate(value);
+          if (invalid) {
+            setError(invalid);
+            inputEl.focus({ preventScroll: true });
+            return;
+          }
+        }
+        if (typeof opts.onConfirm === 'function') {
+          setBusy(true);
+          Promise.resolve()
+            .then(function () { return opts.onConfirm(value); })
+            .then(function (ok) {
+              if (ok === false) { setBusy(false); return; }
+              finish(value);
+            })
+            .catch(function (err) {
+              setBusy(false);
+              setError((err && err.message) || '操作失败，请重试');
+              if (inputEl) inputEl.focus({ preventScroll: true });
+            });
+          return;
+        }
+        finish(value);
+      }
+      overlay.addEventListener('cancel', function (e) {
+        e.preventDefault();
+        if (!busy) finish(inputEl ? null : false);
+      });
+      overlay.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && inputEl && document.activeElement === inputEl && !e.isComposing && e.keyCode !== 229) {
+          e.preventDefault();
+          submit();
+        }
+      });
+      cancelBtn.addEventListener('click', function () { if (!busy) finish(inputEl ? null : false); });
+      confirmBtn.addEventListener('click', submit);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay && !busy) finish(inputEl ? null : false);
+      });
+    });
+  }
+  return {
+    confirm: function (options) { return openBase(Object.assign({ icon: 'alert', input: false }, options)); },
+    prompt: function (options) { return openBase(Object.assign({ icon: 'folder', input: true }, options)); }
+  };
+})();
+window.JmvModal = JmvModal;
 
 /* ---------- 在系统文件管理器中打开路径（文件列表 / 看本页共用） ---------- */
 function openDir(file, reveal) {
@@ -478,12 +844,15 @@ function openDir(file, reveal) {
       });
     })
     .then(function (result) {
-      if (result.ok && result.data && result.data.status === 'ok') return;
+      if (result.ok && result.data && result.data.status === 'ok') {
+        if (window.toast) toast('已在系统文件管理器中打开', 'success');
+        return;
+      }
       var msg = (result.data && result.data.error) || '无法打开该位置';
-      if (window.toast) toast(msg, 'error'); else alert(msg);
+      if (window.toast) toast(msg, 'error');
     })
     .catch(function () {
-      if (window.toast) toast('打开失败，请重试', 'error'); else alert('打开失败');
+      if (window.toast) toast('打开失败，请重试', 'error');
     });
 }
 window.openDir = openDir;
@@ -494,36 +863,48 @@ function showJmvOnboarding(force) {
   try { if (!force && localStorage.getItem(key) === '1') return; } catch (e) {}
   var old = document.getElementById('jmvOnboarding');
   if (old) old.remove();
+  var opener = document.activeElement;
   var overlay = document.createElement('div');
   overlay.id = 'jmvOnboarding';
   overlay.className = 'onboarding-overlay';
   overlay.innerHTML = `
     <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-      <div class="onboarding-kicker">Quick field guide</div>
+      <button type="button" class="onboarding-close" data-action="start" title="关闭" aria-label="关闭">${icon('x')}</button>
+      <div class="onboarding-kicker">快速上手</div>
       <h2 id="onboardingTitle">新的阅读方式，先看这三件事</h2>
       <div class="onboarding-steps">
         <div><span>01</span><b>设置集中管理</b><p>在设置页提前选择外观、默认阅读模式、图片大小和自动连播。</p></div>
         <div><span>02</span><b>三种阅读布局</b><p>单页模式点击两侧翻页；双页模式在电脑与手机上均按左右对开连续阅读，横图自动跨页。</p></div>
-        <div><span>03</span><b>快捷键随时可查</b><p>方向键翻页，按 M 切换模式，按 ? 打开完整快捷键帮助。</p></div>
+        <div><span>03</span><b>快捷键随时可查</b><p>方向键翻页，长按原图收藏或旋转，按 M 切换模式，按 ? 查看全部快捷键。</p></div>
       </div>
       <div class="onboarding-actions">
-        <button class="btn btn-outline" data-action="start">开始使用</button>
-        <button class="btn btn-primary" data-action="settings">去设置</button>
+        <button type="button" class="btn btn-outline" data-action="start">开始使用</button>
+        <button type="button" class="btn btn-primary" data-action="settings">去设置</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  requestAnimationFrame(function() { overlay.classList.add('show'); });
-  var firstButton = overlay.querySelector('[data-action="start"]');
-  firstButton.focus();
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { overlay.classList.add('show'); });
+  });
+  var firstButton = overlay.querySelector('.onboarding-actions [data-action="start"]');
+  if (firstButton) firstButton.focus({ preventScroll: true });
+  var closing = false;
   function complete(destination) {
+    if (closing) return;
+    closing = true;
     try { localStorage.setItem(key, '1'); } catch (e) {}
     overlay.classList.remove('show');
     setTimeout(function() {
       overlay.remove();
-      if (destination) window.location.href = destination;
-    }, 180);
+      if (destination) {
+        window.location.href = destination;
+      } else if (opener && opener.isConnected && opener.focus) {
+        opener.focus({ preventScroll: true });
+      }
+    }, prefersReducedMotion() ? 0 : 160);
   }
   overlay.addEventListener('click', function(event) {
+    if (event.target === overlay) { complete(''); return; }
     var action = event.target.closest('[data-action]');
     if (!action) return;
     complete(action.dataset.action === 'settings' ? '/settings' : '');
@@ -534,11 +915,55 @@ function showJmvOnboarding(force) {
 }
 window.showJmvOnboarding = showJmvOnboarding;
 
-/* ---------- 复制服务器地址（统一，用现代 clipboard API） ---------- */
+/* ---------- 通用剪贴板复制（支持 HTTP 局域网降级） ---------- */
+function copyTextToClipboard(text) {
+  var value = String(text == null ? '' : text);
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
+    return navigator.clipboard.writeText(value).then(function () { return true; }).catch(function () {
+      return fallbackCopyText(value);
+    });
+  }
+  return Promise.resolve(fallbackCopyText(value));
+}
+
+function fallbackCopyText(value) {
+  var area = document.createElement('textarea');
+  area.value = value;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.top = '-9999px';
+  area.style.left = '-9999px';
+  document.body.appendChild(area);
+  area.select();
+  area.setSelectionRange(0, area.value.length);
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  area.remove();
+  return !!ok;
+}
+window.jmvCopyText = copyTextToClipboard;
+
+/* ---------- 复制服务器地址（原位对勾反馈 + HTTP 降级复制） ---------- */
+var _copyAddrTimer = null;
 function copyAddr(text) {
-  const t = text || 'http://192.168.1.100:80';
-  if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('服务器地址已复制', 'success'));
-  else toast('已复制：' + t, 'success');
+  var t = text || window.location.origin;
+  copyTextToClipboard(t).then(function (ok) {
+    if (!ok) {
+      toast('复制失败，请手动复制：' + t, 'error');
+      return;
+    }
+    toast('服务器地址已复制', 'success');
+    var copyIco = document.getElementById('copyIco');
+    var pill = copyIco ? copyIco.closest('.addr-pill') : document.querySelector('.addr-pill');
+    if (copyIco) copyIco.innerHTML = icon('check');
+    if (pill) pill.classList.add('is-copied');
+    if (_copyAddrTimer) clearTimeout(_copyAddrTimer);
+    _copyAddrTimer = setTimeout(function () {
+      if (copyIco) copyIco.innerHTML = icon('copy');
+      if (pill) pill.classList.remove('is-copied');
+      _copyAddrTimer = null;
+    }, 1500);
+  });
 }
 window.copyAddr = copyAddr;
 

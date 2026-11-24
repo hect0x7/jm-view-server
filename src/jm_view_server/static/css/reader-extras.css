@@ -1,46 +1,79 @@
 /* 项9：护眼滤镜——给 .stream 加暖色调滤镜（仅作用于阅读区图片） */
 .stream.eye-care { filter: sepia(.35) brightness(.92) saturate(.95); }
 
-/* 图片长按旋转菜单 */
+/* 图片长按旋转与加载渐显过渡（严禁对 .page-img 添加常驻 will-change） */
 .page-img {
-  transition: transform .18s var(--ease);
+  transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
   user-select: none;
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
 }
-/* 项1：阅读进度记忆的小提示条（贴合暗色玻璃风，非阻塞） */
+/* 项1：阅读进度记忆 / 自动连播提示条（贴合玻璃拟态，非阻塞，内嵌倒计时条） */
 .resume-bar {
   position: fixed; left: 50%;
   top: calc(72px + env(safe-area-inset-top, 0px));
   transform: translateX(-50%) translateY(-12px);
-  z-index: 60; will-change: transform, opacity;
+  z-index: 60; overflow: hidden;
   display: flex; align-items: center; gap: 8px;
   background: color-mix(in srgb, var(--bg-elevated) 94%, transparent); backdrop-filter: blur(16px);
   border: 1px solid var(--border); border-radius: var(--r-pill);
   box-shadow: var(--shadow-lg); padding: 8px 8px 8px 16px;
-  font-size: 14px; color: var(--text); white-space: nowrap; max-width: 90vw;
-  opacity: 0; pointer-events: none; transition: opacity .18s var(--ease), transform .18s var(--ease);
+  font-size: 14px; color: var(--text); white-space: nowrap; max-width: calc(100vw - 24px);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+body:not(.reader-header-visible) .resume-bar:not(.is-bottom) {
+  top: calc(16px + env(safe-area-inset-top, 0px));
+}
+.resume-bar.is-bottom {
+  top: auto;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(12px);
 }
 .resume-bar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
 .resume-bar button {
-  border: none; cursor: pointer; height: 32px; padding: 0 16px;
+  border: none; cursor: pointer; min-height: 34px; padding: 0 16px;
   border-radius: var(--r-pill); font-size: 13px; font-weight: 500;
   flex-shrink: 0;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
+.resume-bar button:active { transform: scale(.96); }
 .resume-bar .resume-go { background: var(--brand); color: #fff; margin-left: 4px; }
-.resume-bar .resume-close { background: transparent; color: var(--text-secondary); padding: 0 8px; font-size: 18px; }
+.resume-bar .resume-go:hover { background: var(--brand-hover); }
+.resume-bar .resume-close { background: transparent; color: var(--text-secondary); padding: 0 10px; font-size: 18px; }
+.resume-bar .resume-close:hover { color: var(--text); background: var(--surface-hover); }
+.resume-bar-progress {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--brand); transform-origin: left center;
+  animation: resumeBarCountdown var(--resume-duration, 5s) linear forwards;
+}
+.resume-bar:hover .resume-bar-progress,
+.resume-bar:focus-within .resume-bar-progress { animation-play-state: paused; }
+@keyframes resumeBarCountdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@media (pointer: coarse), (max-width: 860px) {
+  .resume-bar button { min-height: 44px; }
+  .resume-bar .resume-close { min-width: 44px; padding: 0; display: grid; place-items: center; }
+}
 
 @media (max-width: 860px) {
-  .r-tools { right: 0; bottom: 88px; transform: translateX(calc(100% - 28px)); }
+  .r-tools { right: 0; bottom: 88px; transform: translateX(calc(100% - 36px)); }
   .r-tools.is-open,
   .r-tools.is-pinned,
-  .r-tools:focus-within { transform: translateX(-10px); }
+  .r-tools:has(:focus-visible) { transform: translateX(-10px); }
   .r-tools > .reader-tools-handle {
-    width: 28px; height: 56px;
+    width: 36px; height: 56px;
   }
   .r-tools.is-open > .reader-tools-handle,
+  .r-tools.is-pinned > .reader-tools-handle,
   .r-tools:focus-within > .reader-tools-handle { width: 44px; height: 44px; }
-  .reader-tools-handle::after { width: 10px; height: 38px; border-radius: 8px 0 0 8px; }
+  .reader-tools-handle::after { width: 12px; height: 40px; border-radius: 8px 0 0 8px; }
+  body.reader-tools-expanded .resume-bar.is-bottom {
+    max-width: calc(100vw - 88px);
+    left: calc(50% - 30px);
+  }
   .more-pop { width: min(278px, calc(100vw - 88px)); right: calc(100% + 10px); }
   .reader-title b { max-width: 46vw; }
   .reader-shortcut-list { grid-template-columns: 1fr; }
@@ -95,4 +128,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reader-help-overlay, .reader-grid-overlay, .reader-grid-sheet, .page-img, .r-tools, .reader-tools-main, .reader-tools-handle, .reader-tools-pin, .reader-tools-handle::after, .reader-scroll-progress { transition: none; }
+  .reader-top, .r-bottom, .r-fill, .r-track-tip, .more-pop, .jump-pop, .resume-bar, .reader-help-card, .reader-mode-chevron, .reader-tools-pin svg { transition: none !important; }
+  .resume-bar-progress, .reader-mode-pop:not([hidden]), .reader-direction-control:not([hidden]), .reader-tools-main #loadAll[aria-busy="true"] { animation: none !important; }
 }

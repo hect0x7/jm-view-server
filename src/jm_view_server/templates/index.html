@@ -1,16 +1,18 @@
 <!--suppress HtmlWrongAttributeValue, HtmlUnknownAttribute, HtmlUnknownTarget, HtmlUnknownTag -->
 {% macro video_icon() %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4z"/></svg>{% endmacro %}
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <meta http-equiv="Cache-Control" content="no-cache" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>文件浏览器 | 离线看本</title>
+    <script>(function(){try{var t=localStorage.getItem('jmv-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.webmanifest">
     <meta name="theme-color" content="#5b5bd6">
@@ -60,11 +62,11 @@
             </div>
             <div class="spacer"></div>
             <!-- 可复制地址 pill -->
-            <div class="addr-pill" onclick="copyAddr('http://{{ data.lan_ip }}:{{ data.port }}')" title="点击复制服务器地址">
+            <button type="button" class="addr-pill" onclick="copyAddr('http://{{ data.lan_ip }}:{{ data.port }}')" title="点击复制服务器地址" aria-label="复制局域网访问地址 http://{{ data.lan_ip }}:{{ data.port }}">
                 <span class="dot" id="netIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-2a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v2"/></svg></span>
                 <span id="addrText">{{ data.lan_ip }}:{{ data.port }}</span>
-                <span id="copyIco" style="opacity:.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>
-            </div>
+                <span id="copyIco" class="addr-copy-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>
+            </button>
         </div>
 
         <!-- 路径导航栏 -->
@@ -82,10 +84,10 @@
                 </button>
                 <!-- 最近浏览：点击弹出最近访问过的目录 -->
                 <div class="recent-wrap">
-                    <button class="btn btn-outline btn-icon" id="recentBtn" onclick="toggleRecent(event)" title="最近浏览过的目录" aria-label="最近浏览过的目录">
+                    <button class="btn btn-outline btn-icon" id="recentBtn" onclick="toggleRecent(event)" title="最近浏览过的目录" aria-label="最近浏览过的目录" aria-expanded="false" aria-controls="recentPanel">
                         <span id="recentIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
                     </button>
-                    <div class="recent-panel" id="recentPanel">
+                    <div class="recent-panel" id="recentPanel" aria-hidden="true">
                         <div class="recent-title">最近浏览</div>
                         <div id="recentList"></div>
                     </div>
@@ -115,7 +117,7 @@
               <button class="btn btn-outline btn-icon" type="button" data-open-favorites-export aria-label="导出收藏图" title="导出收藏图"><span data-favorite-icon="export" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><circle cx="8" cy="10" r="1.2"/><path d="m3 17 4-4 4 4 3-3 5 5M14 10l7-7m-5 0h5v5"/></svg></span></button>
             </div>
             <!-- 书签 + 上传 -->
-            <button class="btn btn-outline btn-icon" onclick="toggleBookmarks()" title="收藏目录" aria-label="收藏目录">
+            <button class="btn btn-outline btn-icon" id="bookmarksBtn" onclick="toggleBookmarks()" title="收藏目录" aria-label="收藏目录" aria-expanded="false" aria-controls="bookmarks-drawer">
                 <span id="starIco" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10H3z"/><path d="M13 10h5v7l-2.5-1.7L13 17z"/></svg></span>
             </button>
             <a href="/upload_file?path={{ data.currentPath|urlencode }}" class="btn btn-primary btn-icon" id="uploadLink" title="上传到当前目录" aria-label="上传到当前目录" data-jmv-upload-link>
@@ -137,6 +139,7 @@
                     <div class="filter-box">
                         <span class="filter-ico" id="filterIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
                         <input type="text" id="fileFilter" placeholder="过滤当前目录…" autocomplete="off" />
+                        <button type="button" class="filter-clear" id="filterClear" hidden title="清空过滤" aria-label="清空过滤"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
                     </div>
                     <div class="segmented" id="seg">
                         <button class="on" data-v="list" id="segList" title="列表视图" aria-label="列表视图" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
@@ -169,6 +172,7 @@
                         {% for file in data.files %}
                         <div class="file-item{% if file.first_img_url and file.first_img_url != '' %} has-preview{% endif %}"
                              data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
+                             data-name="{{ file.name }}"
                              type="{{ file.jm_view }}"
                              onclick="handleFileItemClick(event, this)">
 
@@ -204,9 +208,9 @@
                                 </div>
                             </div>
 
-                            <!-- 大小列（删除已移入“更多操作”下拉） -->
+                            <!-- 大小列 -->
                             <div class="text-sm size-col">
-                                <a href="javascript:" class="size-text" onclick="openDir('{{ file.quoted_path }}')">{{ file.size }}</a>
+                                <span class="size-text">{{ file.size }}</span>
                             </div>
 
                             <!-- 日期列 -->
@@ -223,21 +227,21 @@
                                 {% endif %}
                                 <!-- 更多操作：打包下载/重命名/移动 折叠于此 -->
                                 <div class="more-menu">
-                                    <button class="more-btn" title="更多操作"
+                                    <button type="button" class="more-btn" title="更多操作" aria-label="{{ file.name }} 的更多操作" aria-expanded="false"
                                             onclick="toggleMoreMenu(event, this)"><span class="more-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span></button>
                                     <div class="more-dropdown">
                                         {% if file.jm_view and 'dir' in file.type %}
                                         <a href="javascript:" class="more-item"
-                                           onclick="downloadZip('{{ file.quoted_path }}')">打包下载</a>
+                                           data-more-action="download" data-path="{{ file.quoted_path }}">打包下载</a>
                                         {% endif %}
                                         <a href="javascript:" class="more-item"
-                                           onclick="renameItem('{{ file.manage_quoted_path }}', '{{ file.name }}')">重命名</a>
+                                           data-more-action="rename" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">重命名</a>
                                         <a href="javascript:" class="more-item"
-                                           onclick="moveItem('{{ file.manage_quoted_path }}', '{{ file.name }}')">移动到…</a>
+                                           data-more-action="move" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">移动到…</a>
                                         <a href="javascript:" class="more-item"
-                                           onclick="openDir('{{ file.quoted_path }}')">{{ '在访达中显示' if data.os_type == 'mac' else ('在资源管理器中显示' if data.os_type == 'windows' else '在文件管理器中显示') }}</a>
+                                           data-more-action="reveal" data-path="{{ file.quoted_path }}">{{ '在访达中显示' if data.os_type == 'mac' else ('在资源管理器中显示' if data.os_type == 'windows' else '在文件管理器中显示') }}</a>
                                         <a href="javascript:" class="more-item more-item-danger"
-                                           onclick="deleteItem(event, '{{ file.manage_quoted_path }}', '{{ file.name }}')">移入回收站</a>
+                                           data-more-action="delete" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">移入回收站</a>
                                     </div>
                                 </div>
                             </div>
@@ -265,8 +269,9 @@
                     {% for file in data.files %}
                     <div class="card-item file-item rise"
                          data-type="{{ 'dir' if 'dir' in file.type else 'file' }}"
+                         data-name="{{ file.name }}"
                          type="{{ file.jm_view }}"
-                         style="animation-delay:{{ loop.index0 * 0.03 }}s; cursor:pointer;"
+                         style="animation-delay:{{ [loop.index0, 12]|min * 0.024 }}s; cursor:pointer;"
                          onclick="handleFileItemClick(event, this)">
                         <div class="card-cover">
                             <input type="checkbox" class="row-select" style="display:none; position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer; accent-color:var(--brand);" data-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}" onclick="event.stopPropagation()">
@@ -285,8 +290,24 @@
                                   data-browser-icon="{{ 'link' if file.is_link else ('folder' if 'dir' in file.type else 'auto') }}"
                                   data-file-name="{{ file.name }}"></span>
                             {% endif %}
-                            <button class="card-delete-btn delete-btn" title="移入回收站"
-                                    onclick="deleteItem(event, '{{ file.manage_quoted_path }}', '{{ file.name }}')"></button>
+                            <div class="more-menu card-more-menu">
+                                <button type="button" class="more-btn card-more-btn" title="更多操作" aria-label="{{ file.name }} 的更多操作" aria-expanded="false"
+                                        onclick="toggleMoreMenu(event, this)"><span class="more-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span></button>
+                                <div class="more-dropdown">
+                                    {% if file.jm_view and 'dir' in file.type %}
+                                    <a href="javascript:" class="more-item"
+                                       data-more-action="download" data-path="{{ file.quoted_path }}">打包下载</a>
+                                    {% endif %}
+                                    <a href="javascript:" class="more-item"
+                                       data-more-action="rename" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">重命名</a>
+                                    <a href="javascript:" class="more-item"
+                                       data-more-action="move" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">移动到…</a>
+                                    <a href="javascript:" class="more-item"
+                                       data-more-action="reveal" data-path="{{ file.quoted_path }}">{{ '在访达中显示' if data.os_type == 'mac' else ('在资源管理器中显示' if data.os_type == 'windows' else '在文件管理器中显示') }}</a>
+                                    <a href="javascript:" class="more-item more-item-danger"
+                                       data-more-action="delete" data-manage-path="{{ file.manage_quoted_path }}" data-name="{{ file.name }}">移入回收站</a>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-meta">
                             <div class="name" title="{{ file.name }}">
@@ -358,10 +379,12 @@
 </div>
 
 <!-- 批量操作栏（多选模式时显示） -->
-<div id="batchBar" class="batch-bar" style="display:none;">
+<div id="batchBar" class="batch-bar" aria-hidden="true">
     <span id="batchCount">已选 0 项</span>
-    <button class="btn btn-outline btn-sm" onclick="batchDownload()">打包下载</button>
-    <button class="btn btn-outline btn-sm" id="batchDeleteButton" style="color:var(--danger)" onclick="batchDelete()">批量移入回收站</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="batchSelectAll" onclick="toggleSelectAll()">全选</button>
+    <button type="button" class="btn btn-outline btn-sm" id="batchDownloadButton" onclick="batchDownload()" disabled>打包下载</button>
+    <button type="button" class="btn btn-outline btn-sm" id="batchDeleteButton" style="color:var(--danger)" onclick="batchDelete()" disabled>批量移入回收站</button>
+    <button type="button" class="btn btn-ghost btn-sm batch-exit-btn" id="batchExitBtn" onclick="toggleSelectMode()" title="退出多选" aria-label="退出多选">退出</button>
 </div>
 
 <!-- 移动到其它目录浮层（目标从当前目录已渲染的子文件夹动态收集） -->
@@ -398,12 +421,12 @@
 
 <!-- 书签抽屉 -->
 <div class="bookmarks-backdrop" id="bookmarks-backdrop" onclick="toggleBookmarks()"></div>
-<div class="bookmarks-drawer" id="bookmarks-drawer">
+<div class="bookmarks-drawer" id="bookmarks-drawer" role="dialog" aria-modal="true" aria-label="收藏目录" aria-hidden="true" inert>
     <div class="drawer-header">
         <h2 class="drawer-title">
             <span id="drawerStarIco" aria-hidden="true"></span> 收藏目录
         </h2>
-        <button class="btn-close" onclick="toggleBookmarks()">&times;</button>
+        <button type="button" class="btn-close" id="bookmarksCloseBtn" onclick="toggleBookmarks()" aria-label="关闭收藏目录">&times;</button>
     </div>
     <div class="drawer-content">
         <button class="bookmark-add-btn" onclick="addCurrentBookmark()">
@@ -435,7 +458,8 @@
 </form>
 
 <script id="browserConfig" type="application/json">{{ {
-    'defaultPath': data.defaultPath
+    'defaultPath': data.defaultPath,
+    'revealLabel': '在访达中显示' if data.os_type == 'mac' else ('在资源管理器中显示' if data.os_type == 'windows' else '在文件管理器中显示')
 } | tojson }}</script>
 {% with export_current_directory=true %}{% include 'favorites_export.html' %}{% endwith %}
 </body>

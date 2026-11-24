@@ -57,6 +57,8 @@ function initSettingsPage() {
     var targetTop = scrollHost.scrollTop + sectionRect.top - hostRect.top;
     scrollHost.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
     updateSettingsRailState(section);
+    section.classList.add('is-nav-target');
+    window.setTimeout(function() { section.classList.remove('is-nav-target'); }, 520);
     if (updateHistory) {
       var nextHash = '#' + encodeURIComponent(section.id);
       if (window.location.hash !== nextHash) {
@@ -101,6 +103,34 @@ function initSettingsPage() {
   window.requestAnimationFrame(function() {
     window.requestAnimationFrame(restoreSettingsHashPosition);
   });
+
+  // 滚动跟随高亮左侧分类导航（按容器像素高度计算观察带，避免宽矮屏百分比压缩；维护当前可见节集合）
+  if (scrollHost && 'IntersectionObserver' in window) {
+    var spySections = Array.from(scrollHost.querySelectorAll('.settings-section[id]'));
+    var visibleSections = new Set();
+    var railSpy = null;
+    function setupRailSpy() {
+      if (railSpy) railSpy.disconnect();
+      visibleSections.clear();
+      var h = Math.max(240, scrollHost.clientHeight || 600);
+      var topPx = Math.round(h * 0.12);
+      var bottomPx = Math.round(h * 0.58);
+      railSpy = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) visibleSections.add(entry.target);
+          else visibleSections.delete(entry.target);
+        });
+        if (!visibleSections.size) return;
+        var ordered = Array.from(visibleSections).sort(function(a, b) {
+          return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+        });
+        updateSettingsRailState(ordered[0]);
+      }, { root: scrollHost, rootMargin: '-' + topPx + 'px 0px -' + bottomPx + 'px 0px', threshold: 0 });
+      spySections.forEach(function(section) { railSpy.observe(section); });
+    }
+    setupRailSpy();
+    window.addEventListener('resize', setupRailSpy);
+  }
 
   function clearInteractionSnapshots() {
     interactionSnapshots = new WeakMap();
@@ -354,12 +384,21 @@ function initSettingsPage() {
       var value = themeSelect.value;
       if (value === 'system') prefs.remove('theme'); else prefs.set('theme', value);
       var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', value === 'system' ? (prefersDark ? 'dark' : 'light') : value);
-      document.querySelectorAll('.theme-toggle .knob').forEach(function(knob) {
-        knob.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? icon('moon') : icon('sun');
-      });
+      var resolved = value === 'system' ? (prefersDark ? 'dark' : 'light') : value;
+      document.documentElement.setAttribute('data-theme', resolved);
+      if (window.syncThemeToggleControls) window.syncThemeToggleControls(resolved);
       notify('颜色模式已更新');
     }, { keepFocus: true });
+  });
+  window.addEventListener('jmv:preference-change', function(event) {
+    if (event.detail && event.detail.name === 'theme') {
+      themeSelect.value = prefs.get('theme') || 'system';
+    }
+  });
+  window.addEventListener('storage', function(event) {
+    if (event.key === 'jmv-theme') {
+      themeSelect.value = prefs.get('theme') || 'system';
+    }
   });
 
   var swatches = window.APPEARANCE_SWATCHES || ['#5b5bd6', '#e5484d', '#f5a623', '#12a150', '#0ea5e9', '#d6409f', '#8b5cf6', '#111827'];
@@ -423,14 +462,29 @@ function initSettingsPage() {
     runSettingsUpdate(opacity, function() { notify('背景淡化已更新'); }, { keepFocus: true });
   });
 
+  var backgroundClear = document.getElementById('backgroundClear');
   var backgroundFile = document.getElementById('backgroundFile');
+  var backgroundFileLabel = backgroundFile ? backgroundFile.closest('label') : null;
+  function syncBackgroundControls() {
+    var hasBg = Boolean(prefs.get('background'));
+    if (backgroundClear) backgroundClear.disabled = !hasBg;
+    if (opacity) opacity.disabled = !hasBg;
+  }
+  syncBackgroundControls();
+
   backgroundFile.addEventListener('change', function() {
     var file = backgroundFile.files && backgroundFile.files[0];
     if (!file) return;
+    if (file.type && file.type.indexOf('image/') !== 0) {
+      notify('请选择图片文件', 'error');
+      backgroundFile.value = '';
+      return;
+    }
     runSettingsUpdate(backgroundFile, function() {
       var form = new FormData();
       form.append('file', file);
       backgroundFile.value = '';
+      if (backgroundFileLabel) backgroundFileLabel.classList.add('is-busy');
       return fetch('/api/upload_bg', { method: 'POST', body: form }).then(function(response) {
         if (!response.ok) throw new Error('upload failed');
         return response.json();
@@ -439,20 +493,26 @@ function initSettingsPage() {
         prefs.set('background', url);
         applyBgImage(url);
         applyBgOpacity(opacity.value);
+        syncBackgroundControls();
         notify('背景图片已更新');
-      }).catch(function() { notify('背景图片上传失败', 'error'); });
+      }).catch(function() { notify('背景图片上传失败', 'error'); })
+        .finally(function() { if (backgroundFileLabel) backgroundFileLabel.classList.remove('is-busy'); });
     }, { keepFocus: true });
   });
 
-  var backgroundClear = document.getElementById('backgroundClear');
   backgroundClear.addEventListener('click', function() {
     runSettingsUpdate(backgroundClear, function() {
+      backgroundClear.disabled = true;
       return fetch('/api/background/clear', { method: 'POST' }).then(function(response) {
         if (!response.ok) throw new Error('clear failed');
         prefs.remove('background');
         applyBgImage('');
+        syncBackgroundControls();
         notify('背景图片已清除');
-      }).catch(function() { notify('背景图片清除失败', 'error'); });
+      }).catch(function() {
+        syncBackgroundControls();
+        notify('背景图片清除失败', 'error');
+      });
     }, { keepFocus: true });
   });
 
@@ -570,34 +630,109 @@ function initSettingsPage() {
     } catch (error) { return 0; }
   }
 
-  function refreshCounts() {
-    document.getElementById('bookmarkCount').textContent = readArrayCount('plugin_jm_bookmarks');
-    document.getElementById('recentCount').textContent = readArrayCount('jmv-recent');
-    document.getElementById('progressCount').textContent = prefs.countPrefix('jmv-progress:');
+  function setCountValue(id, value, animate) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var next = String(value);
+    var changed = el.textContent !== next;
+    el.textContent = next;
+    if (animate && changed) {
+      el.classList.remove('is-bumped');
+      void el.offsetWidth;
+      el.classList.add('is-bumped');
+      window.setTimeout(function() { el.classList.remove('is-bumped'); }, 220);
+    }
   }
-  refreshCounts();
-  window.addEventListener('jmv:sync-applied', function() { runSettingsUpdate(null, refreshCounts); });
+
+  function countProgressRecords() {
+    var seen = new Set();
+    var canon = function(p) {
+      return (window.JmvSync && window.JmvSync.canonicalPath) ? window.JmvSync.canonicalPath(p) : String(p || '');
+    };
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i) || '';
+        if (key.indexOf('jmv-progress:') === 0) seen.add(canon(key.slice('jmv-progress:'.length)));
+        else if (key.indexOf('jmv-sync-progress:') === 0) seen.add(canon(key.slice('jmv-sync-progress:'.length)));
+      }
+    } catch (e) {}
+    if (window.JmvSync && window.JmvSync.allows('progress')) {
+      var status = window.JmvSync.getStatus();
+      var entries = (status && status.entries) || {};
+      Object.keys(entries).forEach(function(key) {
+        if (key.indexOf('progress:') === 0 && entries[key] && entries[key].value !== null) {
+          seen.add(canon(key.slice('progress:'.length)));
+        }
+      });
+    }
+    return seen.size;
+  }
+
+  function refreshCounts(animate) {
+    var counts = {
+      bookmarks: readArrayCount('plugin_jm_bookmarks'),
+      recent: readArrayCount('jmv-recent'),
+      progress: countProgressRecords()
+    };
+    setCountValue('bookmarkCount', counts.bookmarks, animate);
+    setCountValue('recentCount', counts.recent, animate);
+    setCountValue('progressCount', counts.progress, animate);
+    document.querySelectorAll('[data-clear]').forEach(function(button) {
+      button.disabled = counts[button.dataset.clear] === 0;
+    });
+  }
+  refreshCounts(false);
+  window.addEventListener('jmv:sync-applied', function() { runSettingsUpdate(null, function() { refreshCounts(true); }, { keepFocus: false }); });
+  window.addEventListener('jmv:sync-status', function() { refreshCounts(false); });
+  window.addEventListener('storage', function() { refreshCounts(false); });
   document.querySelectorAll('[data-clear]').forEach(function(button) {
     button.addEventListener('click', function() {
       var type = button.dataset.clear;
       var labels = { bookmarks: '全部收藏目录', recent: '全部最近访问记录', progress: '全部漫画阅读进度' };
       var shared = window.JmvSync && window.JmvSync.allows(type);
-      if (!window.confirm('确定清除' + labels[type] + '？' + (shared ? '此范围正在同步，也会清除共享记录。' : '') + '此操作无法撤销。')) return;
-      runSettingsUpdate(button, function() {
-        if (shared) window.JmvSync.clearScope(type);
-        if (type === 'bookmarks') localStorage.removeItem('plugin_jm_bookmarks');
-        if (type === 'recent') localStorage.removeItem('jmv-recent');
-        if (type === 'progress') prefs.clearPrefix('jmv-progress:');
-        refreshCounts();
-        notify(shared ? '本机记录已清理，共享修改正在同步' : '本地数据已清理');
-      }, { keepFocus: true });
+      var confirmPromise = window.JmvModal
+        ? JmvModal.confirm({
+            title: '清除' + labels[type] + '？',
+            description: '此操作会立即清理记录，且无法撤销。',
+            warning: shared ? '当前范围正在参与跨设备同步，确认后也会同步清除服务器上的共享记录。' : '',
+            confirmText: '确认清除',
+            icon: 'trash',
+            danger: true
+          })
+        : Promise.resolve(window.confirm('确定清除' + labels[type] + '？此操作无法撤销。'));
+      confirmPromise.then(function(ok) {
+        if (!ok) return;
+        runSettingsUpdate(button, function() {
+          if (shared) window.JmvSync.clearScope(type);
+          if (type === 'bookmarks') localStorage.removeItem('plugin_jm_bookmarks');
+          if (type === 'recent') localStorage.removeItem('jmv-recent');
+          if (type === 'progress') {
+            prefs.clearPrefix('jmv-progress:');
+            prefs.clearPrefix('jmv-sync-progress:');
+          }
+          refreshCounts(true);
+          notify(shared ? '本机记录已清理，共享修改正在同步' : '本地数据已清理');
+        }, { keepFocus: true });
+      });
     });
   });
 
   document.getElementById('resetPreferences').addEventListener('click', function() {
-    if (!window.confirm('恢复全部偏好默认值？收藏、最近目录和阅读进度不会被删除。')) return;
-    prefs.resetPreferences();
-    window.location.reload();
+    var confirmPromise = window.JmvModal
+      ? JmvModal.confirm({
+          title: '恢复全部偏好默认值？',
+          description: '外观、文件浏览、阅读模式和图片大小将恢复为初始默认设置；收藏目录、最近目录和阅读进度不会被删除。',
+          confirmText: '恢复默认',
+          icon: 'reset',
+          danger: true
+        })
+      : Promise.resolve(window.confirm('恢复全部偏好默认值？收藏、最近目录和阅读进度不会被删除。'));
+    confirmPromise.then(function(ok) {
+      if (!ok) return;
+      prefs.resetPreferences();
+      notify('已恢复默认偏好，正在刷新…');
+      window.setTimeout(function() { window.location.reload(); }, 280);
+    });
   });
   document.getElementById('replayOnboarding').addEventListener('click', function() {
     try { localStorage.removeItem('jmv-onboarding-settings-v1'); } catch (error) {}

@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <meta http-equiv="Cache-Control" content="no-cache"/>
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>局域网消息 · JM Server</title>
+  <script>(function(){try{var t=localStorage.getItem('jmv-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <!-- PWA -->
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#5b5bd6">
@@ -28,11 +30,12 @@
     <div class="topbar">
       <span style="font-weight:500">消息中心</span>
       <div class="spacer"></div>
-      <div class="addr-pill" id="addrPill" title="点击复制服务器地址">
+      <button type="button" class="btn btn-outline btn-sm" id="enableNotifyBtn" hidden>开启桌面通知</button>
+      <button type="button" class="addr-pill" id="addrPill" title="点击复制服务器地址" aria-label="复制局域网访问地址">
         <span id="netIco"></span>
         <span id="addrText">{{ server_addr if server_addr else '127.0.0.1' }}</span>
-        <span id="copyIco" style="opacity:.5"></span>
-      </div>
+        <span id="copyIco" class="addr-copy-ico"></span>
+      </button>
     </div>
 
     <div class="content chat-content">
@@ -44,16 +47,17 @@
             <span class="badge badge-dot">实时同步</span>
           </div>
 
-          <!-- 消息滚动区（message.js 往这里 append 消息） -->
-          <div id="chatMessages">
-            <div class="empty-state">
-              <div class="empty-state-icon">💬</div>
-              <div class="empty-state-text">
-                还没有消息<br>发送第一条消息开始对话吧
+          <!-- 消息滚动舞台（浮动新消息胶囊独立在滚动层外） -->
+          <div class="chat-stage">
+            <div id="chatMessages">
+              <div class="empty-state">
+                <div class="empty-state-icon">💬</div>
+                <div class="empty-state-text">
+                  还没有消息<br>发送第一条消息开始对话吧
+                </div>
               </div>
             </div>
-            <!-- 新消息提示（message.js 控制 display） -->
-            <div id="newMsgHint">有新消息 ↓</div>
+            <button type="button" id="newMsgHint" aria-live="polite">有新消息 ↓</button>
           </div>
 
           <!-- 输入区 -->
@@ -61,16 +65,19 @@
             <div class="composer-inner">
               <div class="nick-field">
                 <input class="input" type="text" id="nicknameInput"
-                       placeholder="昵称" maxlength="20" value="{{ default_nickname }}">
+                       placeholder="昵称" maxlength="20" value="{{ default_nickname }}" aria-label="发言昵称">
               </div>
               <div class="msg-field">
                 <textarea class="input" id="messageInput"
                           rows="1" maxlength="5000"
-                          placeholder="输入消息…"></textarea>
+                          placeholder="输入消息…" aria-label="消息内容"></textarea>
               </div>
-              <button class="btn btn-primary btn-icon" id="sendBtn" title="发送"></button>
+              <button type="button" class="btn btn-primary btn-icon" id="sendBtn" title="发送 (Enter)" aria-label="发送消息" disabled></button>
             </div>
-            <div class="input-hint">消息在局域网内所有设备间实时同步</div>
+            <div class="input-hint">
+              <span>Enter 发送 · Shift+Enter 换行 · 局域网设备实时同步</span>
+              <span id="charCount" class="char-count" hidden></span>
+            </div>
           </div>
         </div>
 
@@ -80,7 +87,7 @@
           <div class="side-card" id="sideCardTips" style="display: none;">
             <h3 class="side-card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--sp-2);">
               <span style="display:inline-flex; align-items:center; gap:var(--sp-1);">💡 使用提示</span>
-              <button id="btnTipsClose" title="不再提示" style="padding:2px; border-radius:var(--r-sm); transition:opacity 0.2s, background 0.2s; opacity:0.6; display:flex; align-items:center; justify-content:center;">
+              <button type="button" id="btnTipsClose" title="不再提示" aria-label="关闭使用提示" style="padding:4px; border-radius:var(--r-sm); transition:opacity 0.2s, background 0.2s; opacity:0.6; display:flex; align-items:center; justify-content:center;">
               </button>
             </h3>
             <div id="tipsContent" style="font-size:12px; color:var(--text-secondary); line-height:1.7; display:flex; flex-direction:column; gap:6px;">
@@ -115,9 +122,6 @@
 
   <nav class="mobile-bar"></nav>
 </div>
-
-<!-- Toast（message.js 读取此元素） -->
-<div id="toast"></div>
 
 <!-- 资源引入：app.js 提供基础工具，app-shell.js 提供 renderShell()，均先于页面脚本。 -->
 <script src="/static/js/app.js?t={{ randomArg }}"></script>

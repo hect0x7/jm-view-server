@@ -1,4 +1,15 @@
 /* ---------- 渲染 App Shell（侧栏 + 移动底栏），各页调用统一注入 ---------- */
+function syncSidebarCollapseButton(collapsed) {
+  var btn = document.getElementById('sidebarCollapseBtn');
+  if (!btn) return;
+  var label = collapsed ? '展开侧栏' : '收起侧栏';
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  btn.setAttribute('title', label);
+  btn.setAttribute('aria-label', label);
+  var span = btn.querySelector('span');
+  if (span) span.textContent = label;
+}
+
 function renderShell(active) {
   // 注意：不放独立的“看本阅读”导航项——看本没有独立入口，
   // 它是从文件浏览页某个含图片的文件夹点“看本”按钮进入的（带 ?path=）。
@@ -12,21 +23,21 @@ function renderShell(active) {
   const sidebar = document.querySelector('.sidebar');
   if (sidebar) {
     sidebar.innerHTML = `
-      <a href="/" class="sidebar-brand">
+      <a href="/" class="sidebar-brand" title="jm-view-server 首页">
         <span class="brand-mark">${icon('book')}</span>
         <span class="brand-name">jm-view-server<small id="app-version-badge">本地看本</small></span>
       </a>
       <div class="nav">
         <div class="nav-label">浏览</div>
-        ${nav.map(n => `<a href="${n.href}" class="nav-item ${n.key===active?'active':''}"${n.key==='upload'?' data-jmv-upload-link':''}>${icon(n.icon)}<span>${n.label}</span></a>`).join('')}
+        ${nav.map(n => `<a href="${n.href}" class="nav-item ${n.key===active?'active':''}" title="${n.label}" aria-label="${n.label}"${n.key==='upload'?' data-jmv-upload-link':''}>${icon(n.icon)}<span>${n.label}</span></a>`).join('')}
       </div>
       <div class="sidebar-foot">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px">
-          <span style="font-size:13px;color:var(--text-secondary)">深色模式</span>
-          <div class="theme-toggle" onclick="toggleTheme(this)"><span class="knob"></span></div>
+        <div class="sidebar-theme-row">
+          <span class="sidebar-theme-label">深色模式</span>
+          <button type="button" class="theme-toggle" role="switch" aria-checked="false" aria-label="切换深色模式" onclick="toggleTheme(this)"><span class="knob"></span></button>
         </div>
-        <button class="nav-item" onclick="toggleSidebarCollapse(this)" style="width:100%;text-align:left">${icon('panelLeft')}<span>收起/展开侧栏</span></button>
-        <a href="/logout" class="nav-item">${icon('logout')}<span>退出登录</span></a>
+        <button type="button" id="sidebarCollapseBtn" class="nav-item sidebar-collapse-btn" onclick="toggleSidebarCollapse(this)" aria-expanded="true" title="收起侧栏" aria-label="收起侧栏">${icon('panelLeft')}<span>收起侧栏</span></button>
+        <a href="/logout" class="nav-item nav-item-danger" title="退出登录" aria-label="退出登录">${icon('logout')}<span>退出登录</span></a>
       </div>
       <div class="sidebar-resizer" id="sidebarResizer" title="拖拽调整宽度，拖到最窄自动折叠"></div>`;
   }
@@ -35,25 +46,27 @@ function renderShell(active) {
   if (mbar) {
     mbar.innerHTML = nav.map(n => `<a href="${n.href}" class="${n.key===active?'active':''}"${n.key==='upload'?' data-jmv-upload-link':''}>${icon(n.icon)}<span>${n.label.replace('局域网','')}</span></a>`).join('');
   }
-  // 主题开关初始图标
-  document.querySelectorAll('.theme-toggle .knob').forEach(k => {
-    k.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? icon('moon') : icon('sun');
-  });
+  // 主题开关初始图标与无障碍状态
+  if (window.syncThemeToggleControls) {
+    syncThemeToggleControls(document.documentElement.getAttribute('data-theme'));
+  }
   // 外观偏好兜底应用（背景遮罩层挂到 body，需在 body ready 后）
   applyAppearance();
 
   // 动态拉取后端版本号
   fetch('/api/info').then(r => r.json()).then(data => {
     const badge = document.getElementById('app-version-badge');
-    if (badge && data.version) badge.innerHTML = `本地看本 · v${data.version}`;
+    if (badge && data.version) badge.textContent = `本地看本 · v${data.version}`;
   }).catch(e => console.error('Failed to fetch app version:', e));
-  if (active === 'files') setTimeout(function() { showJmvOnboarding(false); }, 450);
+  if (active === 'files' && window.location.pathname === '/') setTimeout(function() { showJmvOnboarding(false); }, 450);
 }
 window.renderShell = renderShell;
 
-/* 侧栏拖拽改宽度：拖动时平滑跟随鼠标（含折叠态往右拖也能顺滑展开），
+/* 侧栏拖拽改宽度：拖动时平滑跟随指针（含折叠态往右拖也能顺滑展开），
    只在“松手时”判定——最终宽度小于阈值才锁进折叠，否则保持该宽度。
-   状态记忆到 localStorage。 */
+   状态统一经 JmvPrefs 记忆。 */
+var sidebarCollapseSeq = 0;
+
 function initSidebarResize() {
   var app = document.querySelector('.app');
   var resizer = document.getElementById('sidebarResizer');
@@ -66,110 +79,153 @@ function initSidebarResize() {
   var COLLAPSED_W = 64;   // 折叠态视觉宽度（与 CSS 的 --sidebar-w 折叠值一致）
 
   // 恢复记忆的状态
-  try {
-    if (localStorage.getItem('jmv-sidebar-collapsed') === '1') {
-      app.classList.add('sidebar-collapsed');
-    } else {
-      var w = parseInt(localStorage.getItem('jmv-sidebar-w') || '', 10);
-      if (w >= MIN && w <= MAX) app.style.setProperty('--sidebar-w', w + 'px');
-    }
-  } catch (e) {}
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
+  var initialCollapsed = window.JmvPrefs ? JmvPrefs.get('sidebarCollapsed') : false;
+  if (initialCollapsed) {
+    app.classList.add('sidebar-collapsed');
+  } else if (window.JmvPrefs) {
+    var w = JmvPrefs.get('sidebarWidth');
+    if (w >= MIN && w <= MAX) app.style.setProperty('--sidebar-w', w + 'px');
+  }
+  syncSidebarCollapseButton(!!initialCollapsed);
+
+  var initRaf1 = 0, initRaf2 = 0;
+  initRaf1 = requestAnimationFrame(function() {
+    initRaf1 = 0;
+    initRaf2 = requestAnimationFrame(function() {
+      initRaf2 = 0;
       app.classList.remove('sidebar-initializing');
     });
   });
 
+  function cancelInitRafs() {
+    if (initRaf1) { cancelAnimationFrame(initRaf1); initRaf1 = 0; }
+    if (initRaf2) { cancelAnimationFrame(initRaf2); initRaf2 = 0; }
+    app.classList.remove('sidebar-initializing');
+  }
+
   function setCollapsed(on) {
     app.classList.toggle('sidebar-collapsed', on);
-    try { localStorage.setItem('jmv-sidebar-collapsed', on ? '1' : '0'); } catch (e) {}
+    syncSidebarCollapseButton(on);
+    if (window.JmvPrefs) JmvPrefs.set('sidebarCollapsed', on);
   }
 
   var dragging = false;
-  var lastW = MIN;    // 拖动过程中记录的实时宽度
-  var grabDX = 0;     // 按下点与侧栏右边缘的水平偏差，用于消抖
+  var activePointerId = null;
+  var lastW = MIN;
+  var grabDX = 0;
+  var rafId = 0;
+  var pendingClientX = null;
 
-  resizer.addEventListener('mousedown', function (e) {
-    dragging = true;
-    // 记录按下时鼠标 x 与侧栏当前右边缘的差值：拖动时用 (clientX - grabDX) 作为宽度，
-    // 消除 resizer 有宽度/-6px 偏移导致的“起手跳一下”抖动。
-    var rect = app.querySelector('.sidebar').getBoundingClientRect();
-    grabDX = e.clientX - rect.right;
-
-    // 如果当前是折叠状态，在移除 class 前锁定当前物理宽度，避免瞬间回弹默认宽度导致的抖动
-    if (app.classList.contains('sidebar-collapsed')) {
-      app.style.setProperty('--sidebar-w', rect.width + 'px');
-    }
-
-    // 拖动期间脱离折叠 class，让宽度完全跟随鼠标（不受折叠布局限制），松手再定夺
-    app.classList.remove('sidebar-collapsed');
-    app.classList.add('sidebar-dragging');   // CSS 里 dragging 态关闭 --sidebar-w 过渡，避免拖动延迟
-
-    // 起手时立即根据当前物理宽度判定是否需要加入“将要折叠”的预览虚化，避免拖动前一瞬间颜色跳变
-    app.classList.toggle('sidebar-precollapse', rect.width < COLLAPSE_AT);
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'col-resize';
-    e.preventDefault();
-  });
-
-  window.addEventListener('mousemove', function (e) {
-    if (!dragging) return;
-    // 平滑跟随（已补偿按下偏差）。允许缩到 COLLAPSED_W 让视觉连续，折叠判定留到松手。
-    var w = Math.max(COLLAPSED_W, Math.min(MAX, e.clientX - grabDX));
+  function applyPendingWidth() {
+    rafId = 0;
+    if (!dragging || pendingClientX === null) return;
+    var w = Math.max(COLLAPSED_W, Math.min(MAX, pendingClientX - grabDX));
     lastW = w;
     app.style.setProperty('--sidebar-w', w + 'px');
-    // 拖动中一旦低于折叠阈值，给个“将要折叠”的预览提示（不锁定，松手才定），
-    // 用 class 让 CSS 淡化文字，明确区分“还没到阈值”与“已进入折叠意图区”。
     app.classList.toggle('sidebar-precollapse', w < COLLAPSE_AT);
-  });
+  }
 
-  window.addEventListener('mouseup', function () {
+  function finishDrag(finalClientX) {
     if (!dragging) return;
+    if (typeof finalClientX === 'number') {
+      pendingClientX = finalClientX;
+    }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    if (pendingClientX !== null) {
+      lastW = Math.max(COLLAPSED_W, Math.min(MAX, pendingClientX - grabDX));
+    }
     dragging = false;
+    activePointerId = null;
+    pendingClientX = null;
     app.classList.remove('sidebar-precollapse');
     document.body.style.userSelect = '';
     document.body.style.cursor = '';
 
     if (lastW < COLLAPSE_AT) {
-      // 松手时太窄 → 锁进折叠。先移除内联宽度再交回过渡，让 64px 折叠布局平滑落位。
       app.style.removeProperty('--sidebar-w');
       app.classList.remove('sidebar-dragging');
       setCollapsed(true);
     } else {
-      // 保持展开，夹到 [MIN, MAX] 并记忆
-      var w = Math.max(MIN, Math.min(MAX, lastW));
+      var w = Math.max(MIN, Math.min(MAX, Math.round(lastW)));
       app.style.setProperty('--sidebar-w', w + 'px');
       app.classList.remove('sidebar-dragging');
       setCollapsed(false);
-      try { localStorage.setItem('jmv-sidebar-w', w); } catch (e) {}
+      if (window.JmvPrefs) JmvPrefs.set('sidebarWidth', w);
     }
+  }
+
+  resizer.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    sidebarCollapseSeq++;
+    cancelInitRafs();
+    dragging = true;
+    activePointerId = e.pointerId;
+    var rect = app.querySelector('.sidebar').getBoundingClientRect();
+    grabDX = e.clientX - rect.right;
+    lastW = rect.width;
+    pendingClientX = e.clientX;
+
+    if (app.classList.contains('sidebar-collapsed')) {
+      app.style.setProperty('--sidebar-w', rect.width + 'px');
+    }
+    app.classList.remove('sidebar-collapsed');
+    app.classList.add('sidebar-dragging');
+    app.classList.toggle('sidebar-precollapse', rect.width < COLLAPSE_AT);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    try { resizer.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
   });
+
+  resizer.addEventListener('pointermove', function (e) {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    pendingClientX = e.clientX;
+    if (!rafId) rafId = requestAnimationFrame(applyPendingWidth);
+  });
+
+  resizer.addEventListener('pointerup', function (e) {
+    if (e.pointerId === activePointerId) finishDrag(e.clientX);
+  });
+  resizer.addEventListener('pointercancel', function () { finishDrag(); });
+  resizer.addEventListener('lostpointercapture', function () { finishDrag(); });
+  window.addEventListener('blur', function () { finishDrag(); });
 }
 window.initSidebarResize = initSidebarResize;
 
 function applySidebarCollapse() {
   var app = document.querySelector('.app');
-  var sidebar = app.querySelector('.sidebar');
+  var sidebar = app && app.querySelector('.sidebar');
   if (!app || !sidebar) return;
 
+  var seq = ++sidebarCollapseSeq;
   var isCollapsed = app.classList.contains('sidebar-collapsed');
   var currentW = sidebar.getBoundingClientRect().width;
   app.style.setProperty('--sidebar-w', currentW + 'px');
 
   if (isCollapsed) {
     app.classList.remove('sidebar-collapsed');
+    syncSidebarCollapseButton(false);
+    if (window.JmvPrefs) JmvPrefs.set('sidebarCollapsed', false);
+    var saved = window.JmvPrefs ? JmvPrefs.get('sidebarWidth') : 244;
+    var expandW = (saved >= 180 && saved <= 420) ? saved : 244;
     requestAnimationFrame(function() {
-      var saved = parseInt(localStorage.getItem('jmv-sidebar-w') || '', 10);
-      var expandW = (saved >= 180 && saved <= 420) ? saved : 244;
-      app.style.setProperty('--sidebar-w', expandW + 'px');
+      if (seq !== sidebarCollapseSeq) return;
+      requestAnimationFrame(function() {
+        if (seq !== sidebarCollapseSeq || app.classList.contains('sidebar-dragging')) return;
+        app.style.setProperty('--sidebar-w', expandW + 'px');
+      });
     });
-    try { localStorage.setItem('jmv-sidebar-collapsed', '0'); } catch(e){}
   } else {
     app.classList.add('sidebar-collapsed');
+    syncSidebarCollapseButton(true);
+    if (window.JmvPrefs) JmvPrefs.set('sidebarCollapsed', true);
     requestAnimationFrame(function() {
-      app.style.removeProperty('--sidebar-w');
+      if (seq !== sidebarCollapseSeq) return;
+      requestAnimationFrame(function() {
+        if (seq !== sidebarCollapseSeq || app.classList.contains('sidebar-dragging')) return;
+        app.style.removeProperty('--sidebar-w');
+      });
     });
-    try { localStorage.setItem('jmv-sidebar-collapsed', '1'); } catch(e){}
   }
 }
 

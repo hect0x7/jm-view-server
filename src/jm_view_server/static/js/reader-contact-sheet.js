@@ -148,8 +148,7 @@ function createGridPageCard(pageIdx, seqIdx) {
   thumbWrap.appendChild(insertBtn);
 
   thumbWrap.addEventListener('click', function() {
-    gotoPage(pageIdx);
-    closeReaderGrid();
+    closeReaderGrid({ afterClose: function() { gotoPage(pageIdx); } });
   });
 
   var metaEl = document.createElement('div');
@@ -475,25 +474,108 @@ function bindCardDragEvents(card, seqIdx, pointerHandle) {
   });
 }
 
+var readerGridOpener = null;
+var readerGridHistoryActive = false;
+var readerGridClosingViaHistory = false;
+var readerGridAfterPopCallback = null;
+var readerGridPopFallbackTimer = null;
+if (readerGridOverlay) readerGridOverlay.inert = true;
+
+function flushReaderGridAfterPop() {
+  if (readerGridPopFallbackTimer) {
+    clearTimeout(readerGridPopFallbackTimer);
+    readerGridPopFallbackTimer = null;
+  }
+  var cb = readerGridAfterPopCallback;
+  readerGridAfterPopCallback = null;
+  if (typeof cb === 'function') cb();
+}
+
+function pushReaderGridHistory() {
+  if (readerGridHistoryActive || !window.history || typeof window.history.pushState !== 'function') return;
+  try {
+    var nextState = Object.assign({}, (window.history.state && typeof window.history.state === 'object') ? window.history.state : {}, { jmvReaderGrid: true });
+    window.history.pushState(nextState, '');
+    readerGridHistoryActive = true;
+  } catch (err) {}
+}
+
 function openReaderGrid() {
   closeReaderModePop();
   if (!readerGridOverlay || !readerGrid) return;
+  if (readerGridOverlay.classList.contains('show')) return;
+  readerGridOpener = document.activeElement;
   rebuildReaderGrid();
+  readerGridOverlay.inert = false;
   readerGridOverlay.classList.add('show');
   readerGridOverlay.setAttribute('aria-hidden', 'false');
   if (tGridButton) tGridButton.classList.add('active');
+  if (!readerGridClosingViaHistory) pushReaderGridHistory();
+  if (readerGridClose) readerGridClose.focus({ preventScroll: true });
   var current = readerGrid.querySelector('.is-current');
   if (current) requestAnimationFrame(function() { current.scrollIntoView({ block: 'center' }); });
 }
 
-function closeReaderGrid() {
-  if (!readerGridOverlay) return;
+function closeReaderGrid(options) {
+  var opts = (options && typeof options === 'object' && !('target' in options)) ? options : {};
+  if (!readerGridOverlay || !readerGridOverlay.classList.contains('show')) {
+    if (typeof opts.afterClose === 'function') opts.afterClose();
+    return;
+  }
   clearTimeout(readerGridTypeRefreshTimer);
   readerGridTypeRefreshPending = false;
   readerGridOverlay.classList.remove('show');
   readerGridOverlay.setAttribute('aria-hidden', 'true');
+  readerGridOverlay.inert = true;
   if (tGridButton) tGridButton.classList.remove('active');
+  if (readerGridOpener && readerGridOpener.isConnected && readerGridOpener.focus) {
+    readerGridOpener.focus({ preventScroll: true });
+  }
+  readerGridOpener = null;
+
+  if (opts.fromPopstate) {
+    readerGridHistoryActive = false;
+    readerGridClosingViaHistory = false;
+    if (typeof opts.afterClose === 'function') opts.afterClose();
+    return;
+  }
+  if (readerGridHistoryActive && window.history && typeof window.history.back === 'function') {
+    readerGridHistoryActive = false;
+    readerGridClosingViaHistory = true;
+    if (typeof opts.afterClose === 'function') {
+      readerGridAfterPopCallback = opts.afterClose;
+      readerGridPopFallbackTimer = setTimeout(function() {
+        readerGridClosingViaHistory = false;
+        flushReaderGridAfterPop();
+      }, 100);
+    }
+    try { window.history.back(); }
+    catch (err) {
+      readerGridClosingViaHistory = false;
+      flushReaderGridAfterPop();
+    }
+    return;
+  }
+  if (typeof opts.afterClose === 'function') opts.afterClose();
 }
+
+window.addEventListener('popstate', function() {
+  if (readerGridClosingViaHistory) {
+    readerGridClosingViaHistory = false;
+    flushReaderGridAfterPop();
+    if (readerGridOverlay && readerGridOverlay.classList.contains('show')) {
+      pushReaderGridHistory();
+    }
+    return;
+  }
+  if (readerGridOverlay && readerGridOverlay.classList.contains('show')) {
+    closeReaderGrid({ fromPopstate: true });
+    return;
+  }
+  if (readerGridAfterPopCallback) {
+    flushReaderGridAfterPop();
+  }
+});
 
 if (tGridButton) tGridButton.addEventListener('click', function(e) {
   e.preventDefault();
@@ -502,9 +584,14 @@ if (tGridButton) tGridButton.addEventListener('click', function(e) {
   else openReaderGrid();
 });
 if (readerGridClose) readerGridClose.addEventListener('click', closeReaderGrid);
-if (readerGridOverlay) readerGridOverlay.addEventListener('click', function(e) {
-  if (e.target === readerGridOverlay) closeReaderGrid();
-});
+if (readerGridOverlay) {
+  readerGridOverlay.addEventListener('click', function(e) {
+    if (e.target === readerGridOverlay) closeReaderGrid();
+  });
+  readerGridOverlay.addEventListener('keydown', function(e) {
+    if (typeof trapOverlayTab === 'function') trapOverlayTab(readerGridOverlay, e);
+  });
+}
 
 if (readerGridDoublePreview) {
   readerGridDoublePreview.addEventListener('click', function(e) {
@@ -532,11 +619,35 @@ if (readerGridReset) {
   readerGridReset.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
+    var isOriginal = pageSequence.length === originalSequence.length && pageSequence.every(function(item, idx) {
+      return item.type === 'page' && item.pageIndex === originalSequence[idx].pageIndex;
+    });
+    if (isOriginal) {
+      if (window.toast) toast('当前已是原始顺序', 'default');
+      return;
+    }
+    var previousSequence = cloneSequence(pageSequence);
     pageSequence = cloneSequence(originalSequence);
     saveSequenceState();
+    var expectedRevision = typeof pageSequenceRevision === 'number' ? pageSequenceRevision : 0;
     applySequenceToDOM();
     rebuildReaderGrid();
-    if (window.toast) toast('已恢复原始相册顺序并清空插页', 'success');
+    if (window.toast) {
+      toast('已恢复原始顺序并清空插页', 'success', {
+        actionLabel: '撤销',
+        onAction: function() {
+          if (typeof pageSequenceRevision === 'number' && pageSequenceRevision !== expectedRevision) {
+            toast('页面序列已更新，无法撤销旧的重置', 'info');
+            return;
+          }
+          pageSequence = previousSequence;
+          saveSequenceState();
+          applySequenceToDOM();
+          rebuildReaderGrid();
+          toast('已恢复先前的排序与插页', 'success');
+        }
+      });
+    }
   });
 }
 

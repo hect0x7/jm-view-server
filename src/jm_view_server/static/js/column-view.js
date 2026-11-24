@@ -234,15 +234,51 @@
         return box;
     }
 
+    function makeLoadingSkeleton() {
+        var wrap = document.createElement('div');
+        wrap.className = 'column-skeleton';
+        wrap.setAttribute('aria-label', '正在加载目录内容');
+        for (var i = 0; i < 6; i++) {
+            var bar = document.createElement('div');
+            bar.className = 'column-skeleton-row';
+            wrap.appendChild(bar);
+        }
+        return wrap;
+    }
+
     function selectEntry(path, file, main) {
+        var nextKey = itemKey(file);
         state.selectedByPath[path] = itemPath(file);
-        state.selectedKeyByPath[path] = itemKey(file);
+        state.selectedKeyByPath[path] = nextKey;
+        // 原地更新当前列选中状态，避免全轨重建重置父列滚动位置与闪烁缩略图
+        var col = Array.from(document.querySelectorAll('.finder-column')).find(function (node) {
+            return samePath(node.dataset.path, path);
+        });
+        if (col) {
+            var isActiveCol = col.classList.contains('is-active');
+            col.querySelectorAll('.column-entry').forEach(function (entryEl) {
+                var btn = entryEl.querySelector('.column-item-main');
+                var selected = Boolean(btn && btn.dataset.key === nextKey);
+                entryEl.classList.toggle('is-selected', selected);
+                if (btn) {
+                    btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+                    if (isActiveCol) btn.tabIndex = selected ? 0 : -1;
+                }
+            });
+            if (main) {
+                var target = Array.from(col.querySelectorAll('.column-item-main')).find(function (node) {
+                    return node.dataset.key === nextKey;
+                });
+                if (target) target.focus({ preventScroll: true });
+            }
+            return;
+        }
         render();
         if (main) {
-            var target = Array.from(document.querySelectorAll('.column-item-main')).find(function (node) {
-                return node.dataset.key === itemKey(file);
+            var fallbackTarget = Array.from(document.querySelectorAll('.column-item-main')).find(function (node) {
+                return node.dataset.key === nextKey;
             });
-            if (target) target.focus({ preventScroll: true });
+            if (fallbackTarget) fallbackTarget.focus({ preventScroll: true });
         }
     }
 
@@ -322,10 +358,15 @@
         if (file.type === 'dir' && file.jm_view) {
             addOperation(menu, '打包下载', function () { downloadZip(file.quoted_path); });
         }
-        addOperation(menu, '重命名', function () { renameItem(file.manage_quoted_path, file.name); });
-        addOperation(menu, '移动到…', function () { moveItem(file.manage_quoted_path, file.name, moveOptions(path, file)); });
+        addOperation(menu, '重命名', function () { renameItem(file.manage_quoted_path, file.name, trigger); });
+        addOperation(menu, '移动到…', function () {
+            var opts = moveOptions(path, file);
+            opts.opener = trigger;
+            moveItem(file.manage_quoted_path, file.name, opts);
+        });
         if (!file.link_broken) {
-            addOperation(menu, '在文件管理器中显示', function () { openDir(encodeURIComponent(itemPath(file))); });
+            var revealLabel = (window.browserConfig && window.browserConfig.revealLabel) || '在文件管理器中显示';
+            addOperation(menu, revealLabel, function () { openDir(encodeURIComponent(itemPath(file))); });
         }
         addOperation(menu, '移入回收站', function (menuEvent) {
             deleteItem({
@@ -345,6 +386,9 @@
         if (top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 4;
         menu.style.left = Math.max(8, left) + 'px';
         menu.style.top = Math.max(8, top) + 'px';
+        window.requestAnimationFrame(function () {
+            if (state.operationMenu === menu) menu.classList.add('is-open');
+        });
         var first = menu.querySelector('button');
         if (first) first.focus();
     }
@@ -525,7 +569,15 @@
         title.textContent = basename(path);
         var count = document.createElement('div');
         count.className = 'finder-column-count';
-        count.textContent = entry.status === 'ready' ? entry.files.length + ' 项' : '';
+        var keyword = active ? String(elements().filter && elements().filter.value || '').trim().toLowerCase() : '';
+        var filteredFiles = entry.status === 'ready'
+            ? entry.files.filter(function (file) {
+                return !keyword || String(file.name || '').toLowerCase().indexOf(keyword) >= 0;
+            })
+            : [];
+        if (entry.status === 'ready') {
+            count.textContent = keyword ? (filteredFiles.length + '/' + entry.files.length + ' 项') : (entry.files.length + ' 项');
+        }
         head.appendChild(title);
         head.appendChild(count);
         column.appendChild(head);
@@ -535,16 +587,13 @@
         list.setAttribute('role', 'listbox');
         list.setAttribute('aria-label', basename(path) + ' 的内容');
         if (entry.status === 'loading') {
-            list.appendChild(makeState('正在加载…', path, false));
+            list.appendChild(makeLoadingSkeleton());
         } else if (entry.status === 'error') {
             list.appendChild(makeState(entry.error || '目录加载失败', path, true));
         } else {
-            var keyword = active ? String(elements().filter && elements().filter.value || '').trim().toLowerCase() : '';
-            var files = entry.files.filter(function (file) {
-                return !keyword || String(file.name || '').toLowerCase().indexOf(keyword) >= 0;
-            });
+            var files = filteredFiles;
             if (!files.length) {
-                list.appendChild(makeState(keyword ? '没有匹配的文件或文件夹' : '目录为空', path, false));
+                list.appendChild(makeState(keyword ? '没有匹配的文件或文件夹' : '当前目录没有文件或文件夹', path, false));
             } else {
                 var selectedKey = selectedItemKey(path, files);
                 var hasVisibleSelection = files.some(function (file) {
@@ -568,19 +617,38 @@
         return column;
     }
 
+    var previousVisiblePaths = [];
     function render() {
         if (!state.active) return;
         var controls = elements();
         if (!controls.track) return;
+        // 渲染前记录既有各列滚动位置，避免重建回顶
+        var savedScroll = {};
+        controls.track.querySelectorAll('.finder-column[data-path]').forEach(function (col) {
+            var listEl = col.querySelector('.finder-column-list');
+            if (listEl) savedScroll[normalized(col.dataset.path)] = listEl.scrollTop;
+        });
         var paths = visibleTrail();
+        var prevSet = {};
+        previousVisiblePaths.forEach(function (p) { prevSet[normalized(p)] = true; });
         controls.view.style.setProperty('--column-count', String(state.visibleLimit));
         controls.track.innerHTML = '';
         paths.forEach(function (path, index) {
-            controls.track.appendChild(renderColumn(path, index === paths.length - 1));
+            var colEl = renderColumn(path, index === paths.length - 1);
+            var key = normalized(path);
+            if (previousVisiblePaths.length && !prevSet[key]) {
+                colEl.classList.add('is-entering');
+            }
+            controls.track.appendChild(colEl);
+            if (savedScroll[key]) {
+                var listEl = colEl.querySelector('.finder-column-list');
+                if (listEl) listEl.scrollTop = savedScroll[key];
+            }
         });
         for (var index = paths.length; index < state.visibleLimit; index++) {
             controls.track.appendChild(renderPlaceholderColumn());
         }
+        previousVisiblePaths = paths.slice();
         setCurrentPath(getActivePath());
     }
 

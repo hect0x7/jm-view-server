@@ -37,8 +37,9 @@ var isSequencePersisted = (function() {
   }
 })();
 
-// 当前画板序列：包含常规图片项与虚拟空白项
+// 当前画板序列：包含常规图片项与虚拟空白项，维护修订号防止旧撤销覆盖新编辑
 var pageSequence = cloneSequence(originalSequence);
+var pageSequenceRevision = 0;
 
 // 若开启了记忆，则尝试恢复保存的序列
 if (isSequencePersisted) {
@@ -60,6 +61,7 @@ if (isSequencePersisted) {
 }
 
 function saveSequenceState() {
+  if (typeof pageSequenceRevision === 'number') pageSequenceRevision++;
   var ranges = typeof ALBUM_RANGES === 'undefined' ? [{start: 0, end: rawPages.length - 1, path: readerConfig.albumPath}] : ALBUM_RANGES;
   ranges.forEach(function(range) {
     var sequence = pageSequence.filter(function(item, index) {
@@ -124,7 +126,11 @@ stream.classList.add('fit-width');
 function applyEye(on, persist) {
   stream.classList.toggle('eye-care', !!on);
   document.body.classList.toggle('reader-eye-care', !!on);
-  document.getElementById('tEye').classList.toggle('active', !!on);
+  var tEyeBtn = document.getElementById('tEye');
+  if (tEyeBtn) {
+    tEyeBtn.classList.toggle('active', !!on);
+    tEyeBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
   if (persist === false) return;
   if (window.JmvPrefs) JmvPrefs.set('eyeCare', !!on);
   else try { localStorage.setItem('jmv-eyecare', on ? '1' : '0'); } catch (e) {}
@@ -271,7 +277,10 @@ var isAutoNext = localStorage.getItem('jmv-auto-next') === '1'; // 默认关闭
 
 function setAutoNext(on, persist) {
   isAutoNext = !!on;
-  if (tAutoNext) tAutoNext.classList.toggle('active', isAutoNext);
+  if (tAutoNext) {
+    tAutoNext.classList.toggle('active', isAutoNext);
+    tAutoNext.setAttribute('aria-pressed', isAutoNext ? 'true' : 'false');
+  }
   if (persist !== false && window.JmvPrefs) JmvPrefs.set('autoNext', isAutoNext);
 }
 
@@ -320,33 +329,60 @@ function showJumpCountdown() {
   isCancelledThisTime = false;
 
   jumpBar = document.createElement('div');
-  jumpBar.className = 'resume-bar';
-  jumpBar.style.top = 'auto';
-  jumpBar.style.bottom = '100px';
-  jumpBar.style.transform = 'translateX(-50%) translateY(12px)';
-
+  jumpBar.className = 'resume-bar is-bottom';
+  jumpBar.setAttribute('role', 'status');
+  jumpBar.style.setProperty('--resume-duration', AUTO_NEXT_COUNTDOWN_SECONDS + 's');
   jumpBar.innerHTML = '<span style="overflow:hidden;text-overflow:ellipsis">即将连播下本: <b>' + countdownSec + 's</b></span>' +
-                      '<button class="resume-go" style="background:var(--brand); color:#fff; border:none; border-radius:var(--r-pill); font-size:13px; font-weight:500; height:32px; padding:0 16px; cursor:pointer;">立即进入</button>' +
-                      '<button class="resume-close" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:18px; padding:0 8px;">✕</button>';
+                      '<button type="button" class="resume-go">立即进入</button>' +
+                      '<button type="button" class="resume-close" aria-label="取消自动连播">✕</button>' +
+                      '<span class="resume-bar-progress" aria-hidden="true"></span>';
 
   document.body.appendChild(jumpBar);
 
   requestAnimationFrame(function() {
-    jumpBar.classList.add('show');
-    jumpBar.style.transform = 'translateX(-50%) translateY(0)';
+    requestAnimationFrame(function() {
+      if (jumpBar) jumpBar.classList.add('show');
+    });
   });
 
-  autoJumpTimer = setInterval(function() {
-    countdownSec--;
-    if (countdownSec <= 0) {
+  var remainingMs = AUTO_NEXT_COUNTDOWN_SECONDS * 1000;
+  var lastTickAt = Date.now();
+  var hovered = false;
+  var focused = false;
+
+  function tickCountdown() {
+    if (!jumpBar) return;
+    if (hovered || focused) {
+      lastTickAt = Date.now();
+      return;
+    }
+    var now = Date.now();
+    remainingMs -= (now - lastTickAt);
+    lastTickAt = now;
+    if (remainingMs <= 0) {
       clearInterval(autoJumpTimer);
       autoJumpTimer = null;
       loadNextAlbum();
-    } else {
+      return;
+    }
+    var nextSec = Math.ceil(remainingMs / 1000);
+    if (nextSec !== countdownSec) {
+      countdownSec = nextSec;
       var numEl = jumpBar.querySelector('b');
       if (numEl) numEl.textContent = countdownSec + 's';
     }
-  }, 1000);
+  }
+
+  autoJumpTimer = setInterval(tickCountdown, 150);
+
+  jumpBar.addEventListener('mouseenter', function() { hovered = true; });
+  jumpBar.addEventListener('mouseleave', function() { hovered = false; lastTickAt = Date.now(); });
+  jumpBar.addEventListener('focusin', function() { focused = true; });
+  jumpBar.addEventListener('focusout', function(e) {
+    if (e.relatedTarget && jumpBar && jumpBar.contains(e.relatedTarget)) return;
+    focused = false;
+    lastTickAt = Date.now();
+  });
 
   jumpBar.querySelector('.resume-go').addEventListener('click', function(e) {
     e.stopPropagation();
@@ -371,8 +407,7 @@ function cancelJump() {
     var targetBar = jumpBar;
     jumpBar = null;
     targetBar.classList.remove('show');
-    targetBar.style.transform = 'translateX(-50%) translateY(12px)';
-    setTimeout(function() { targetBar.remove(); }, 200);
+    setTimeout(function() { targetBar.remove(); }, (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 0 : 200);
   }
 }
 
@@ -449,6 +484,7 @@ function appendNextAlbumData(res) {
     originalSequence.push({ type: 'page', pageIndex: globalIdx });
     pageSequence.push({ type: 'page', pageIndex: globalIdx });
   });
+  if (typeof pageSequenceRevision === 'number') pageSequenceRevision++;
 
   TOTAL = rawPages.length;
   pages = rawPages;

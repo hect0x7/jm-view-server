@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <title>收藏图片 · 看本</title>
+  <script>(function(){try{var t=localStorage.getItem('jmv-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="/static/css/app.css?t={{ randomArg }}">
   <link rel="stylesheet" href="/static/css/favorites.css?t={{ randomArg }}">
@@ -20,7 +22,7 @@
     <div class="topbar"><a class="btn btn-outline" href="/"><span data-favorite-icon="arrowLeft" aria-hidden="true"></span>返回文件浏览</a></div>
     <div class="content favorites-content">
       <div class="favorites-head">
-        <div class="favorites-title"><span class="favorites-feature-icon" data-favorite-icon="favoriteImages" aria-hidden="true"></span><div><h1>收藏图片</h1><p>把喜欢的画面留下来 · 阅读时双击收藏</p></div></div>
+        <div class="favorites-title"><span class="favorites-feature-icon" data-favorite-icon="favoriteImages" aria-hidden="true"></span><div><h1>收藏图片</h1><p>把喜欢的画面留下来 · 阅读时长按原图收藏</p></div></div>
       </div>
       <section class="favorites-library-card">
         <div class="favorites-library-summary"><span class="favorites-feature-icon" data-favorite-icon="images" aria-hidden="true"></span><div><h2>你的原图收藏库</h2><p><b id="favoriteTotalCount">{{ images|length }}</b> 张收藏 · <b id="favoriteAvailableCount">{{ available_count|default(0) }}</b> 张原图可用</p></div></div>
@@ -31,7 +33,7 @@
         <p class="favorites-library-note">可复制、复制并清空收藏或移动原图，同名文件自动加序号。</p>
       </section>
       <div class="favorites-section-title"><h2>收藏记录</h2><span>按收藏时间排列 · 最新在前</span></div>
-      <div class="favorites-empty" id="favoritesEmpty" {% if images %}hidden{% endif %}><span data-favorite-icon="images" aria-hidden="true"></span><p>{{ error|default('还没有收藏图片，去看本页双击喜欢的图片吧。') }}</p></div>
+      <div class="favorites-empty" id="favoritesEmpty" {% if images %}hidden{% endif %}><span data-favorite-icon="images" aria-hidden="true"></span><p>{{ error|default('还没有收藏图片，去阅读页长按喜欢的图片打开操作面板即可收藏。') }}</p></div>
       <div class="favorites-grid">
         {% for image in images %}
         <article class="favorite-card" data-path="{{ image.path }}" data-available="{{ '1' if image.available else '0' }}">

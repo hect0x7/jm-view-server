@@ -471,6 +471,7 @@ function setReaderMode(mode, options) {
     if (rect.height > 0) pagePosition = Math.max(0, Math.min(1, (window.innerHeight / 2 - rect.top) / rect.height));
   }
   readerMode = nextMode;
+  if (typeof cancelJump === 'function') cancelJump();
   activePageIndex = Math.max(0, Math.min(pages.length - 1, keepIndex));
   document.body.classList.toggle('reader-single', readerMode === 'single');
   document.body.classList.toggle('reader-double', readerMode === 'double');
@@ -526,6 +527,7 @@ function gotoPage(idx) {
     return;
   }
   idx = Math.max(0, idx);
+  if (idx < pages.length - 1 && typeof cancelJump === 'function') cancelJump();
   var target = pages[idx];
   if (!target) return;
   activePageIndex = idx;
@@ -541,7 +543,8 @@ function gotoPage(idx) {
     applyDoubleGroup(findDoubleGroupIndex(idx), idx);
     return;
   } else {
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    ensurePageLoaded(idx);
+    target.scrollIntoView({ behavior: (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 'auto' : 'smooth', block: 'start' });
   }
   updateProgress(idx);
   saveCurrentProgress(idx);
@@ -552,12 +555,13 @@ function scrollActiveSinglePage(direction) {
   var page = pages[activePageIndex];
   if (!page || page.scrollHeight <= page.clientHeight + 4) return false;
   var maxScroll = page.scrollHeight - page.clientHeight;
+  var behavior = (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 'auto' : 'smooth';
   if (direction > 0 && page.scrollTop < maxScroll - 4) {
-    page.scrollBy({ top: Math.max(160, page.clientHeight * .82), behavior: 'smooth' });
+    page.scrollBy({ top: Math.max(160, page.clientHeight * .82), behavior: behavior });
     return true;
   }
   if (direction < 0 && page.scrollTop > 4) {
-    page.scrollBy({ top: -Math.max(160, page.clientHeight * .82), behavior: 'smooth' });
+    page.scrollBy({ top: -Math.max(160, page.clientHeight * .82), behavior: behavior });
     return true;
   }
   return false;

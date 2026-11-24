@@ -6,16 +6,59 @@ var readerShortcutList = document.getElementById('readerShortcutList');
   row.innerHTML = '<span>' + item.keys.map(function(key) { return '<kbd>' + key + '</kbd>'; }).join('<i>或</i>') + '</span><b>' + item.label + '</b>';
   readerShortcutList.appendChild(row);
 });
-function openReaderHelp() { closeReaderModePop(); readerHelp.classList.add('show'); document.getElementById('readerHelpClose').focus(); }
-function closeReaderHelp() { readerHelp.classList.remove('show'); }
+var readerHelpOpener = null;
+function trapOverlayTab(container, event) {
+  if (event.key !== 'Tab' || !container) return;
+  var focusables = Array.from(container.querySelectorAll('button:not([disabled]):not([hidden]), a[href], input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"])')).filter(function(el) {
+    return el.offsetParent !== null;
+  });
+  if (!focusables.length) return;
+  var first = focusables[0], last = focusables[focusables.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus({ preventScroll: true });
+  } else if (!event.shiftKey && (document.activeElement === last || !container.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus({ preventScroll: true });
+  }
+}
+
+function openReaderHelp() {
+  closeReaderModePop();
+  readerHelpOpener = document.activeElement;
+  readerHelp.inert = false;
+  readerHelp.classList.add('show');
+  readerHelp.setAttribute('aria-hidden', 'false');
+  document.getElementById('readerHelpClose').focus({ preventScroll: true });
+}
+function closeReaderHelp() {
+  if (!readerHelp.classList.contains('show')) return;
+  readerHelp.classList.remove('show');
+  readerHelp.setAttribute('aria-hidden', 'true');
+  readerHelp.inert = true;
+  if (readerHelpOpener && readerHelpOpener.isConnected && readerHelpOpener.focus) {
+    readerHelpOpener.focus({ preventScroll: true });
+  }
+  readerHelpOpener = null;
+}
+if (readerHelp) readerHelp.inert = true;
 document.getElementById('tHelp').addEventListener('click', openReaderHelp);
 document.getElementById('readerHelpClose').addEventListener('click', closeReaderHelp);
 readerHelp.addEventListener('click', function(e) { if (e.target === readerHelp) closeReaderHelp(); });
+readerHelp.addEventListener('keydown', function(e) { trapOverlayTab(readerHelp, e); });
 readerModePop.querySelectorAll('[data-reader-mode]').forEach(function(button) {
   button.addEventListener('click', function() {
     var mode = button.dataset.readerMode;
-    if (mode !== readerMode) setReaderMode(mode);
-    if (mode === 'double') setReaderDirectionOpen(readerDirectionControl.hidden);
+    if (mode === 'double') {
+      if (readerMode !== 'double') {
+        setReaderMode('double');
+        setReaderDirectionOpen(true);
+      } else {
+        setReaderDirectionOpen(readerDirectionControl.hidden);
+      }
+      return;
+    }
+    setReaderMode(mode);
   });
 });
 
@@ -57,10 +100,29 @@ stream.addEventListener('dblclick', function(e) {
 
 document.addEventListener('keydown', function(e) {
   if (imageActions && imageActions.classList.contains('show')) return;
-  if ((e.key === 'Escape' || e.key === 'Esc') && !readerModePop.hidden) {
-    e.preventDefault();
-    if (readerDirectionControl.hidden) closeReaderModePop(true);
-    else setReaderDirectionOpen(false, true);
+  var isEsc = e.key === 'Escape' || e.key === 'Esc';
+  if (isEsc) {
+    if (jumpPop && jumpPop.classList.contains('show')) { e.preventDefault(); closeJump(true); return; }
+    if (!readerModePop.hidden) {
+      e.preventDefault();
+      if (readerDirectionControl.hidden) closeReaderModePop(true);
+      else setReaderDirectionOpen(false, true);
+      return;
+    }
+    if (morePop && morePop.classList.contains('show')) { e.preventDefault(); closeMore(); return; }
+    if (readerHelp && readerHelp.classList.contains('show')) { e.preventDefault(); closeReaderHelp(); return; }
+    if (readerGridOverlay && readerGridOverlay.classList.contains('show')) { e.preventDefault(); closeReaderGrid(); return; }
+    if (!desktopToolbarQuery.matches && rTools && (rTools.classList.contains('is-open') || rTools.classList.contains('is-pinned'))) {
+      e.preventDefault();
+      setToolbarPinned(false, false);
+      closeToolbar(true);
+      return;
+    }
+    return;
+  }
+  // 缩略图画板或快捷键帮助打开时暂停正文快捷键，防止 Space / 方向键穿透触发翻页
+  if ((readerGridOverlay && readerGridOverlay.classList.contains('show')) ||
+      (readerHelp && readerHelp.classList.contains('show'))) {
     return;
   }
   if (inEditable(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -235,25 +297,54 @@ function initResume() {
   if (!saved || saved <= 0 || saved >= pages.length) return; // 无记录/首页不提示
   var bar = document.createElement('div');
   bar.className = 'resume-bar';
+  bar.setAttribute('role', 'status');
   bar.innerHTML = '<span style="overflow:hidden;text-overflow:ellipsis">上次看到: 第 <b>' + (saved + 1) + '</b> 页</span>' +
-                  '<button class="resume-go">继续</button>' +
-                  '<button class="resume-close">✕</button>';
+                  '<button type="button" class="resume-go">继续</button>' +
+                  '<button type="button" class="resume-close" aria-label="关闭提示">✕</button>' +
+                  '<span class="resume-bar-progress" aria-hidden="true"></span>';
   document.body.appendChild(bar);
-  requestAnimationFrame(function() { bar.classList.add('show'); });
-  var autoDismissTimer = setTimeout(dismiss, 5000);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { bar.classList.add('show'); });
+  });
+  var remaining = 5000;
+  var startedAt = Date.now();
+  var autoDismissTimer = null;
   var dismissed = false;
+  var hovered = false;
+  var focused = false;
+  function scheduleDismiss() {
+    if (dismissed || hovered || focused || remaining <= 0 || autoDismissTimer) return;
+    startedAt = Date.now();
+    autoDismissTimer = setTimeout(dismiss, remaining);
+  }
+  function pauseDismiss() {
+    if (!autoDismissTimer) return;
+    clearTimeout(autoDismissTimer);
+    autoDismissTimer = null;
+    remaining = Math.max(1000, remaining - (Date.now() - startedAt));
+  }
   function dismiss() {
     if (dismissed) return;
     dismissed = true;
     clearTimeout(autoDismissTimer);
+    autoDismissTimer = null;
     bar.classList.remove('show');
-    setTimeout(function() { bar.remove(); }, 200);
+    setTimeout(function() { bar.remove(); }, (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 0 : 200);
   }
+  bar.addEventListener('mouseenter', function() { hovered = true; pauseDismiss(); });
+  bar.addEventListener('mouseleave', function() { hovered = false; scheduleDismiss(); });
+  bar.addEventListener('focusin', function() { focused = true; pauseDismiss(); });
+  bar.addEventListener('focusout', function(e) {
+    if (e.relatedTarget && bar.contains(e.relatedTarget)) return;
+    focused = false;
+    scheduleDismiss();
+  });
   bar.querySelector('.resume-go').addEventListener('click', function() {
     gotoPage(saved);
     dismiss();
   });
   bar.querySelector('.resume-close').addEventListener('click', dismiss);
+  scheduleDismiss();
 }
 function initializeReader() {
   if (readerInitialized) return;
@@ -282,6 +373,7 @@ function initializeReader() {
           seen.add(index); return {type: 'page', pageIndex: index};
         }).filter(Boolean) : [];
         originalSequence.forEach(function(item) { if (!seen.has(item.pageIndex)) pageSequence.push({type: 'page', pageIndex: item.pageIndex}); });
+        if (typeof pageSequenceRevision === 'number') pageSequenceRevision++;
         isSequencePersisted = shared !== null;
         try {
           localStorage.setItem(PERSIST_SEQUENCE_KEY, isSequencePersisted ? '1' : '0');

@@ -8,7 +8,7 @@
 }
 .r-tools.is-open,
 .r-tools.is-pinned,
-.r-tools:focus-within { transform: translateX(-12px); }
+.r-tools:has(:focus-visible) { transform: translateX(-12px); }
 .r-tools > .reader-tools-handle {
   position: absolute; left: 0; top: 50%; z-index: 2;
   width: 14px; height: 52px; transform: translateY(-50%);
@@ -34,7 +34,7 @@
 }
 .r-tools.is-open .reader-tools-handle,
 .r-tools.is-pinned .reader-tools-handle,
-.r-tools:focus-within .reader-tools-handle {
+.r-tools:has(:focus-visible) .reader-tools-handle {
   width: 32px; height: 32px;
   transform: translate(-100%, -50%); opacity: .72;
   border-radius: 10px 0 0 10px;
@@ -44,10 +44,10 @@
 }
 .r-tools.is-open .reader-tools-pin,
 .r-tools.is-pinned .reader-tools-pin,
-.r-tools:focus-within .reader-tools-pin { opacity: .88; transform: scale(1); }
+.r-tools:has(:focus-visible) .reader-tools-pin { opacity: .88; transform: scale(1); }
 .r-tools.is-open .reader-tools-handle::after,
 .r-tools.is-pinned .reader-tools-handle::after,
-.r-tools:focus-within .reader-tools-handle::after { opacity: 0; }
+.r-tools:has(:focus-visible) .reader-tools-handle::after { opacity: 0; }
 .reader-tools-handle:focus-visible {
   outline: 3px solid var(--brand-ring);
   outline-offset: 3px;
@@ -75,8 +75,29 @@
   color: var(--brand);
 }
 .reader-tool-divider { height: 1px; margin: 4px 7px; background: var(--border); opacity: .75; }
-.r-tools:not(.is-open):not(.is-pinned):not(:focus-within) .reader-tools-main {
+.r-tools:not(.is-open):not(.is-pinned):not(:has(:focus-visible)) .reader-tools-main {
   opacity: 0; pointer-events: none;
+}
+.r-tools.is-pinned .reader-tools-handle,
+.r-tools.is-pinned .reader-tools-handle:hover {
+  opacity: 1; color: #fff; background: var(--brand);
+  box-shadow: -4px 0 18px color-mix(in srgb, var(--brand) 42%, transparent);
+}
+.r-tools.is-pinned .reader-tools-pin { opacity: 1; }
+.r-tools.is-pinned .reader-tools-pin svg { transform: rotate(-16deg); }
+.reader-tools-pin svg { transition: transform var(--dur-base) var(--ease-spring); }
+.r-tools.is-pinned .reader-tools-main {
+  border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
+  box-shadow: 0 18px 44px rgba(0,0,0,.24), 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent), 0 0 24px color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.reader-tools-main #loadAll[aria-busy="true"] {
+  color: var(--brand);
+  background: var(--brand-soft);
+  animation: readerLoadPulse 1.2s ease-in-out infinite;
+}
+@keyframes readerLoadPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
 }
 @media (hover: hover) and (pointer: fine) {
   .r-tools:hover .reader-tools-handle::after { background: color-mix(in srgb, var(--brand) 88%, white 6%); }
@@ -84,16 +105,6 @@
   .r-tools.is-open .reader-tools-pin,
   .r-tools.is-pinned .reader-tools-pin,
   .r-tools:focus-within .reader-tools-pin { opacity: .9; transform: scale(1); }
-  .r-tools.is-pinned .reader-tools-handle,
-  .r-tools.is-pinned .reader-tools-handle:hover {
-    opacity: 1; color: #fff; background: var(--brand);
-    box-shadow: -4px 0 18px color-mix(in srgb, var(--brand) 42%, transparent);
-  }
-  .r-tools.is-pinned .reader-tools-pin { opacity: 1; }
-  .r-tools.is-pinned .reader-tools-main {
-    border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
-    box-shadow: 0 18px 44px rgba(0,0,0,.24), 0 0 0 2px color-mix(in srgb, var(--brand) 14%, transparent), 0 0 24px color-mix(in srgb, var(--brand) 16%, transparent);
-  }
   .reader-tools-main a:hover,
   .reader-tools-main button:hover {
     background: var(--surface-hover); color: var(--text); transform: translateY(-1px);
@@ -143,7 +154,7 @@
 .more-pop #tProg.active,
 .more-pop #tHead.active,
 .more-pop #tEye.active,
-.more-pop #tInsertPage.active,
+.more-pop #tFull.active,
 .more-pop #tAutoNext.active {
   background: color-mix(in srgb, var(--brand) 14%, var(--bg-elevated));
   color: var(--brand); box-shadow: inset 3px 0 0 var(--brand);
@@ -155,7 +166,7 @@
   .more-pop #tProg.active:hover,
   .more-pop #tHead.active:hover,
   .more-pop #tEye.active:hover,
-  .more-pop #tInsertPage.active:hover,
+  .more-pop #tFull.active:hover,
   .more-pop #tAutoNext.active:hover {
     background: color-mix(in srgb, var(--brand) 20%, var(--bg-elevated)); color: var(--brand);
   }
@@ -168,6 +179,14 @@
   position: absolute; display: grid; z-index: 5;
   padding: 4px; gap: 3px; border: 1px solid var(--border);
   border-radius: var(--r-md); background: var(--bg-elevated); box-shadow: var(--shadow-lg);
+}
+.reader-mode-pop:not([hidden]),
+.reader-direction-control:not([hidden]) {
+  animation: readerPopIn var(--dur-fast) var(--ease-out) both;
+}
+@keyframes readerPopIn {
+  from { opacity: 0; transform: translateX(6px) scale(.97); }
+  to { opacity: 1; transform: none; }
 }
 .reader-mode-pop {
   top: 0; right: calc(100% + 44px);
@@ -188,7 +207,7 @@
 .reader-mode-icon { display: grid; }
 .reader-tools-main .reader-mode-pop button svg { width: 16px; height: 16px; flex: none; }
 .reader-mode-pop button[aria-pressed="true"] svg { color: var(--brand); }
-.reader-tools-main .reader-mode-pop .reader-mode-chevron { width: 12px; height: 12px; }
+.reader-tools-main .reader-mode-pop .reader-mode-chevron { width: 12px; height: 12px; transition: transform var(--dur-fast) var(--ease-out); }
 #modeDouble[aria-pressed="false"] .reader-mode-chevron { display: none; }
 #modeDouble[aria-expanded="true"] .reader-mode-chevron { transform: rotate(180deg); }
 .reader-tools-main .reader-direction-control button {
@@ -229,16 +248,26 @@
 }
 .reader-help-overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
 .reader-help-card {
-  width: min(560px, 100%); max-height: min(720px, 85vh); overflow: auto;
+  width: min(620px, 100%); max-height: min(720px, 85vh); max-height: min(720px, 85dvh); overflow: auto;
   padding: 22px; border: 1px solid var(--border); border-radius: var(--r-xl);
   background: var(--bg-elevated); box-shadow: var(--shadow-lg);
+  transform: translateY(10px) scale(.97);
+  transition: transform var(--dur-base) var(--ease-out);
 }
+.reader-help-overlay.show .reader-help-card { transform: none; }
 .reader-help-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .reader-help-head h2 { font-family: var(--font-brand); font-size: 20px; }
-.reader-help-close { width: 34px; height: 34px; border-radius: var(--r-md); color: var(--text-secondary); font-size: 20px; }
+.reader-help-close {
+  width: 36px; height: 36px; border-radius: var(--r-md); color: var(--text-secondary); font-size: 20px;
+  display: grid; place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
 .reader-help-close:hover { background: var(--surface-hover); color: var(--text); }
+@media (pointer: coarse), (max-width: 860px) {
+  .reader-help-close { width: 44px; height: 44px; }
+}
 .reader-shortcut-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .reader-shortcut-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
-.reader-shortcut-row > span { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.reader-shortcut-row > span { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
 .reader-shortcut-row i { color: var(--text-muted); font-size: 10px; font-style: normal; }
-.reader-shortcut-row b { font-size: 12px; text-align: right; }
+.reader-shortcut-row b { font-size: 12px; text-align: right; text-wrap: balance; }

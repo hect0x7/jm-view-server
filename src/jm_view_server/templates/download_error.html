@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <meta http-equiv="Cache-Control" content="no-cache" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>文件不存在 · jm-view-server</title>
+<title>路径不存在 · jm-view-server</title>
+<script>(function(){try{var t=localStorage.getItem('jmv-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <!-- PWA -->
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#5b5bd6">
@@ -33,15 +35,14 @@
   }
   .empty-ico svg { width: 40px; height: 40px; }
   .empty-wrap h1 { font-family: var(--font-brand); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
-  .empty-wrap p { color: var(--text-secondary); font-size: 14px; max-width: 420px; line-height: 1.6; }
-  .empty-filename { font-family: var(--font-mono); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); padding: 2px 8px; border-radius: var(--r-sm); font-size: 0.92em; }
-  .empty-actions { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); flex-wrap: wrap; justify-content: center; }
-
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: none; }
+  .empty-wrap p { color: var(--text-secondary); font-size: 14px; max-width: 440px; line-height: 1.65; }
+  .empty-filename {
+    display: inline-block; max-width: 100%; overflow-wrap: anywhere;
+    font-family: var(--font-mono); color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 8%, transparent);
+    padding: 2px 8px; border-radius: var(--r-sm); font-size: 0.92em;
   }
-  .rise { animation: rise .4s var(--ease) both; }
+  .empty-actions { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); flex-wrap: wrap; justify-content: center; }
 
   @media (max-width: 860px) {
     .empty-wrap { min-height: calc(100vh - var(--topbar-h) - var(--sp-4) * 2 - 84px); }
@@ -53,7 +54,7 @@
   <aside class="sidebar"></aside>
   <div class="main">
     <div class="topbar">
-      <span style="font-family:var(--font-brand);font-size:15px;font-weight:600;letter-spacing:-0.01em">出错了</span>
+      <span style="font-family:var(--font-brand);font-size:15px;font-weight:600;letter-spacing:-0.01em">路径不可用</span>
       <div class="spacer"></div>
     </div>
 
@@ -61,15 +62,15 @@
       <div class="content-narrow">
         <div class="empty-wrap">
           <div class="empty-ico rise" id="alertIco" style="animation-delay:0s"></div>
-          <h1 class="rise" style="animation-delay:.05s">文件不存在或已被移除</h1>
-          <p class="rise" style="animation-delay:.05s">
-            你访问的文件 <span class="empty-filename">{{filename}}</span>
+          <h1 class="rise" style="animation-delay:.04s">路径不存在或已被移除</h1>
+          <p class="rise" style="animation-delay:.06s">
+            你访问的位置 <span class="empty-filename">{{filename}}</span>
             可能已被删除、重命名，或链接已失效。
           </p>
           <div class="empty-actions rise" style="animation-delay:.1s">
-            <a class="btn btn-primary" href="/"><span id="folderIco"></span> 回主页</a>
-            <a class="btn btn-outline" href="/upload_file"><span id="uploadIco"></span> 上传文件</a>
-            <a class="btn btn-ghost" href="/logout"><span id="logoutIco"></span> 注销</a>
+            <a class="btn btn-primary" href="/"><span id="folderIco"></span> 返回文件浏览</a>
+            <button type="button" class="btn btn-outline" id="goBackBtn"><span id="backIco"></span> 返回上一页</button>
+            <a class="btn btn-ghost" href="/upload_file"><span id="uploadIco"></span> 上传文件</a>
           </div>
         </div>
       </div>
@@ -84,8 +85,15 @@
   renderShell('files');
   document.getElementById('alertIco').innerHTML = icon('alert');
   document.getElementById('folderIco').innerHTML = icon('folder');
+  document.getElementById('backIco').innerHTML = icon('arrowLeft');
   document.getElementById('uploadIco').innerHTML = icon('upload');
-  document.getElementById('logoutIco').innerHTML = icon('logout');
+  var goBackBtn = document.getElementById('goBackBtn');
+  var hasSameOriginReferrer = !!(document.referrer && document.referrer.indexOf(window.location.origin) === 0 && window.history.length > 1);
+  if (!hasSameOriginReferrer) {
+    goBackBtn.hidden = true;
+  } else {
+    goBackBtn.addEventListener('click', function() { window.history.back(); });
+  }
 </script>
 </body>
 </html>

@@ -81,20 +81,19 @@
   </div>
   <!-- 更多功能浮窗 -->
   <div class="more-pop" id="morePop">
-    <div class="more-pop-head"><b>阅读设置</b><span>Reader controls</span></div>
-    <button id="tHead" title="顶部栏开关" data-tip="顶部栏"></button>
-    <button id="tProg" title="进度条开关" data-tip="进度条"></button>
-    <button id="tEye" title="护眼滤镜" data-tip="护眼模式"></button>
-    
-    <button id="tAutoNext" title="自动连播下本" data-tip="自动连播"></button>
-    <button id="tFull" title="全屏阅读" data-tip="全屏阅读" aria-pressed="false"></button>
-    <button id="tHelp" title="快捷键帮助" data-tip="快捷键帮助" aria-label="快捷键帮助">?</button>
+    <div class="more-pop-head"><b>阅读设置</b><span>面板与显示</span></div>
+    <button id="tHead" type="button" data-tip="顶部栏" aria-label="顶部栏开关" aria-pressed="false"></button>
+    <button id="tProg" type="button" data-tip="进度条" aria-label="进度条开关" aria-pressed="true"></button>
+    <button id="tEye" type="button" data-tip="护眼模式" aria-label="护眼模式" aria-pressed="false"></button>
+    <button id="tAutoNext" type="button" data-tip="自动连播" aria-label="自动连播下本" aria-pressed="false"></button>
+    <button type="button" id="tFull" title="全屏阅读" data-tip="全屏阅读" aria-pressed="false"></button>
+    <button id="tHelp" type="button" data-tip="快捷键帮助" aria-label="快捷键帮助">?</button>
   </div>
   <div class="reader-tools-main">
-    <a id="gotop" href="javascript:void(0)" title="回到顶部" data-tip="回到顶部"></a>
-    <a id="gobottom" href="javascript:void(0)" title="跳到最后" data-tip="跳到最后"></a>
-    <a id="tJump" href="javascript:void(0)" title="跳转页码" data-tip="跳转页码"></a>
-    <button id="tGrid" type="button" title="缩略图总览" data-tip="缩略图总览" aria-label="打开缩略图总览" aria-haspopup="dialog" aria-controls="readerGridOverlay">
+    <a id="gotop" href="javascript:void(0)" data-tip="回到顶部" aria-label="回到顶部"></a>
+    <a id="gobottom" href="javascript:void(0)" data-tip="跳到最后" aria-label="跳到最后"></a>
+    <a id="tJump" href="javascript:void(0)" data-tip="跳转页码" aria-label="跳转页码"></a>
+    <button id="tGrid" type="button" data-tip="缩略图总览" aria-label="打开缩略图总览" aria-haspopup="dialog" aria-controls="readerGridOverlay">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3.5" y="3.5" width="6.5" height="7" rx="1"/><rect x="14" y="3.5" width="6.5" height="7" rx="1"/>
         <rect x="3.5" y="13.5" width="6.5" height="7" rx="1"/><rect x="14" y="13.5" width="6.5" height="7" rx="1"/>
@@ -144,12 +143,12 @@
       </div>
     </div>
     <span class="reader-tool-divider" aria-hidden="true"></span>
-    <a id="loadAll" href="javascript:void(0)" title="加载全部" data-tip="加载全部"></a>
+    <a id="loadAll" href="javascript:void(0)" data-tip="加载全部" aria-label="加载全部"></a>
     {% set open_folder_label = '在访达中打开' if data.os_type == 'mac' else ('在资源管理器中打开' if data.os_type == 'windows' else '打开当前文件夹') %}
-    <button id="tOpenFolder" type="button" title="{{ open_folder_label }}" data-tip="{{ open_folder_label }}" aria-label="{{ open_folder_label }}"></button>
-    <a href="{{ '/favorites' if data.favorites else '/?path=' ~ data.openFromDir }}" title="原路返回" data-tip="原路返回"></a>
-    <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" title="搜原本" data-tip="搜原本" target="_blank" rel="noopener"></a>
-    <button id="tMore" title="更多功能" data-tip="阅读设置"></button>
+    <button id="tOpenFolder" type="button" data-tip="{{ open_folder_label }}" aria-label="{{ open_folder_label }}"></button>
+    <a href="{{ '/favorites' if data.favorites else '/?path=' ~ data.openFromDir }}" data-tip="原路返回" aria-label="原路返回"></a>
+    <a href="https://18comic.vip/search/photos?main_tag=0&search_query={{ data.title }}" data-tip="搜原本" aria-label="搜原本" target="_blank" rel="noopener"></a>
+    <button id="tMore" type="button" data-tip="阅读设置" aria-label="阅读设置" aria-expanded="false"></button>
   </div>
 </div>
 
@@ -193,11 +192,11 @@
   </section>
 </div>
 
-<div class="reader-help-overlay" id="readerHelp" role="dialog" aria-modal="true" aria-labelledby="readerHelpTitle">
+<div class="reader-help-overlay" id="readerHelp" role="dialog" aria-modal="true" aria-labelledby="readerHelpTitle" aria-hidden="true">
   <div class="reader-help-card">
     <div class="reader-help-head">
-      <div><div style="font-size:11px;color:var(--brand);font-family:var(--font-mono);letter-spacing:.1em;text-transform:uppercase">Reader field guide</div><h2 id="readerHelpTitle">阅读快捷键</h2></div>
-      <button class="reader-help-close" id="readerHelpClose" aria-label="关闭快捷键帮助">×</button>
+      <div><div style="font-size:12px;color:var(--brand);font-weight:600;letter-spacing:.04em">快捷操作</div><h2 id="readerHelpTitle">阅读快捷键</h2></div>
+      <button type="button" class="reader-help-close" id="readerHelpClose" aria-label="关闭快捷键帮助">×</button>
     </div>
     <div class="reader-shortcut-list" id="readerShortcutList"></div>
   </div>

@@ -11,25 +11,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 跳转到底部
+    var hasModernReader = !!document.getElementById('readerConfig');
+
+    // 跳转到底部（现代阅读页由 reader-core.js 统一接管）
     let goBottom = document.getElementById('gobottom');
-    if (goBottom != null) {
+    if (goBottom != null && !hasModernReader) {
         goBottom
             .addEventListener('click', () => {
-                window.scrollTo(0, document.body.scrollHeight);
+                window.scrollTo({ top: document.body.scrollHeight, behavior: (window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion()) ? 'auto' : 'smooth' });
             });
     }
 
-    // 选择页码跳转图片
+    // 选择页码跳转图片（现代阅读页由 reader-core.js 统一接管）
     let pageSelect = document.getElementById('pageselect');
-    if (pageSelect != null) {
+    if (pageSelect != null && !hasModernReader) {
         pageSelect.addEventListener('change', function () {
             let selectedValue = this.value;
             if (selectedValue !== null) {
                 const divid = "page_" + selectedValue;
                 let element = document.getElementById(divid);
                 if (element) {
-                    let settop = element.offsetTop - 10 - document.getElementById('Comic_Top_Nav').offsetHeight;
+                    const topNav = document.getElementById('Comic_Top_Nav');
+                    let settop = element.offsetTop - 10 - (topNav ? topNav.offsetHeight : 0);
                     window.scrollTo(0, settop);
                 }
                 document.getElementById('pageselect').value = selectedValue;
@@ -37,27 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    // 看本页的页码由 reader-core.js 统一维护。
-    if (!document.getElementById('readerConfig')) window.addEventListener('scroll', function () {
-        if (document.body.classList.contains('reader-single') ||
-            document.body.classList.contains('reader-double')) return;
-        let wsTop = window.scrollY
-        let pageDivs = document.querySelectorAll('div[id*="page_"]');
-        let toPage = pageDivs.length - 1;
-
-        if (pageDivs.length > 0) {
-            for (let div of pageDivs) {
-                let divTop = div.offsetTop;
-                if (divTop > wsTop) {
-                    toPage = parseInt(div.getAttribute("data-page"));
-                    break
+    // 看本页的页码由 reader-core.js 统一维护；非看本页无分节元素时不挂滚动监听
+    if (!hasModernReader && pageSelect && document.querySelector('div[id*="page_"]')) {
+        window.addEventListener('scroll', function () {
+            if (document.body.classList.contains('reader-single') ||
+                document.body.classList.contains('reader-double')) return;
+            let wsTop = window.scrollY;
+            let pageDivs = document.querySelectorAll('div[id*="page_"]');
+            let toPage = pageDivs.length - 1;
+            if (pageDivs.length > 0) {
+                for (let div of pageDivs) {
+                    if (div.offsetTop > wsTop) {
+                        toPage = parseInt(div.getAttribute("data-page"), 10);
+                        break;
+                    }
                 }
+                pageSelect.value = toPage;
             }
-            const ps = document.getElementById('pageselect');
-            if (ps) ps.value = toPage;
-        }
-    });
+        }, { passive: true });
+    }
 
     if (window.JmvImageLoader) {
         JmvImageLoader.scan(document);
@@ -85,14 +86,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== 桌面通知与全局消息监听逻辑 =====
     let lastGlobalMsgId = 0;
-    const NOTIFY_POLL_MS = 5000;
+    const NOTIFY_POLL_ACTIVE_MS = 5000;
+    const NOTIFY_POLL_HIDDEN_MS = 30000;
+    let pollTimer = null;
 
     async function checkNewMessages() {
         try {
             const resp = await fetch(`/api/messages?since_id=${lastGlobalMsgId}&limit=1`);
             if (!resp.ok) return;
             const data = await resp.json();
-            
+
             if (data.messages && data.messages.length > 0) {
                 const msg = data.messages[0];
                 // 仅在已知有旧 ID 的情况下弹出新进入的消息
@@ -106,82 +109,150 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 侧边通知函数挂载到全局
-    window.createSiteNotification = function(msg) {
-        const id = 'site-notify-' + Date.now();
-        const html = `
-            <div id="${id}" class="site-notification" style="
-                position: fixed; top: 24px; right: 24px; 
-                width: 320px; background: rgba(15, 23, 42, 0.9); 
-                backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 12px; padding: 18px; color: white;
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-                z-index: 999999; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                transform: translateX(400px);
-            ">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 8px; height: 8px; background: #818cf8; border-radius: 50%;"></div>
-                        <span style="font-weight: 600; color: #f8fafc; font-size: 14px;">${msg.sender}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">通知</span>
-                        <button class="site-notify-close" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:0; line-height:1;" aria-label="关闭">×</button>
-                    </div>
-                </div>
-                <div style="font-size: 13.5px; color: #cbd5e1; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
-                    ${msg.content}
-                </div>
-                ${msg.url ? `
-                <div style="margin-top: 12px; font-size: 11px; color: #818cf8; display: flex; align-items: center; gap: 4px;">
-                    点击前往查看 <i class="fas fa-chevron-right"></i>
-                </div>` : ''}
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', html);
-        const el = document.getElementById(id);
-        
-        // 入场
-        setTimeout(() => el.style.transform = 'translateX(0)', 100);
-        
-        el.onclick = (e) => {
-            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                el.remove();
-                return;
-            }
-            if (msg.url) {
-                window.open(msg.url, '_blank');
-            }
-            el.remove();
-        };
+    function scheduleMessagePoll() {
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        const delay = document.hidden ? NOTIFY_POLL_HIDDEN_MS : NOTIFY_POLL_ACTIVE_MS;
+        pollTimer = setTimeout(async () => {
+            await checkNewMessages();
+            scheduleMessagePoll();
+        }, delay);
+    }
 
-        // 7秒自动关闭
-        setTimeout(() => {
-            if (el && el.parentNode) {
-                el.style.transform = 'translateX(400px)';
-                el.style.opacity = '0';
-                setTimeout(() => el.remove(), 400);
+    // 侧边通知函数挂载到全局（复用统一主题 Token、安全 DOM 文本、堆叠容器与悬停暂停）
+    window.createSiteNotification = function(msg) {
+        let host = document.getElementById('siteNotifyHost');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'siteNotifyHost';
+            host.className = 'jmv-notify-host';
+            host.setAttribute('aria-live', 'polite');
+            document.body.appendChild(host);
+        }
+        while (host.children.length >= 3) {
+            host.firstElementChild.remove();
+        }
+
+        const el = document.createElement('div');
+        el.id = 'site-notify-' + Date.now();
+        el.className = 'site-notification';
+        el.setAttribute('role', 'status');
+
+        const head = document.createElement('div');
+        head.className = 'site-notify-head';
+
+        const senderWrap = document.createElement('div');
+        senderWrap.className = 'site-notify-sender';
+        const dot = document.createElement('span');
+        dot.className = 'site-notify-dot';
+        const senderName = document.createElement('span');
+        senderName.className = 'site-notify-sender-name';
+        senderName.textContent = String((msg && msg.sender) || '新消息');
+        senderWrap.appendChild(dot);
+        senderWrap.appendChild(senderName);
+
+        const meta = document.createElement('div');
+        meta.className = 'site-notify-meta';
+        const tag = document.createElement('span');
+        tag.className = 'site-notify-tag';
+        tag.textContent = '新消息';
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'site-notify-close';
+        closeBtn.setAttribute('aria-label', '关闭通知');
+        closeBtn.innerHTML = typeof window.icon === 'function' ? window.icon('x') : '×';
+        meta.appendChild(tag);
+        meta.appendChild(closeBtn);
+
+        head.appendChild(senderWrap);
+        head.appendChild(meta);
+        el.appendChild(head);
+
+        const body = document.createElement('div');
+        body.className = 'site-notify-body';
+        body.textContent = String((msg && msg.content) || '');
+        el.appendChild(body);
+
+        if (msg && msg.url) {
+            const link = document.createElement('div');
+            link.className = 'site-notify-link';
+            const linkText = document.createElement('span');
+            linkText.textContent = '点击前往查看';
+            link.appendChild(linkText);
+            if (typeof window.icon === 'function') {
+                const arrow = document.createElement('span');
+                arrow.setAttribute('aria-hidden', 'true');
+                arrow.innerHTML = window.icon('chevronRight');
+                link.appendChild(arrow);
             }
-        }, 7000);
+            el.appendChild(link);
+        }
+
+        let dismissed = false;
+        let timer = null;
+        let remaining = 6500;
+        let startedAt = Date.now();
+        const reduced = !!(window.jmvPrefersReducedMotion && window.jmvPrefersReducedMotion());
+
+        function dismiss() {
+            if (dismissed) return;
+            dismissed = true;
+            if (timer) { clearTimeout(timer); timer = null; }
+            el.classList.remove('is-visible');
+            el.classList.add('is-leaving');
+            setTimeout(() => el.remove(), reduced ? 0 : 160);
+        }
+        function schedule() {
+            if (dismissed || remaining <= 0) return;
+            startedAt = Date.now();
+            timer = setTimeout(dismiss, remaining);
+        }
+        function pause() {
+            if (!timer) return;
+            clearTimeout(timer);
+            timer = null;
+            remaining = Math.max(1200, remaining - (Date.now() - startedAt));
+        }
+
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismiss();
+        });
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            if (msg && msg.url) window.open(msg.url, '_blank');
+            dismiss();
+        });
+        el.addEventListener('mouseenter', pause);
+        el.addEventListener('mouseleave', schedule);
+        el.addEventListener('focusin', pause);
+        el.addEventListener('focusout', schedule);
+
+        host.appendChild(el);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (!dismissed) el.classList.add('is-visible');
+            });
+        });
+        schedule();
     };
 
     function showDesktopNotification(msg) {
         // 如果已在消息页则不通知
         if (window.location.pathname.includes('/message')) return;
 
-        // 尝试通过浏览器原生通知
-        if ("Notification" in window && Notification.permission === "granted") {
-            const notification = new Notification(`JM Server 新消息: ${msg.sender}`, {
+        // 后台标签页且已授权时用系统原生通知，避免与前台站内卡片双重打扰
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+            const notification = new Notification(`jm-view-server 新消息: ${msg.sender}`, {
                 body: msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content,
-                icon: '/static/img/favicon.ico'
+                icon: '/static/icons/icon-192.png'
             });
             notification.onclick = () => {
                 window.open('/message', '_blank');
                 window.focus();
             };
+            return;
         }
 
-        // 统一致电侧边消息
         window.createSiteNotification({
             sender: msg.sender,
             content: msg.content,
@@ -189,14 +260,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 启动监听
+    // 启动监听（不自动弹出浏览器权限申请框，避免打断非消息场景）
     if (window.location.pathname !== '/login') {
-        if ("Notification" in window && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-        // 初始化获取一次 ID
-        checkNewMessages();
-        // 开始循环
-        setInterval(checkNewMessages, NOTIFY_POLL_MS);
+        checkNewMessages().finally(scheduleMessagePoll);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                checkNewMessages().finally(scheduleMessagePoll);
+            } else {
+                scheduleMessagePoll();
+            }
+        });
     }
 });
